@@ -45,6 +45,14 @@
 		<AndroidSigningKeyAlias>emrbcs_app_alias</AndroidSigningKeyAlias>
 		<AndroidSigningKeyPass>env:ANDROID_KEY_PASS</AndroidSigningKeyPass>
 		<AndroidSigningStorePass>env:ANDROID_STORE_PASS</AndroidSigningStorePass>
+
+		<!-- Disable aggressive trimming so SMBLibrary's reflection-based code survives -->
+		<AndroidLinkMode>None</AndroidLinkMode>
+
+		<!-- Disable AOT to avoid the mono interp.c:8710 assertion -->
+		<RunAOTCompilation>false</RunAOTCompilation>
+		<AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
