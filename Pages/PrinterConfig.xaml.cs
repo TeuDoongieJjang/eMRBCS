@@ -371,12 +371,6 @@ public partial class PrinterConfig : ContentPage
             {
                 output = await DoEscPOS_Print();
             }
-            else
-            {
-                //output = await DoPrint();
-                output = await DoPrintBill_HoneyWell();
-
-            }
             await DisplayAlertAsync("Test Print", output, "Ok");
         }
         else

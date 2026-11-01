@@ -1,7 +1,11 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools">
-	<application android:allowBackup="true" android:icon="@mipmap/mlsappicon" android:supportsRtl="true" android:label="eMRBCS" android:requestLegacyExternalStorage="true"></application>
+	<application android:allowBackup="true" android:icon="@mipmap/mlsappicon" android:supportsRtl="true" android:label="eMRBCS" android:requestLegacyExternalStorage="true">
+		<provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
+			<meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+		</provider>
+	</application>
 
 	<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -27,22 +31,5 @@
 			<data android:mimeType="application/vnd.android.package-archive" />
 		</intent>
 	</queries>
-
-	<application
-        android:allowBackup="true"
-        android:icon="@mipmap/appicon"
-        android:roundIcon="@mipmap/appicon_round"
-        android:supportsRtl="true">
-
-		<provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-			<meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-		</provider>
-	</application>
 
 </manifest>
