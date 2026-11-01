@@ -76,6 +76,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <AndroidResource Remove="Platforms\Android\Resources\xml\network_security_config.xml" />
+	</ItemGroup>
+
+	<ItemGroup>
 	  <Compile Remove="Pages\MainPage.xaml.cs" />
 	</ItemGroup>
 
@@ -222,7 +226,6 @@
 
 	<ItemGroup>
 	  <Folder Include="Interfaces\" />
-	  <Folder Include="Platforms\Android\Resources\xml\" />
 	</ItemGroup>
 
 
