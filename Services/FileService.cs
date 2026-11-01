@@ -80,9 +80,14 @@ namespace MSRBC.Services
 
             System.Diagnostics.Debug.WriteLine("Before SMBConnect");
             var client = new SMB2Client();
-            if (!client.Connect(ipAddr, SMBTransportType.DirectTCPTransport, out Exception connectException))
+            try
             {
-                throw new Exception($"Could not connect to the server on port 445. Underlying error: {connectException?.Message}", connectException);
+                if (!client.Connect(ipAddr, SMBTransportType.DirectTCPTransport))
+                    throw new Exception("Could not connect to the server on port 445.");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Could not connect to the server on port 445. Underlying: {ex.Message}", ex);
             }
 
             System.Diagnostics.Debug.WriteLine("Before SMBLogin");
