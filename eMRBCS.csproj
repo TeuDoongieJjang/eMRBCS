@@ -1,0 +1,224 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net10.0-android;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+		<!-- Uncomment to also build the tizen app. You will need to install tizen by following this: https://github.com/Samsung/Tizen.NET -->
+		<!-- <TargetFrameworks>$(TargetFrameworks);net10.0-tizen</TargetFrameworks> -->
+
+		<!-- Note for MacCatalyst:
+		The default runtime is maccatalyst-x64, except in Release config, in which case the default is maccatalyst-x64;maccatalyst-arm64.
+		When specifying both architectures, use the plural <RuntimeIdentifiers> instead of the singular <RuntimeIdentifier>.
+		The Mac App Store will NOT accept apps with ONLY maccatalyst-arm64 indicated;
+		either BOTH runtimes must be indicated or ONLY macatalyst-x64. -->
+		<!-- For example: <RuntimeIdentifiers>maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers> -->
+
+		<OutputType>Exe</OutputType>
+		<RootNamespace>eMRBCS</RootNamespace>
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<!-- Display name -->
+		<ApplicationTitle>eMRBCS</ApplicationTitle>
+
+		<!-- App Identifier -->
+		<ApplicationId>com.mls.emrbcs</ApplicationId>
+
+		<!-- Versions -->
+		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">11.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">13.1</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|AnyCPU'">
+	  <AndroidPackageFormat>apk</AndroidPackageFormat>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
+	  <EmbedAssembliesIntoApk>False</EmbedAssembliesIntoApk>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- App Icon -->
+		<!--<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />-->
+		<MauiIcon Include="Resources\Images\mlsappicon.svg" />
+		
+		<!-- Splash Screen -->
+		<!--<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />-->
+        <MauiSplashScreen Include="Resources\Images\logo_splash_new.png" Color="#FFFFFF" BaseSize="200,200" />
+		<!-- Images -->
+		<MauiImage Include="Resources\Images\*\*.*" />		
+
+		<!-- Custom Fonts -->
+		<MauiFont Include="Resources\Fonts\*" />
+
+		<!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Compile Remove="Pages\MainPage.xaml.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Remove="Resources\Images\logo\logo_vertical.png" />
+	  <None Remove="Resources\Images\menuicons\address.png" />
+	  <None Remove="Resources\Images\menuicons\b0.png" />
+	  <None Remove="Resources\Images\menuicons\b1.png" />
+	  <None Remove="Resources\Images\menuicons\b2.png" />
+	  <None Remove="Resources\Images\menuicons\b3.png" />
+	  <None Remove="Resources\Images\menuicons\b4.png" />
+	  <None Remove="Resources\Images\menuicons\b5.png" />
+	  <None Remove="Resources\Images\menuicons\b6.png" />
+	  <None Remove="Resources\Images\menuicons\b7.png" />
+	  <None Remove="Resources\Images\menuicons\b8.png" />
+	  <None Remove="Resources\Images\menuicons\b9.png" />
+	  <None Remove="Resources\Images\menuicons\backup.png" />
+	  <None Remove="Resources\Images\menuicons\clear.png" />
+	  <None Remove="Resources\Images\menuicons\collection.png" />
+	  <None Remove="Resources\Images\menuicons\computer.png" />
+	  <None Remove="Resources\Images\menuicons\copy_text.png" />
+	  <None Remove="Resources\Images\menuicons\copy_text1.png" />
+	  <None Remove="Resources\Images\menuicons\dash.png" />
+	  <None Remove="Resources\Images\menuicons\del.png" />
+	  <None Remove="Resources\Images\menuicons\endrecord.png" />
+	  <None Remove="Resources\Images\menuicons\export.png" />
+	  <None Remove="Resources\Images\menuicons\folder.png" />
+	  <None Remove="Resources\Images\menuicons\import_file.png" />
+	  <None Remove="Resources\Images\menuicons\logout.png" />
+	  <None Remove="Resources\Images\menuicons\menu_icon.png" />
+	  <None Remove="Resources\Images\menuicons\meterreading.png" />
+	  <None Remove="Resources\Images\menuicons\ok.png" />
+	  <None Remove="Resources\Images\menuicons\options.png" />
+	  <None Remove="Resources\Images\menuicons\options1.png" />
+	  <None Remove="Resources\Images\menuicons\password.png" />
+	  <None Remove="Resources\Images\menuicons\period.png" />
+	  <None Remove="Resources\Images\menuicons\person.png" />
+	  <None Remove="Resources\Images\menuicons\printer_config.png" />
+	  <None Remove="Resources\Images\menuicons\print_off.png" />
+	  <None Remove="Resources\Images\menuicons\print_on.png" />
+	  <None Remove="Resources\Images\menuicons\product_key.png" />
+	  <None Remove="Resources\Images\menuicons\reports.png" />
+	  <None Remove="Resources\Images\menuicons\restore.png" />
+	  <None Remove="Resources\Images\menuicons\settings.png" />
+	  <None Remove="Resources\Images\menuicons\startrecord.png" />
+	  <None Remove="Resources\Images\menuicons\test_print.png" />
+	  <None Remove="Resources\Images\menuicons\usermanagement.png" />
+	  <None Remove="Resources\Images\menuicons\username.png" />
+	  <None Remove="Resources\Images\menuicons\userprofile.png" />
+	  <None Remove="Resources\Images\menuicons\user_access.png" />
+	  <None Remove="Resources\Images\menuicons\user_activity.png" />
+	  <None Remove="Resources\Images\menuicons\water_reading1.png" />
+	  <None Remove="Resources\Raw\Datafiles\honeywell_logo.bmp" />
+	  <None Remove="Resources\Raw\Datafiles\mrbcs_main.db" />
+	  <None Remove="Resources\Raw\Datafiles\msl_print.bmp" />
+	  <None Remove="Resources\Raw\Datafiles\logo_mls.bmp" />
+	  <None Remove="Resources\Raw\Datafiles\printer_profiles.JSON" />
+	  <None Remove="Resources\Raw\mrbcs_main.db" />
+	  <None Remove="Resources\Raw\REMARKS.txt" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Include="Pages\MainPage.xaml.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+		<PackageReference Include="ESCPOS_NET" Version="3.0.0" />
+		<PackageReference Include="Honeywell.AIDC.CrossPlatform.Print" Version="2.10.1.489" />
+		<PackageReference Include="Microsoft.Maui.Controls" Version="10.0.120" />
+		<PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="10.0.120" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.14" />
+		<PackageReference Include="Plugin.BLE" Version="3.2.1" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.14" />
+		<PackageReference Include="QRCoder" Version="1.8.1" />
+		<PackageReference Include="Microsoft.Maui.Resizetizer" Version="10.0.120" />
+		<PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="10.0.120" />
+		<PackageReference Include="SharpCifs.Std" Version="0.2.13" />
+		<PackageReference Include="SkiaSharp" Version="4.154.0" />
+		<PackageReference Include="SMBLibrary" Version="1.5.8.1" />
+		<PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <MauiXaml Update="Pages\ActivateProduct.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\AppSettings.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\ConsumerData.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\ExportData.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\ImportCustomers.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\ImportData.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\LoadingScreen.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\Login.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\Mainmenu.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\MainPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\PrinterConfig.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\ProductActivation.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\Profile.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\Reading.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\ReadingConsumers.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\Reports.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\UserAccess.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\UserActivity.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\UserManagement.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	  <MauiXaml Update="Pages\Utilities.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Interfaces\" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
+	  <PackageReference Include="MAUI_OS_SDK">
+	    <Version>1.0.0</Version>
+	  </PackageReference>
+	</ItemGroup>
+
+</Project>

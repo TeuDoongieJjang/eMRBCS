@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.ProductActivation"
+             NavigationPage.HasNavigationBar="False"
+             Title="ProductActivation">
+    <ScrollView>
+        <VerticalStackLayout>
+            <Grid x:Name="grid_server">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--IP Address-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Folder-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--User-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Pass-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Export-->
+                    <RowDefinition Height="Auto" />
+                    <!--IP Address-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Folder-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--User-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Pass-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Button-->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Row 1-->
+                <BoxView Color="#3269cd"
+                      HorizontalOptions="FillAndExpand"
+                      VerticalOptions="FillAndExpand"
+                      HeightRequest="70" 
+                      Grid.Row="0"
+                      Grid.Column="0"/>
+                <AbsoluteLayout Grid.Row="0"
+                        Grid.Column="0">
+                    <Image Source="menuicons/prev.png"                      
+                          AbsoluteLayout.LayoutBounds="10,10"
+                          HeightRequest="50" 
+                          WidthRequest="50" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Label 
+                         Text="Product Activation"
+                         TextColor="White"
+                         FontSize="18"
+                         AbsoluteLayout.LayoutBounds="70,20"
+                         VerticalOptions="Start"
+                         HorizontalOptions="Start"/>
+
+                </AbsoluteLayout>
+
+                <!--#IP Address -->
+                <!-- Row 2-->
+                <Grid Grid.Row="1" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    
+                    
+                    <AbsoluteLayout Grid.Row="0"
+                        Grid.Column="1">
+                        <Rectangle Fill="#3269cd"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="10,10"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Label TextColor="White"             
+                                Text="Details"
+                                AbsoluteLayout.LayoutBounds="20,15"                            
+                                Margin="10,5,0,0"                 
+                                FontSize="14" />
+                    </AbsoluteLayout>
+                    
+                </Grid>
+
+
+                <!-- Row 3-->
+                <Label  Grid.Row="2"
+                    Grid.Column="0"
+                    Text="Product Key:"
+                    Margin="10,5,0,0"
+                    FontSize="14"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Start"/>
+
+                <!-- Row 4-->
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="3"
+                        Grid.Column="0">
+                    <Entry  x:Name="txtproduct_id"                            
+                        Placeholder="#########"
+                        Margin="10,5,0,0"
+                        FontSize="12"
+                        VerticalOptions="Start"                        
+                        HorizontalOptions="Fill"/>
+                </Frame>
+                <!--#End IP Address -->
+
+                <Label  Grid.Row="5"
+                    Grid.Column="0"
+                    Text="To activate your copy, please send the product key to MSL Co representative and request for the activation key."
+                    Margin="10,5,0,0"
+                    FontSize="14"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Start"/>
+
+
+                <!-- Row 3-->
+                <Label  Grid.Row="7"
+                    Grid.Column="0"
+                    Text="Activation Key:"
+                    Margin="10,15,0,0"
+                    FontSize="14"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Start"/>
+
+                <!-- Row 4-->
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="8"
+                        Grid.Column="0">
+                    <Entry  x:Name="txtactivation_key"
+                        Placeholder="#########"
+                        Margin="10,5,0,0"
+                        FontSize="12"
+                        VerticalOptions="Start"                        
+                        HorizontalOptions="Fill"/>
+                </Frame>
+                <!--#End Shared Folder -->
+
+                
+                <!--#End Pass -->
+                <Button Text="Activate Product"
+                    Clicked="OnSaveChanges"
+                    BackgroundColor="#3269cd"
+                    Grid.Row="20"
+                    Grid.Column="0" />
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

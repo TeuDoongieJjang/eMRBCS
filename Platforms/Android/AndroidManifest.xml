@@ -1,0 +1,23 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+	<application android:allowBackup="true" android:icon="@mipmap/mlsappicon" android:supportsRtl="true" android:label="eMRBCS" android:requestLegacyExternalStorage="true"></application>
+
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+	<uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+	<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
+	<!-- Legacy Bluetooth - needed for Android 9-11 devices (e.g. Honeywell) -->
+	<uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+	<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+
+	<!-- Android 12+ Bluetooth - runtime permissions, must ALSO be requested in code -->
+	<uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" tools:targetApi="31" />
+	<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" tools:targetApi="31" />
+	<uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" tools:targetApi="31" />
+
+</manifest>

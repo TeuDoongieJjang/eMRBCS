@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.LoadingScreen"
+             NavigationPage.HasNavigationBar="False"
+             Title="LoadingScreen">
+    <VerticalStackLayout>
+        <Image x:Name="imglogo" 
+            Source="logo/logo_vertical.png" 
+           HorizontalOptions="Center"
+           HeightRequest="250"
+           WidthRequest="222"           
+           VerticalOptions="Center"  />
+        <Label 
+    Text="Meter Reading, Billing and"
+            FontAttributes="Bold"
+            FontSize="18"
+    HorizontalOptions="Center" />
+        <Label 
+Text="Collection System"
+        FontAttributes="Bold"
+        FontSize="18"
+HorizontalOptions="Center"
+/>
+        <!--AbsoluteLayout.LayoutBounds="0,190,250,100"-->
+        <AbsoluteLayout x:Name="absLoading" 
+            HorizontalOptions="Center">
+            <Label x:Name="lblLoadingDetails"
+            Text="Loading configuration..."
+            HorizontalOptions="Center"
+            AbsoluteLayout.LayoutBounds="0,50,250,100"
+            />
+            <!--AbsoluteLayout.LayoutBounds="0,200,250,100"-->
+            <ActivityIndicator x:Name="activityIndicator"                    
+IsRunning="true"
+Color="#3269cd"                   
+HeightRequest="75"
+WidthRequest="75"
+IsVisible="true"       
+                               AbsoluteLayout.LayoutBounds="0,60,250,100"
+ />
+            <!--AbsoluteLayout.LayoutBounds="0,240,250,100" />-->
+            <Label x:Name="lblLoadingPercent"
+ Text="90%"
+ HorizontalOptions="Center"
+ AbsoluteLayout.LayoutBounds="0,100,250,100" />
+        </AbsoluteLayout>
+        <!--AbsoluteLayout.LayoutBounds="50,10,300,100"-->
+        <AbsoluteLayout x:Name="absCompany">
+            <Label x:Name="lblpoweredby"
+Text="Powered By: MLS Consultancy Co."
+                AbsoluteLayout.LayoutBounds="50,150,300,100"
+                HorizontalOptions="Center"    />
+            <!--AbsoluteLayout.LayoutBounds="50,35,300,100"-->
+            <Label x:Name="lblcopyright"
+                   AbsoluteLayout.LayoutBounds="50,170,300,100"
+                Text="Copyright © 2024"             
+FontSize="14" 
+HorizontalOptions="Center" 
+           
+/>
+        </AbsoluteLayout>
+        
+    </VerticalStackLayout>
+</ContentPage>

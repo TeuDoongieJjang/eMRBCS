@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.ImportCustomers"
+             Title="ImportCustomers">
+    <ScrollView>
+        <VerticalStackLayout>
+            <Grid x:Name="dataGrid">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--IP Address-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Folder-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--User-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Pass-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Button-->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Row 1-->
+                <Rectangle Fill="#3269cd"                     
+                    HeightRequest="50"
+                    Grid.Row="0"
+                    Grid.Column="0"/>
+
+                <AbsoluteLayout Grid.Row="0"
+                            Grid.Column="0">
+                    <Image Source="MenuIcons/backbutton.png" 
+                     SemanticProperties.HeadingLevel="Level1"
+                     AbsoluteLayout.LayoutBounds="10,10"
+                     HeightRequest="25" 
+                     WidthRequest="25" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+
+                    <Label 
+                    Text="Import / Export File"
+                    TextColor="White"
+                    FontSize="18"
+                    AbsoluteLayout.LayoutBounds="45,10"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+
+                <Label  Grid.Row="1"
+                Grid.Column="0"
+                Text="Please select connection:"
+                Margin="5,5,0,0"
+                FontSize="18"
+                VerticalOptions="Start"
+                HorizontalOptions="Start"/>
+                <Grid Grid.Row="2" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="btnWebAPI" 
+                Text="Web API"
+                Clicked="OnClickWeb"
+                BackgroundColor="#3269cd"
+                Margin="5"
+                Grid.Row="0"
+                Grid.Column="0" />
+                    <Button x:Name="btnLocal" 
+                Text="Local"
+                Clicked="OnClickLocal"
+                BackgroundColor="#3269cd"
+                Margin="5"
+                Grid.Row="0"
+                Grid.Column="1" />
+                    <Button x:Name="btnBluetooth" 
+                Text="Bluetooth"
+                Clicked="OnClickBT"
+                BackgroundColor="#3269cd"
+                Margin="5"
+                Grid.Row="0"
+                Grid.Column="2" />
+
+                </Grid>
+
+                <AbsoluteLayout Grid.Row="3"
+                        Grid.Column="0">
+                    <Label  
+                Text="Status:"
+                Margin="5,5,0,0"
+                AbsoluteLayout.LayoutBounds="10,10"
+                FontSize="14"
+                VerticalOptions="Start"
+                HorizontalOptions="Start"/>
+
+                    <Frame x:Name="colorStatus"
+               HeightRequest="20"
+               WidthRequest="20"
+               CornerRadius="75"               
+               BackgroundColor="Green"
+               AbsoluteLayout.LayoutBounds="70,15"
+               HorizontalOptions="Center"
+               VerticalOptions="Center" />
+
+                    <Label x:Name="lblStatus"
+                Text="Offline"
+                Margin="5,5,0,0"
+                AbsoluteLayout.LayoutBounds="90,10"
+                FontSize="14"
+                VerticalOptions="Start"
+                HorizontalOptions="Start"/>
+
+                </AbsoluteLayout>
+
+                <AbsoluteLayout Grid.Row="4"
+                        Grid.Column="0">
+                    <Label  
+                Text="Notice:"
+                Margin="5,5,0,0"
+                AbsoluteLayout.LayoutBounds="10,10"
+                FontSize="14"
+                VerticalOptions="Start"
+                HorizontalOptions="Start"/>
+
+                    <Label x:Name="lblNotice"
+                Text="You are connected."
+                Margin="5,5,0,0"
+                AbsoluteLayout.LayoutBounds="70,10"
+                FontSize="14"
+                VerticalOptions="Start"
+                HorizontalOptions="Start"/>
+
+                </AbsoluteLayout>
+
+                <Rectangle Fill="#3269cd"                     
+            HeightRequest="50"
+            Margin="0,15,0,0"
+            Grid.Row="5"
+            Grid.Column="0"/>
+
+                <Label Grid.Row="5"
+            Grid.Column="0"
+            TextColor="White"
+            Text="Files available to import"
+            Margin="10,30,0,0"                
+            FontSize="14"
+            VerticalOptions="Start"
+            HorizontalOptions="Start"/>
+
+                <ListView x:Name="FilesListView" 
+            Grid.Row="6"
+            Grid.Column="0" />
+
+                <Button x:Name="btnCopy" 
+            Text="Import Selected File"
+            Clicked="OnImportFile"
+            WidthRequest="200"
+            HorizontalOptions="End"
+            BackgroundColor="#3269cd"
+            Margin="5"
+            Grid.Row="7"
+            Grid.Column="0" />
+
+                <Rectangle Fill="#3269cd"                     
+            HeightRequest="50"
+            Margin="0,50,0,0"
+            Grid.Row="8"
+            Grid.Column="0"/>
+
+                <Label Grid.Row="8"
+            Grid.Column="0"
+            TextColor="White"
+            Text="Files available to export"
+            Margin="10,65,0,0"                
+            FontSize="14"
+            VerticalOptions="Start"
+            HorizontalOptions="Start"/>
+
+                <ListView x:Name="FilesListView1" 
+            Grid.Row="9"
+            Grid.Column="0" />
+
+                <Button x:Name="btnSend" 
+            Text="Submit Selected File"
+            Clicked="OnExportFile"
+            WidthRequest="200"
+            HorizontalOptions="End"
+            BackgroundColor="#3269cd"
+            Margin="5"
+            Grid.Row="10"
+            Grid.Column="0" />
+
+            </Grid>
+
+
+
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

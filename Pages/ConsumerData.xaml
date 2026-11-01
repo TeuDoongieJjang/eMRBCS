@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.ConsumerData"
+             Title="ConsumerData">
+
+        <VerticalStackLayout>
+            <Grid x:Name="grid_server">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                
+                <BoxView Color="#3269cd"
+                    HorizontalOptions="FillAndExpand"
+                    VerticalOptions="FillAndExpand"
+                    HeightRequest="70" 
+                    Grid.Row="0"
+                    Grid.Column="0"/>
+                <AbsoluteLayout Grid.Row="0"
+                    Grid.Column="0">
+                    <Image Source="menuicons/prev.png"                      
+                        AbsoluteLayout.LayoutBounds="10,10"
+                        HeightRequest="50" 
+                        WidthRequest="50" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Label 
+                        Text="Consumer Details"
+                        TextColor="White"
+                        FontSize="18"
+                        AbsoluteLayout.LayoutBounds="70,20"
+                        VerticalOptions="Start"
+                        HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+                <Picker x:Name="pickerBillingFilter"
+                    Grid.Row="1"
+                    Grid.Column="0"                    
+                    Margin="10,10,10,0"
+                    Title="Choose Consumer Status" />
+                <AbsoluteLayout Grid.Row="2"
+                    Grid.Column="0">
+                    <SearchBar AbsoluteLayout.LayoutBounds="0,0"
+                        WidthRequest="220"
+                        Placeholder="Search consumer by..."/>
+                    <Picker x:Name="pickerFiledFilter" 
+                        AbsoluteLayout.LayoutBounds="210,0"                         
+                        Title="Choose Filter" />
+                    <Button AbsoluteLayout.LayoutBounds="320,0"      
+                        Text="Go"                        
+                        WidthRequest="50"                        
+                        BackgroundColor="#3269cd"
+                        Margin="5" />
+                </AbsoluteLayout>
+
+                <Rectangle Fill="#3269cd"     
+                    HorizontalOptions="FillAndExpand"  
+                    HeightRequest="10"
+                    Margin="10"
+                    RadiusX="5"
+                    RadiusY="5"
+                    Grid.Row="3"
+                    Grid.Column="0" />
+                <VerticalStackLayout Grid.Row="4"
+                    Grid.Column="0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />                            
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="300" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />                        
+                        </Grid.ColumnDefinitions>
+                        <Label Grid.Row="0"
+                            Grid.Column="2"
+                            FontAttributes="Bold"
+                            Text="Account No:"
+                            TextColor="Black"
+                            FontSize="16"
+                            Margin="10"                                
+                            HorizontalOptions="Center"/>
+                        <Image Grid.Row="1"
+                            Grid.Column="0"
+                            Margin="50,0,0,0"
+                            Source="menuicons/startrecord.png" 
+                            HeightRequest="40" 
+                            WidthRequest="40" >
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapImgBack" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                    <Image Grid.Row="1"
+    Grid.Column="1"
+    Margin="120,0,0,0"
+    Source="menuicons/prev.png" 
+    HeightRequest="40" 
+    WidthRequest="40" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Entry x:Name="consumer_acctID"
+                        Grid.Row="1"
+    Grid.Column="2"                             
+    Placeholder="00-000000"
+    Margin="10,-5"
+    FontSize="22"                                                                                 
+    HorizontalOptions="Center"/>
+                    <Image Grid.Row="1"
+Grid.Column="3"
+Margin="-110,0,0,0"
+Source="menuicons/next.png" 
+HeightRequest="40" 
+WidthRequest="40" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Image Grid.Row="1"
+Grid.Column="4"
+Margin="-50,0,0,0"
+Source="menuicons/endrecord.png" 
+HeightRequest="40" 
+WidthRequest="40" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                </Grid>
+                    <ScrollView HeightRequest="415" >
+                        <Grid Padding="0,20,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                           
+                            <Label Grid.Row="1"
+                                 Grid.Column="0"
+                                 FontAttributes="Bold"
+                                 Text="Name:"
+                                 TextColor="Black"
+                                 FontSize="18"
+                                 Margin="10"                                
+                                 HorizontalOptions="End"/>
+                            <Entry Grid.Row="1"
+                                 Grid.Column="1"     
+                                 Text="ARMOSILLA, ADELAIDA D."
+                                 Margin="10,-5"
+                                 FontSize="18"                                                                                 
+                                 HorizontalOptions="Fill"/>
+                            <Label Grid.Row="2"
+                                 Grid.Column="0"
+                                 FontAttributes="Bold"
+                                 Text="Meter No:"
+                                 TextColor="Black"
+                                 FontSize="18"
+                                 Margin="10"                                
+                                 HorizontalOptions="End"/>
+                            <Entry Grid.Row="2"
+                                 Grid.Column="1"     
+                                 Text="055382"
+                                 Margin="10,-5"
+                                 FontSize="22"
+                                 Keyboard="Numeric"
+                                 HorizontalOptions="Fill"/>
+                            <Label Grid.Row="3"
+                                 Grid.Column="0"
+                                 FontAttributes="Bold"
+                                 Text="Address:"
+                                 TextColor="Black"
+                                 FontSize="18"
+                                 Margin="10"                                
+                                 HorizontalOptions="End"/>
+                            <Editor Grid.Row="3"
+                                 Grid.Column="1"     
+                                 Text="23 Mang David Rd, Baesa, Quezon City"
+                                 AutoSize="TextChanges"
+                                 HeightRequest="70"
+                                 Margin="10,-5"
+                                 FontSize="16"                                 
+                                 HorizontalOptions="Fill"/>
+                            <Label Grid.Row="4"
+                                 Grid.Column="0"
+                                 FontAttributes="Bold"
+                                 Text="Pres. Reading:"
+                                 TextColor="Black"
+                                 FontSize="18"
+                                 Margin="10"                                
+                                 HorizontalOptions="End"/>
+                            <Entry Grid.Row="4"
+                                 Grid.Column="1"     
+                                 Text="0"
+                                 HorizontalTextAlignment="End"
+                                 Margin="10,-5"
+                                 FontSize="22"
+                                 Keyboard="Numeric"
+                                 HorizontalOptions="Fill"/>
+                            <Label Grid.Row="5"
+                                 Grid.Column="0"
+                                 FontAttributes="Bold"
+                                 Text="Prev. Reading:"
+                                 TextColor="Black"
+                                 FontSize="18"
+                                 Margin="10"                                
+                                 HorizontalOptions="End"/>
+                            <Entry Grid.Row="5"
+                                 Grid.Column="1"     
+                                 Text="0"
+                                 HorizontalTextAlignment="End"
+                                 Margin="10,-5"
+                                 FontSize="22"
+                                 Keyboard="Numeric"
+                                 HorizontalOptions="Fill"/>
+                            <Label Grid.Row="6"
+                                  Grid.Column="0"
+                                  FontAttributes="Bold"
+                                  Text="Usage:"
+                                  TextColor="Black"
+                                  FontSize="18"
+                                  Margin="10"                                
+                                  HorizontalOptions="End"/>
+                            <Entry Grid.Row="6"
+                                  Grid.Column="1"     
+                                  Text="0"
+                                  HorizontalTextAlignment="End"
+                                  Margin="10,-5"
+                                  FontSize="22"
+                                  Keyboard="Numeric"                                  
+                                  HorizontalOptions="Fill"/>
+                            <Label Grid.Row="7"
+                                  Grid.Column="0"
+                                  FontAttributes="Bold"
+                                  Text="Current Bill:"
+                                  TextColor="Black"
+                                  FontSize="18"
+                                  Margin="10"                                
+                                  HorizontalOptions="End"/>
+                            <Entry Grid.Row="7"
+                                  Grid.Column="1"     
+                                  Text="1849.55"
+                                  HorizontalTextAlignment="End"
+                                  Margin="10,-5"
+                                  FontSize="22"
+                                  Keyboard="Numeric"                                  
+                                  HorizontalOptions="Fill"/>
+                            <Label Grid.Row="8"
+                                  Grid.Column="0"
+                                  FontAttributes="Bold"
+                                  Text="Arrears:"
+                                  TextColor="Black"
+                                  FontSize="18"
+                                  Margin="10"                                
+                                  HorizontalOptions="End"/>
+                            <Entry Grid.Row="8"
+                                  Grid.Column="1"     
+                                  Text="2000.55"
+                                  HorizontalTextAlignment="End"
+                                  Margin="10,-5"
+                                  FontSize="22"
+                                  Keyboard="Numeric"                                  
+                                  HorizontalOptions="Fill"/>
+                            <Label Grid.Row="9"
+                                  Grid.Column="0"
+                                  FontAttributes="Bold"
+                                  Text="Total Bill:"
+                                  TextColor="Black"
+                                  FontSize="18"
+                                  Margin="10"                                
+                                  HorizontalOptions="End"/>
+                            <Entry Grid.Row="9"
+                                  Grid.Column="1"
+                                  HorizontalTextAlignment="End"
+                                  Text="3000.55"
+                                  Margin="10,-5"
+                                  FontSize="22"
+                                  Keyboard="Numeric"                                  
+                                  HorizontalOptions="Fill"/>
+                            <Label Grid.Row="10"
+                                  Grid.Column="0"
+                                  FontAttributes="Bold"
+                                  Text="Remarks:"
+                                  TextColor="Black"
+                                  FontSize="18"
+                                  Margin="10"                                
+                                  HorizontalOptions="End"/>
+                            <Picker x:Name="pickerRemarks"   
+                                Grid.Row="10"
+                                Grid.Column="1"
+                                FontSize="18"
+                                Title="Choose Remarks" />                           
+                        </Grid>                        
+                    </ScrollView>
+                </VerticalStackLayout>
+            </Grid>
+            <Rectangle Fill="#3269cd"
+                Margin="10,20,10,0"
+                HorizontalOptions="FillAndExpand"  
+                VerticalOptions="EndAndExpand"
+                HeightRequest="50" />
+        </VerticalStackLayout>        
+         
+    
+</ContentPage>

@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.Login"
+             NavigationPage.HasNavigationBar="False"
+             Title="Login">
+    <ScrollView>                  
+        <Grid>            
+            <VerticalStackLayout Margin="0,0,0,10" 
+                VerticalOptions="End" 
+HorizontalOptions="Center">
+                <Label
+                Text="Powered by MLS Consultancy Co."                     
+                   FontAutoScalingEnabled="True"                 
+            HorizontalOptions="Center" 
+FontSize="14" 
+ />
+                <Label 
+                Text="Copyright © 2024"             
+FontSize="14" 
+HorizontalOptions="Center"            
+/>
+            </VerticalStackLayout>
+           
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image Source="logo/msl_logo.png" 
+                       Aspect="AspectFit"
+                         Grid.Column="0"
+  Grid.Row="0"
+HorizontalOptions="CenterAndExpand" 
+  />
+
+                <Label x:Name="lblcompany" 
+                    Text="eMRBCS"                         
+                   FontAttributes="Bold"                   
+       Margin="0,10,0,0"
+    FontSize="24" 
+    HorizontalOptions="Center"                    
+    Grid.Column="0"
+    Grid.Row="1"/>
+
+
+                <Label x:Name="lblversion" 
+                    Text="v6.5.101"                 
+               FontAttributes="Bold"               
+   Margin="10"
+FontSize="12" 
+HorizontalOptions="Center"                
+Grid.Column="0"
+Grid.Row="2"/>
+                <Grid Grid.Row="3" Grid.Column="0" Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Label 
+            Text="Device Date"     
+  FontAttributes="Bold"
+FontSize="14" 
+HorizontalOptions="Center" 
+Grid.Column="0"
+Grid.Row="0"/>
+
+                    <Label x:Name="lbldatetime"  
+                Text="2024-07-20"     
+       Margin="10,15,10,10"
+    FontSize="14" 
+    HorizontalOptions="Center" 
+    Grid.Column="0"
+    Grid.Row="1"/>
+
+                    <Label 
+            Text="Billing Date"     
+   FontAttributes="Bold"
+FontSize="14" 
+HorizontalOptions="Center" 
+Grid.Column="1"
+Grid.Row="0"/>
+                    <DatePicker x:Name="dpBillDate" 
+                    Grid.Row="1"
+                        Grid.Column="1"        
+                            Format="yyyy-MM-dd"
+                        HorizontalOptions="Center" />
+                </Grid>
+
+                <Label x:Name="lblcredentials"
+    Text="Please enter your credentials" 
+       Margin="10,20,10,10"
+    FontSize="14" 
+    HorizontalOptions="Center" 
+    Grid.Column="0"
+    Grid.Row="6"/>
+                <Grid  Grid.Row="7"
+ Grid.Column="0"
+                       HorizontalOptions="Center">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>                       
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <HorizontalStackLayout Grid.Row="0" Grid.Column="0">
+                        <Image Source="menuicons/username.png" 
+                               Margin="0,0,10,0"
+    HeightRequest="25" 
+    WidthRequest="25" />
+                        <Entry x:Name="usernameEntry" 
+    Text=""
+    WidthRequest="200"
+    AbsoluteLayout.LayoutBounds="40,5"
+    Placeholder="Username" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Grid.Row="1" Grid.Column="0">
+                        <Image Source="menuicons/password.png"                      
+     Margin="0,0,10,0"
+     HeightRequest="25" 
+     WidthRequest="25" />
+                        <Entry x:Name="passwordEntry" 
+   WidthRequest="200"   
+   Placeholder="Password" 
+   IsPassword="True" />
+                    </HorizontalStackLayout>
+                </Grid>
+             
+                <Button Text="Login" 
+              BackgroundColor="#3269cd"
+                    Margin="20"
+                    Grid.Row="9"
+                    Grid.Column="0"
+              Clicked="OnLoginButtonClicked" />
+
+                
+                <Label x:Name="messageLabel" 
+                    Text=""
+                    MaxLines="2"
+                    HeightRequest="70"
+                    WidthRequest="300"
+                    LineBreakMode="WordWrap"
+                    HorizontalTextAlignment="Center"
+                    TextColor="Red" 
+                    Grid.Row="12"
+                    Grid.Column="0" />
+            </Grid>
+        </Grid>   
+    </ScrollView>
+</ContentPage>

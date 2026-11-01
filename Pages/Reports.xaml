@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.Reports"
+             NavigationPage.HasNavigationBar="False"
+             Title="Reports">
+    <ScrollView>
+        <VerticalStackLayout>
+            <Grid>
+                <!--Title Bar-->
+                <Grid VerticalOptions="Start" 
+                    ZIndex="1">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />                       
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <BoxView Color="#3269cd"
+                         HorizontalOptions="FillAndExpand"
+                         VerticalOptions="FillAndExpand"
+                         HeightRequest="70" 
+                         Grid.Row="0"
+                         Grid.Column="0"/>  
+
+                    <AbsoluteLayout Grid.Row="0"
+                        Grid.Column="0">
+                        <Image Source="menuicons/prev.png"                      
+                             AbsoluteLayout.LayoutBounds="10,10"
+                             HeightRequest="50" 
+                             WidthRequest="50" >
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapImgBack" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                        <Label 
+                            Text="Reports"
+                            TextColor="White"
+                            FontSize="18"
+                            AbsoluteLayout.LayoutBounds="70,20"
+                            VerticalOptions="Start"
+                            HorizontalOptions="Start"/>
+                    </AbsoluteLayout>
+                </Grid>
+                <!--End of Title Bar-->               
+                
+            </Grid>
+            <!--Report List-->
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                
+                <AbsoluteLayout Grid.Row="0"
+                    Grid.Column="1">
+                    <Rectangle Fill="#3269cd"   
+                        WidthRequest="200"
+                        HeightRequest="40"
+                        AbsoluteLayout.LayoutBounds="10,10"
+                        RadiusX="0"
+                        RadiusY="10" />
+                    <Label TextColor="White"             
+                        Text="Available Reports"
+                        AbsoluteLayout.LayoutBounds="20,15"                            
+                        Margin="10,5,0,0"                 
+                        FontSize="14" />
+                </AbsoluteLayout>
+            </Grid>
+            <Grid Margin="0,10,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />                    
+                </Grid.ColumnDefinitions>
+                <ListView x:Name="lstReports" 
+                    Grid.Row="0" Grid.Column="0">
+                    
+                </ListView>
+                <Button x:Name="btnPrint"
+                    Clicked="OnPrintClick"
+                    Margin="20"
+                        BackgroundColor="#3269cd"
+                        Text="Print"
+                    Grid.Row="1" Grid.Column="0">
+                    
+                </Button>
+            </Grid>
+            <!--End of List-->
+        </VerticalStackLayout>
+    </ScrollView>
+    
+</ContentPage>

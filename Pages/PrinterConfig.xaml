@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.PrinterConfig"
+               NavigationPage.HasNavigationBar="False"
+             Title="PrinterConfig">
+    <ScrollView>
+        <VerticalStackLayout>
+            <Grid x:Name="grid_server">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--IP Address-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Folder-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--User-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Pass-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Export-->
+                    <RowDefinition Height="Auto" />
+                    <!--IP Address-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Folder-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--User-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Pass-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Button-->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Row 1-->
+                <BoxView Color="#3269cd"
+                      HorizontalOptions="FillAndExpand"
+                      VerticalOptions="FillAndExpand"
+                      HeightRequest="70" 
+                      Grid.Row="0"
+                      Grid.Column="0"/>
+                <AbsoluteLayout Grid.Row="0"
+                        Grid.Column="0">
+                    <Image Source="menuicons/prev.png"                      
+                          AbsoluteLayout.LayoutBounds="10,10"
+                          HeightRequest="50" 
+                          WidthRequest="50" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Label 
+                         Text="Printer Config"
+                         TextColor="White"
+                         FontSize="18"
+                         AbsoluteLayout.LayoutBounds="70,20"
+                         VerticalOptions="Start"
+                         HorizontalOptions="Start"/>
+                    
+                </AbsoluteLayout>
+
+                <!--#IP Address -->
+                <!-- Row 2-->
+                <Grid Grid.Row="1" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <!--<AbsoluteLayout Grid.Row="0"
+           Grid.Column="0">
+                        <Label TextColor="Black"       
+                             FontAttributes="Bold"
+ Text="Status"
+ AbsoluteLayout.LayoutBounds="10,15"                            
+ Margin="10,5,0,0"                 
+ FontSize="14" />
+                        <Frame x:Name="frameStatus" 
+                          AbsoluteLayout.LayoutBounds="70,20"
+HeightRequest="20"
+   WidthRequest="20"
+   CornerRadius="75"
+   BackgroundColor="Green" />
+                    </AbsoluteLayout>-->
+                    <AbsoluteLayout Grid.Row="0"
+                        Grid.Column="1">
+                        <Rectangle Fill="#3269cd"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="10,10"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Label TextColor="White"             
+                                Text="Printer Details"
+                                AbsoluteLayout.LayoutBounds="20,15"                            
+                                Margin="10,5,0,0"                 
+                                FontSize="14" />
+                    </AbsoluteLayout>
+                    <!--<Label Grid.Row="1"
+                        Grid.Column="0"
+                        Text="Getting Data Details"
+                        Margin="10"
+                        FontSize="14"
+                        VerticalOptions="Start"
+                        HorizontalOptions="Start"/>-->
+                </Grid>
+
+                <Label  Grid.Row="2"
+    Grid.Column="0"
+    Text="Config Name:"
+    Margin="10,5,0,0"
+    FontSize="14"
+    VerticalOptions="Start"
+    HorizontalOptions="Start"/>
+
+                <!-- Row 4-->
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="3"
+        Grid.Column="0">
+                    <Picker x:Name="pickerConfigName"
+                        SelectedIndexChanged="OnPrinterConfigChange"
+Title="Choose Name">
+                    </Picker>
+                    <!--<Entry  x:Name="bluetooth_address"                            
+        Placeholder="00:00:00:00"
+        Margin="10,5,0,0"
+        FontSize="12"
+        VerticalOptions="Start"                        
+        HorizontalOptions="Fill"/>-->
+                </Frame>
+
+
+                <!-- Row 3-->
+                <Label  Grid.Row="4"
+                    Grid.Column="0"
+                    Text="Bluetooth Address:"
+                    Margin="10,5,0,0"
+                    FontSize="14"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Start"/>
+
+                <!-- Row 4-->
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="5"
+                        Grid.Column="0">
+                    <Entry  x:Name="bluetooth_address"                            
+                        Placeholder="00:00:00:00"
+                        Margin="10,5,0,0"
+                        FontSize="14"
+                        VerticalOptions="Start"                        
+                        HorizontalOptions="Fill"/>
+                </Frame>
+                <!--#End IP Address -->
+
+                <!--#Shared Folder -->
+                <!-- Row 3-->
+                <Label  Grid.Row="6"
+                    Grid.Column="0"
+                    Text="Printer Profile:"
+                    Margin="10,5,0,0"
+                    FontSize="16"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Start"/>
+
+                <!-- Row 4-->
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="7"
+                        Grid.Column="0">
+                    <Picker x:Name="pickerProfiles"
+                            FontSize="14"
+                        SelectedIndexChanged="OnPrinterProfileChange"
+                        Title="Choose Printer Profile">
+                    </Picker>
+                    <!--<Entry  x:Name="profile_name"
+                        Placeholder="PB21 (Default)"
+                        Margin="10,5,0,0"
+                        FontSize="12"
+                        VerticalOptions="Start"                        
+                        HorizontalOptions="Fill"/>-->
+                </Frame>
+                <!--#End Shared Folder -->
+
+                <!--#User -->
+                <!-- Row 3-->
+                <Label  Grid.Row="8"
+                    Grid.Column="0"
+                    Text="Line Space (Width):"
+                    Margin="10,5,0,0"
+                    FontSize="14"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Start"/>
+
+                <!-- Row 4-->
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="9"
+                        Grid.Column="0">
+                    <Entry  x:Name="line_spaces"
+                        Placeholder="46"
+                        Margin="10,5,0,0"
+                        FontSize="12"
+                        VerticalOptions="Start"                        
+                        HorizontalOptions="Fill"/>
+                </Frame>
+                <!--#End User -->
+
+                <!-- Row 4-->
+                <AbsoluteLayout Grid.Row="10" Grid.Column="0">
+                    <CheckBox x:Name="chkDefault" 
+                        IsChecked="False" />                    
+                    <Label AbsoluteLayout.LayoutBounds="40,11" 
+                        FontSize="12" 
+                        Text="Set this as my Default Printer"/>
+                </AbsoluteLayout>
+                
+                    
+                
+                <!--#End User -->
+
+
+                <!--#End Pass -->
+                <Button x:Name="btnSave" 
+                        Margin="10,0,10,5"
+                    Text="Save Config"
+                    Clicked="OnSaveChanges"
+                    BackgroundColor="#3269cd"
+                    Grid.Row="11"
+                    Grid.Column="0" />
+                <Button x:Name="btnLoad" 
+                        Margin="10,0,10,5"
+     Text="Load Config"
+     Clicked="OnLoadConfig"
+     BackgroundColor="#3269cd"
+                        IsEnabled="False"
+     Grid.Row="12"
+     Grid.Column="0" />
+                <Button x:Name="btnTestPrint" 
+                        Margin="10,0,10,5"
+Text="Test Print"
+Clicked="OnTestPrint"
+BackgroundColor="#3269cd"
+                   IsEnabled="False"
+Grid.Row="13"
+Grid.Column="0" />
+            </Grid>
+
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

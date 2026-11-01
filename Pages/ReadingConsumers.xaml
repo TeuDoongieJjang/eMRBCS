@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.ReadingConsumers"
+             NavigationPage.HasNavigationBar="False"
+             Title="ReadingConsumers">
+    <!--<ScrollView>-->
+    
+    <AbsoluteLayout>
+        <StackLayout x:Name="stackLoading" IsVisible="false" AbsoluteLayout.LayoutBounds="0.5,0.3,200,25"
+               AbsoluteLayout.LayoutFlags="PositionProportional"
+                ZIndex="3" >
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <BoxView Color="Transparent" x:Name="overlaybox"                            
+                             
+      HorizontalOptions="FillAndExpand"
+      VerticalOptions="FillAndExpand"
+     
+      Grid.Row="0" Grid.RowSpan="3"
+      Grid.Column="0"/>
+                <ActivityIndicator x:Name="activityIndicatorPage" Grid.Column="0" Grid.Row="0"                
+IsRunning="true"
+Color="#3269cd"                   
+HeightRequest="100"
+WidthRequest="100"
+IsVisible="true"
+ />
+                <Label x:Name="lblloading"
+                        Text="Loading Page" HorizontalOptions="Center" FontAttributes="Bold" FontSize="16" Grid.Column="0" Grid.Row="1"    Margin="15,0,15,10"     TextColor="White"
+    />
+                <Label Text="Please wait" HorizontalOptions="Center" FontAttributes="Bold" FontSize="16" Grid.Column="0" Grid.Row="2"    Margin="15,0,15,10"     TextColor="White"
+/>
+
+            </Grid>
+
+
+        </StackLayout>
+        <Grid x:Name="gridLayout" ZIndex="1" AbsoluteLayout.LayoutBounds="0.5,0,1,1"
+                 AbsoluteLayout.LayoutFlags="SizeProportional">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--IP Address-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Folder-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                   
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+           
+
+            
+
+            <!-- Row 1-->
+                <BoxView Color="#3269cd"
+                    HorizontalOptions="FillAndExpand"
+                    VerticalOptions="FillAndExpand"
+                    HeightRequest="70" 
+                    Grid.Row="0"
+                    Grid.Column="0"/>
+            <Grid Margin="10,10,10,10" Grid.Row="0" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <HorizontalStackLayout Grid.Row="0" Grid.Column="0" >
+                    <Image Source="menuicons/prev.png"  
+    HeightRequest="50" 
+    WidthRequest="50" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Label Margin="5,0,0,0"
+Text="Consumer List"
+TextColor="White"
+FontSize="18"    
+VerticalOptions="Center"
+HorizontalOptions="Start"/>
+                   
+                </HorizontalStackLayout>
+                <Image Source="menuicons/options1.png"  Grid.Row="0" Grid.Column="1" HorizontalOptions="End" x:Name="imgoption"
+HeightRequest="50" 
+WidthRequest="50" >
+                    <Image.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="TapShowOPtions" />
+                    </Image.GestureRecognizers>
+                </Image>
+
+
+            </Grid>
+            <Grid x:Name="gridFilter"
+                Margin="0,10,0,10" Grid.Row="1" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Picker x:Name="pickerBillingFilter"
+        SelectedIndexChanged="OnConsumerTypeChanged"
+        HorizontalOptions="StartAndExpand"        
+        Grid.Row="0"
+        Grid.Column="0"                    
+        Margin="5,0,0,0"
+        Title="Choose Consumer Status" />
+                <Label x:Name="lblSummaryCount" 
+           HorizontalOptions="End"
+           Text="0 / 0"
+           FontSize="22"
+           FontAttributes="Bold"
+           Margin="0,0,20,0"
+           Grid.Row="0"
+            Grid.Column="1"   
+           />
+
+            </Grid>
+            <Grid x:Name="gridSearch" 
+                Margin="5,0,0,10" Grid.Row="2" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Picker x:Name="pickerFiledFilter"      
+                        Grid.Row="0" Grid.Column="0"
+     Title="Choose Filter" />
+                <SearchBar x:Name="searchFilterName" 
+                           Grid.Row="0" Grid.Column="1"
+                          WidthRequest="200"                          
+     TextChanged="OnSearchClear"  
+     TextColor="Red"
+     Placeholder="Search consumer"/>
+                <Button x:Name="btnSearchFilter" 
+                        Grid.Row="0" Grid.Column="2"
+                    Clicked="OnSearchFilter_new"                
+                Text="Go"      
+                BackgroundColor="#3269cd"
+                        HorizontalOptions="End"
+                Margin="5,5,5,0" />
+            </Grid>          
+                
+            <!--<Grid Grid.Row="3" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="135" />
+                         <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Frame BackgroundColor="Gray"
+                   CornerRadius="5"
+                   Margin="5,10,5,5"
+                   Grid.Row="0" Grid.RowSpan="3"                           
+    Grid.Column="0" Grid.ColumnSpan="2"
+                />
+                <Frame BackgroundColor="White"
+                   CornerRadius="5"
+                   Margin="10"
+                   Grid.Row="0" Grid.RowSpan="3"
+                   Grid.Column="0" Grid.ColumnSpan="2"  />
+
+                <Grid Grid.Row="0" Grid.Column="0" Margin="20,15,10,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />                       
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Label                    
+                    FontAttributes="Bold"
+                    TextColor="Black"
+                    FontSize="14"
+                    Text="Account No:"
+                    Grid.Row="0" Grid.Column="0"
+                    />
+                    <Label
+FontAttributes="Bold"
+TextColor="Black"
+FontSize="16"
+Text="1267534789"                       
+Grid.Row="1" Grid.Column="0"
+/>
+                </Grid>
+                <Grid Grid.Row="0" Grid.Column="1" Margin="0,10,20,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    
+                    <Image Source="menuicons/person.png"
+                               Margin="0,10,5,0"
+                               VerticalOptions="Start"
+                           HeightRequest="25"
+                           WidthRequest="25"
+                           Grid.Row="0" Grid.Column="0"       Grid.RowSpan="2"                 
+                        />
+                    <Grid Grid.Row="0" Grid.Column="1" >
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />                            
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>                            
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Label Margin="5,5,0,0"
+                           FontAttributes="Bold"
+TextColor="Black"
+FontSize="14"
+Text="Juan dela Cruz234 45 Castillo III Madr asd add as jk hjhjj hjhj"                                                      
+Grid.Row="0" Grid.Column="0"                            
+                           MaxLines="2"
+/>
+                    </Grid>
+                       
+                    
+                   
+                </Grid>
+
+                <Grid Grid.Row="1" Grid.Column="0" Margin="20,0,10,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Label                    
+                    FontAttributes="Bold"
+                    TextColor="Black"
+                    FontSize="14"
+                    Text="Meter No:"
+                    Grid.Row="0" Grid.Column="0"
+                    />
+                    <Label FontAttributes="Bold"
+TextColor="Black"
+FontSize="16"
+Text="12-5654356676"
+Grid.Row="1" Grid.Column="0"
+/>
+                </Grid>
+                <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,20,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Image Source="menuicons/address.png"
+                               Margin="0,10,5,0"
+                               VerticalOptions="Start"
+                           HeightRequest="25"
+                           WidthRequest="25"
+                           Grid.Row="0" Grid.Column="0"       Grid.RowSpan="2"                 
+                        />
+                    <Grid Grid.Row="0" Grid.Column="1" >
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Label Margin="5,5,0,0"
+                           FontAttributes="Bold"
+TextColor="Black"
+FontSize="14"
+Text="Juan dela Cruz234 45 Castillo III Madr asd add as jk hjhjj hjhj adsd asdasda asasd"                                                      
+Grid.Row="0" Grid.Column="0"                            
+                           MaxLines="3"
+/>
+                    </Grid>
+
+
+
+                </Grid>
+                <BoxView BackgroundColor="Transparent"
+                                            Grid.Row="2" 
+                         HeightRequest="20"
+                           
+Grid.Column="0" Grid.ColumnSpan="2"
+                         />
+
+            </Grid>-->
+
+
+            <!--<AbsoluteLayout VerticalOptions="Center" 
+                    Grid.Row="0"
+                                Grid.Column="0">
+                    <Label VerticalOptions="Center"
+                           HorizontalOptions="Start"
+                           FontAttributes="Bold"
+                           TextColor="Black"
+                           FontSize="16"
+                           Text="Account No:"
+                           AbsoluteLayout.LayoutBounds="20,10,100,20"
+                           />
+                    <Label VerticalOptions="Center"
+       HorizontalOptions="Start"
+       TextColor="Black"
+       FontSize="18"
+       Text="12-5654356676"
+       AbsoluteLayout.LayoutBounds="20,30,110,20"
+       />
+                    <Label VerticalOptions="Center"
+                    HorizontalOptions="Start"
+                    FontAttributes="Bold"
+                    TextColor="Black"
+                    FontSize="16"
+                    Text="Meter No:"
+                    AbsoluteLayout.LayoutBounds="20,60,100,20"
+                    />
+                    <Label VerticalOptions="Center"
+HorizontalOptions="Start"
+TextColor="Black"
+FontSize="16"
+Text="12-565435656"
+AbsoluteLayout.LayoutBounds="20,80,110,20"
+/>
+                    <Image Source="menuicons/person.png"
+                           HeightRequest="25"
+                           WidthRequest="25"
+                           AbsoluteLayout.LayoutBounds="140,10"                           
+                        />
+                  
+                    <Label VerticalOptions="Center"
+                           FontAttributes="Bold"
+HorizontalOptions="Start"
+TextColor="Black"
+FontSize="16"
+Text="Juan dela Cruz234 45 Castillo III Madr"                                                      
+AbsoluteLayout.LayoutBounds="175,0,140,50"
+                           LineBreakMode="WordWrap"
+                           MaxLines="2"
+/>
+                    <Image Source="menuicons/address.png"
+        HeightRequest="25"
+        WidthRequest="25"
+        AbsoluteLayout.LayoutBounds="140,60"                           
+     />
+                   
+                    <Label VerticalOptions="Center"
+                           FontAttributes="Bold"
+HorizontalOptions="Start"
+TextColor="Black"
+FontSize="14"
+Text="Juan dela Cruz Castillo III 345 345 345345 43543 3534 345 345345"                           
+                           LineBreakMode="WordWrap"
+AbsoluteLayout.LayoutBounds="175,50,170,60"                           
+                           MaxLines="3"
+/>
+                    <Frame AbsoluteLayout.LayoutBounds="340,5,30,30"
+                        BackgroundColor="Green"
+                           HeightRequest="30"
+                           WidthRequest="30"
+                           CornerRadius="75"
+                           Margin="10"/>
+                    <Label FontAttributes="Bold"
+                           TextColor="White"
+                           Text="B"
+                           FontSize="18"
+                           AbsoluteLayout.LayoutBounds="349,7,30,30"
+                        />
+                </AbsoluteLayout>-->
+               
+
+            <Grid Grid.Row="4"
+                        Grid.Column="0">
+                <!--HeightRequest="220"-->
+                <ScrollView HeightRequest="620" x:Name="gridContainerU" ZIndex="2" Scrolled="OnGridScrolledU">
+                        <StackLayout x:Name="gridBoxU">
+                            <Grid x:Name="gridMainU"                              
+                                  VerticalOptions="Start">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />                                   
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                            </Grid>
+                        </StackLayout>    
+                    </ScrollView>
+                 
+                <ScrollView HeightRequest="450" x:Name="gridContainerB" ZIndex="2" Scrolled="OnGridScrolledB" IsVisible="False">
+                        <StackLayout x:Name="gridBoxB">
+                        <Grid x:Name="gridMainB"                                
+                  VerticalOptions="Start"
+                >
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />                                   
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                            </Grid>
+
+                        </StackLayout>
+
+                    </ScrollView>
+                
+               
+               
+
+            </Grid>
+          
+
+        </Grid>
+            
+            
+        </AbsoluteLayout>
+    <!--</ScrollView>-->
+</ContentPage>

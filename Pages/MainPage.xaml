@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.MainPage"
+             Title="MainPage">
+    <ScrollView>
+        <VerticalStackLayout                  
+            VerticalOptions="Start">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+              
+                <BoxView Color="#3269cd"
+                     HorizontalOptions="FillAndExpand"
+                     VerticalOptions="FillAndExpand"
+                     HeightRequest="70" 
+                     Grid.Row="0"
+                     Grid.Column="0"/>
+
+
+                <AbsoluteLayout Grid.Row="0"
+                            Grid.Column="0">
+                    <Image Source="menuicons/home.png"                      
+                         AbsoluteLayout.LayoutBounds="10,10"
+                         HeightRequest="50" 
+                         WidthRequest="50" >
+                    </Image>
+                    <Label 
+                        Text="Home"
+                        TextColor="White"
+                        FontSize="18"
+                        AbsoluteLayout.LayoutBounds="70,20"
+                        VerticalOptions="Start"
+                        HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+                <Grid Grid.Row="2"
+                     Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <AbsoluteLayout Grid.Row="0"
+                                    Grid.Column="1">
+                        <Rectangle Fill="#3269cd"   
+                             WidthRequest="200"
+                             HeightRequest="40"
+                             AbsoluteLayout.LayoutBounds="10,10"
+                             RadiusX="0"
+                             RadiusY="10" />
+                        <Label TextColor="White"             
+                             Text="User Information"
+                             AbsoluteLayout.LayoutBounds="20,15"                            
+                             Margin="10,5,0,0"                 
+                             FontSize="14" />
+                    </AbsoluteLayout>
+                      
+
+                    <Label              
+                         Text="Name: Juan dela Cruz"
+                         Margin="10,5,0,0"                 
+                         FontSize="14"
+                         HorizontalOptions="Start"
+                         Grid.Row="1"
+                         Grid.Column="0" />
+                    <Label          
+                          Text="Position: Collector"
+                          Margin="10,5,0,0"                 
+                          FontSize="14"
+                          HorizontalOptions="Start"
+                          Grid.Row="1"
+                          Grid.Column="1" />
+                    <Label           
+                          Text="Date: July 1, 2024"
+                         Margin="10,5,0,0"            
+                          FontSize="14"
+                          HorizontalOptions="Start"
+                          Grid.Row="2"
+                          Grid.Column="0" />
+                    <Label            
+                          Text="Time: 08:00 AM"
+                         Margin="10,5,0,0"            
+                          FontSize="14"
+                          HorizontalOptions="Start"
+                          Grid.Row="2"
+                          Grid.Column="1" />
+
+                </Grid>
+
+                
+
+                <Rectangle Fill="#3269cd"                     
+                    HeightRequest="40"
+                    Margin="30,30,30,0"
+                    RadiusX="0"
+                    RadiusY="10"
+                    Grid.Row="3"
+                    Grid.Column="0"/>
+
+                <Label Grid.Row="3"
+                    Grid.Column="0"
+                    Text="Main Menu"
+                    TextColor="White"
+                    FontSize="18"
+                    Margin="0,37,0,0"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Center"/>
+
+                <Rectangle Fill="Gray"     
+                      WidthRequest="300"
+                      HeightRequest="90"                      
+                      Margin="25,30,5,5"
+                      RadiusX="10"
+                      RadiusY="10"
+                      Grid.Row="4"
+                      Grid.Column="0" />
+
+                <Rectangle Fill="white"                      
+                      Margin="20,20,5,5"
+                      WidthRequest="300"
+                           HeightRequest="90"                      
+                      Stroke="Gray"
+                      StrokeThickness="1"
+                      RadiusX="10"
+                      RadiusY="10"
+                      Grid.Row="4"
+                      Grid.Column="0" />
+                <AbsoluteLayout Grid.Row="4" 
+                         VerticalOptions="Center"
+                         Grid.Column="0">
+                    <Image Source="menuicons/water_reading1.png"                
+                          AbsoluteLayout.LayoutBounds="100,10"
+                          HeightRequest="75" 
+                          WidthRequest="75" >
+                        
+                    </Image>
+                    <Label 
+                         Text="Meter Reading"
+                         TextColor="Black"
+                         FontSize="18"
+                         AbsoluteLayout.LayoutBounds="190,35"
+                         VerticalOptions="Start"
+                         HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+
+                <Rectangle Fill="Gray"     
+                      WidthRequest="300"
+                      HeightRequest="90"                      
+                      Margin="25,10,5,5"
+                      RadiusX="10"
+                      RadiusY="10"
+                      Grid.Row="5"
+                      Grid.Column="0" />
+
+                <Rectangle Fill="white"      
+                      Margin="20,0,5,5"
+                      WidthRequest="300"
+                      HeightRequest="90"      
+                      Stroke="Gray"
+                      StrokeThickness="1"
+                      RadiusX="10"
+                      RadiusY="10"
+                      Grid.Row="5"
+                      Grid.Column="0" />
+                <AbsoluteLayout Grid.Row="5" 
+                         VerticalOptions="Center"
+                         Grid.Column="0">
+                    <Image Source="menuicons/collection.png"                
+                          AbsoluteLayout.LayoutBounds="100,0"
+                          HeightRequest="75" 
+                          WidthRequest="75" >
+                    </Image>
+                    <Label 
+                         Text="Collection"
+                         TextColor="Black"
+                         FontSize="18"
+                         AbsoluteLayout.LayoutBounds="190,25"
+                         VerticalOptions="Start"
+                         HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+
+                <Rectangle Fill="Gray"     
+                       WidthRequest="300"
+                       HeightRequest="90"                      
+                       Margin="25,10,5,5"
+                       RadiusX="10"
+                       RadiusY="10"
+                       Grid.Row="6"
+                       Grid.Column="0" />
+
+                <Rectangle Fill="white"      
+                       Margin="20,0,5,5"
+                       WidthRequest="300"
+                       HeightRequest="90"      
+                       Stroke="Gray"
+                       StrokeThickness="1"
+                       RadiusX="10"
+                       RadiusY="10"
+                       Grid.Row="6"
+                       Grid.Column="0" />
+                <AbsoluteLayout Grid.Row="6" 
+                      VerticalOptions="Center"
+                      Grid.Column="0">
+                    <Image Source="menuicons/reports.png"                
+                       AbsoluteLayout.LayoutBounds="100,0"
+                       HeightRequest="75" 
+                       WidthRequest="75" >
+                      </Image>
+                    <Label 
+                      Text="Reports"
+                      TextColor="Black"
+                      FontSize="18"
+                      AbsoluteLayout.LayoutBounds="190,25"
+                      VerticalOptions="Start"
+                      HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+
+                <Rectangle Fill="Gray"     
+                       WidthRequest="300"
+                       HeightRequest="90"                      
+                       Margin="25,10,5,5"
+                       RadiusX="10"
+                       RadiusY="10"
+                       Grid.Row="7"
+                       Grid.Column="0" />
+
+                <Rectangle Fill="white"      
+                       Margin="20,0,5,5"
+                       WidthRequest="300"
+                       HeightRequest="90"      
+                       Stroke="Gray"
+                       StrokeThickness="1"
+                       RadiusX="10"
+                       RadiusY="10"
+                       Grid.Row="7"
+                       Grid.Column="0" />
+                <AbsoluteLayout Grid.Row="7" 
+                      VerticalOptions="Center"
+                      Grid.Column="0">
+                    <Image Source="menuicons/appconfig.png"                
+                       AbsoluteLayout.LayoutBounds="100,0"
+                       HeightRequest="75" 
+                       WidthRequest="75" >
+                    </Image>
+                    <Label 
+                      Text="Settings"
+                      TextColor="Black"
+                      FontSize="18"
+                      AbsoluteLayout.LayoutBounds="190,25"
+                      VerticalOptions="Start"
+                      HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+
+                <Label Grid.Row="8"
+                       Grid.Column="0"
+                   Text="Copyright 2024"
+                   TextColor="Black"
+                   Margin="12"
+                   FontSize="10"
+                   AbsoluteLayout.LayoutBounds="190,25"
+                   VerticalOptions="Start"
+                   HorizontalOptions="Center"/>
+
+               
+            </Grid>
+
+          
+
+        </VerticalStackLayout>
+    </ScrollView>
+   
+
+</ContentPage>

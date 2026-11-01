@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.ImportData"
+             NavigationPage.HasNavigationBar="False"
+             Title="ImportData">
+    <ScrollView>
+        <VerticalStackLayout>
+            <Grid x:Name="dataGrid">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--IP Address-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Folder-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--User-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Pass-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Button-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Row 1-->
+                <BoxView Color="#3269cd"
+                     HorizontalOptions="FillAndExpand"
+                     VerticalOptions="FillAndExpand"
+                     HeightRequest="70" 
+                     Grid.Row="0"
+                     Grid.Column="0"/>
+
+                <AbsoluteLayout Grid.Row="0"
+                    Grid.Column="0">
+                    <Image Source="menuicons/prev.png"                      
+                         AbsoluteLayout.LayoutBounds="10,10"
+                         HeightRequest="50" 
+                         WidthRequest="50" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Label 
+                    Text="Get Data"
+                    TextColor="White"
+                    FontSize="18"
+                    AbsoluteLayout.LayoutBounds="70,20"
+                    VerticalOptions="Start"
+                    HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+
+                <Grid Grid.Row="1" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <AbsoluteLayout Grid.Row="0"
+                        Grid.Column="1">
+                        <Rectangle Fill="Gray"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="15,15"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Rectangle Fill="#3269cd"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="10,10"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Label TextColor="White"             
+                            Text="Connection Details"
+                            AbsoluteLayout.LayoutBounds="20,15"                            
+                            Margin="10,5,0,0"                 
+                            FontSize="14" />
+                    </AbsoluteLayout>
+                </Grid>
+
+                <AbsoluteLayout Grid.Row="2"
+                    Grid.Column="0">
+                    <Label  
+                        Text="Status:"
+                        Margin="5,5,0,0"
+                        AbsoluteLayout.LayoutBounds="10,10"
+                        FontSize="14"
+                        VerticalOptions="Start"
+                        HorizontalOptions="Start"/>                    
+                    <Button x:Name="btnConnect" 
+                        Text="Connect"
+                        HeightRequest="40"
+                        FontSize="14"
+                        Clicked="OnClickConnect"                        
+                        AbsoluteLayout.LayoutBounds="60,0"
+                        BackgroundColor="Red"
+                        Margin="5"
+                        VerticalOptions="Start"
+                        HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+
+                <AbsoluteLayout Grid.Row="3"
+                    Grid.Column="0">
+                    <Label  
+                        Text="Notice:"
+                        Margin="5,5,0,0"
+                        AbsoluteLayout.LayoutBounds="10,10"
+                        FontSize="14"
+                        VerticalOptions="Start"
+                        HorizontalOptions="Start"/>
+                    <Label x:Name="lblNotice"
+                        Text="No connection available."
+                        LineBreakMode ="WordWrap"
+                        MaxLines="2"                        
+                        WidthRequest="300"
+                        HeightRequest="50"
+                        Margin="5,5,0,0"
+                        AbsoluteLayout.LayoutBounds="70,10"
+                        FontSize="14"
+                        VerticalOptions="Start"
+                        HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+
+                <Grid Grid.Row="4" Grid.Column="0"
+                    Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <AbsoluteLayout Grid.Row="0"
+                        Grid.Column="1">
+                        <Rectangle Fill="Gray"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="15,15"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Rectangle Fill="#3269cd"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="10,10"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Label TextColor="White"             
+                            Text="Files Available"
+                            AbsoluteLayout.LayoutBounds="20,15"                            
+                            Margin="10,5,0,0"                 
+                            FontSize="14" />
+                    </AbsoluteLayout>
+                </Grid>
+
+                <Label x:Name="lblNoData" 
+                    Grid.Row="5"
+                    Grid.Column="0"
+                    Margin="20"
+                    HorizontalOptions="Center"             
+                    Text="No files to display"
+                    FontSize="14" />
+
+                <ListView x:Name="FilesListView" 
+                    Grid.Row="5"
+                    Grid.Column="0" />
+
+                <Grid Grid.Row="6" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <AbsoluteLayout Grid.Row="0" Grid.Column="1"
+                        Margin="0,10,0,20">
+                        <Rectangle Fill="Gray"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="15,15"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Rectangle Fill="#3269cd"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="10,10"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Label TextColor="White"             
+                            Text="Get Files"
+                            AbsoluteLayout.LayoutBounds="20,15"                            
+                            Margin="10,5,0,0"                 
+                            FontSize="14" />
+                    </AbsoluteLayout>
+
+                    <Button x:Name="btnConsumers" 
+                         Text="Consumer File"
+                         Clicked="OnGetConsumer"
+                         WidthRequest="150"
+                         HorizontalOptions="Center"
+                         BackgroundColor="#3269cd"
+                         Margin="5"
+                         Grid.Row="1"
+                         Grid.Column="0" />
+
+                    <Button x:Name="btnRates" 
+                         Text="Billing Rates File"
+                         Clicked="OnImportFile"
+                         WidthRequest="150"
+                         HorizontalOptions="Center"
+                         BackgroundColor="#3269cd"
+                         Margin="5"
+                         Grid.Row="2"
+                         Grid.Column="0" />
+
+                    <Button x:Name="btnRemarks" 
+                         Text="Remarks File"
+                         Clicked="OnGetRemarks"
+                         WidthRequest="150"
+                         HorizontalOptions="Center"
+                         BackgroundColor="#3269cd"
+                         Margin="5"
+                         Grid.Row="1"
+                         Grid.Column="1" />
+
+                    <Button x:Name="btnUsers" 
+                         Text="Users File"
+                         Clicked="OnImportFile"
+                         WidthRequest="150"
+                         HorizontalOptions="Center"
+                         BackgroundColor="#3269cd"
+                         Margin="5"
+                         Grid.Row="2"
+                         Grid.Column="1" />
+
+                    <!--<AbsoluteLayout Grid.Row="0"
+                        Grid.Column="1">
+                        <Rectangle Fill="#3269cd"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="10,10"
+                            RadiusX="0"
+                            RadiusY="10" />
+                        <Label TextColor="White"             
+                            Text="Connection Details"
+                            AbsoluteLayout.LayoutBounds="20,15"                            
+                            Margin="10,5,0,0"                 
+                            FontSize="14" />
+                    </AbsoluteLayout>-->
+                </Grid>
+
+                <Button x:Name="btnCopy" 
+                    Text="Import Selected File"
+                    Clicked="OnImportFile"
+                    WidthRequest="200"
+                    HorizontalOptions="Center"
+                    BackgroundColor="#3269cd"
+                    Margin="5"
+                    Grid.Row="7"
+                    Grid.Column="0" />
+
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,1010 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.Reading"
+             NavigationPage.HasNavigationBar="False"
+             Title="Reading">
+    
+        <AbsoluteLayout>
+            <Grid x:Name="gridNumericPad"  
+                    IsVisible="False"                        
+                      AbsoluteLayout.LayoutBounds="0.5,0.2,1,1"
+               AbsoluteLayout.LayoutFlags="SizeProportional"
+                ZIndex="3">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Frame x:Name="frmNumericLower" 
+                        BackgroundColor="#3269cd"
+                                         Grid.Row="0" Grid.Column="0"
+    Margin="10"
+    CornerRadius="10"   >
+
+                </Frame>
+                <Frame x:Name="frmNumericUpper"  
+                        BackgroundColor="White"
+                        Grid.Row="0" Grid.Column="0"
+                        Margin="20"
+                        CornerRadius="10" />
+                <!--<StackLayout x:Name="slNumeric"                         
+                        ZIndex="3" >-->
+
+                <Grid x:Name="gridButtons" Grid.Row="0" Grid.Column="0" Margin="25">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Frame x:Name="frmNumeric" 
+                                Grid.Row="0" Grid.Column="0" 
+                                Grid.ColumnSpan="4"
+                                BackgroundColor="LightGray"                       
+                                HeightRequest="60" 
+                                Margin="0,0,0,5"
+                    />
+                    <Entry x:Name="txtCustomEntry" 
+                                Grid.Row="0"
+                               Grid.ColumnSpan="4"
+                               Grid.Column="0"
+                            Text="0.00"                                                      
+                               FontSize="32"
+                               FontAttributes="Bold"
+                               HeightRequest="55"                                 
+                               HorizontalTextAlignment="End"
+                               IsReadOnly="True"
+                                   
+                               
+                            />
+
+                    <!--<Label Grid.Row="0"
+                               Grid.ColumnSpan="4"
+                               Grid.Column="3"
+                               Text="123453434.00"
+                               FontSize="40"
+                               FontAttributes="Bold"
+                               HeightRequest="55"
+                               WidthRequest="300"                               
+                               Margin="150,20,0,0"                               
+                            />-->
+
+                    <Button x:Name="btnNumber7"
+                               
+                            Grid.Row="1"
+     Grid.Column="0"             
+                                Clicked="OnClickB7"
+                                BackgroundColor="LightSlateGray"    
+                                Text="7"
+                                FontAttributes="Bold"
+                                FontSize="32"
+                                    Margin="5"
+HeightRequest="70"
+WidthRequest="70"  />
+
+                <Button   x:Name="btnNumber8"                             
+                            Grid.Row="1"
+     Grid.Column="1"                       
+                                Clicked="OnClickB8"
+                                BackgroundColor="LightSlateGray"    
+                                Text="8"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+                <Button      x:Name="btnNumber9"                          
+                            Grid.Row="1"
+     Grid.Column="2"                                   
+                                Clicked="OnClickB9"
+                                BackgroundColor="LightSlateGray"    
+                                Text="9"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+                <Button  x:Name="btnClear"                               
+                            Grid.Row="1"
+     Grid.Column="3"                              
+                                Clicked="OnClickClear"
+                                BackgroundColor="LightSlateGray"    
+                                Text="C"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+
+
+
+                <Button x:Name="btnNumber4"
+                               
+                            Grid.Row="2"
+     Grid.Column="0"             
+                                Clicked="OnClickB4"
+                                BackgroundColor="LightSlateGray"    
+                                Text="4"
+                                FontAttributes="Bold"
+                                FontSize="32"
+                                Margin="5"
+HeightRequest="70"
+WidthRequest="70"  />
+
+                <Button   x:Name="btnNumber5"                             
+                            Grid.Row="2"
+     Grid.Column="1"                                      
+                                Clicked="OnClickB5"
+                                BackgroundColor="LightSlateGray"    
+                                Text="5"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+                <Button  x:Name="btnNumber6"                              
+                            Grid.Row="2"
+     Grid.Column="2"                    
+                                Clicked="OnClickB6"
+                                BackgroundColor="LightSlateGray"    
+                                Text="6"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+                <Button  x:Name="btnDel"                              
+                            Grid.Row="2"
+     Grid.Column="3"                                  
+                                Clicked="OnClickBackSpace"
+                                BackgroundColor="LightSlateGray"    
+                                Text="⌫"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+
+
+                <Button x:Name="btnNumber1"
+                               
+                            Grid.Row="3"
+     Grid.Column="0"             
+                                Clicked="OnClickB1"
+                                BackgroundColor="LightSlateGray"    
+                                Text="1"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+
+                <Button        x:Name="btnNumber2"                        
+                            Grid.Row="3"
+     Grid.Column="1"                                      
+                                Clicked="OnClickB2"
+                                BackgroundColor="LightSlateGray"    
+                                Text="2"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+                <Button    x:Name="btnNumber3"                            
+                            Grid.Row="3"
+     Grid.Column="2"                    
+                                Clicked="OnClickB3"
+                                BackgroundColor="LightSlateGray"    
+                                Text="3"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+                    <Button x:Name="btnok"                                
+                            Grid.Row="3"
+     Grid.Column="3"                                     
+                                Clicked="OnClickOk"
+                                BackgroundColor="LightSlateGray"    
+                                Text="OK"
+                                FontAttributes="Bold"
+                                FontSize="24"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+
+
+
+
+                <Button   x:Name="btnNumber0"
+                               
+                            Grid.Row="4"
+     Grid.Column="0"             
+                                Clicked="OnClickB0"
+                                BackgroundColor="LightSlateGray"    
+                                Text="0"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+
+                <Button      x:Name="btnPeriod"                          
+                            Grid.Row="4"
+     Grid.Column="1"                                   
+                                Clicked="OnClickPeriod"
+                                BackgroundColor="LightSlateGray"    
+                                Text="."
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+                <Button     x:Name="btnDash"                           
+                            Grid.Row="4"
+     Grid.Column="2"                                   
+                                Clicked="OnClickDash"
+                                BackgroundColor="LightSlateGray"    
+                                Text="-"
+                                FontAttributes="Bold"
+                                FontSize="32"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+
+                <Button    x:Name="btnCancel"                            
+                            Grid.Row="4"
+     Grid.Column="3"                                     
+                                Clicked="OnClickCancel"
+                                BackgroundColor="LightSlateGray"    
+                                Text="Back"
+                                FontAttributes="Bold"
+                                FontSize="12"
+HeightRequest="70"
+Margin="5"
+WidthRequest="70"  />
+
+
+
+
+                </Grid>
+                <!--</StackLayout>-->
+
+            </Grid>
+        <ScrollView ZIndex="1" AbsoluteLayout.LayoutBounds="0.5,0,1,1"
+                 AbsoluteLayout.LayoutFlags="SizeProportional">
+            <Grid x:Name="dataGrid"  >
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--IP Address-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Folder-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--User-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Pass-->
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <!--Button-->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Row 1-->
+                <!-- Row 1-->
+                <!--<BoxView Color="#3269cd"
+                    HorizontalOptions="FillAndExpand"
+                    VerticalOptions="FillAndExpand"
+                    HeightRequest="70" 
+                    Grid.Row="0"
+                    Grid.Column="0"/>
+                <Grid Margin="10,10,10,10" Grid.Row="0" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <HorizontalStackLayout Grid.Row="0" Grid.Column="0" >
+                        <Image Source="menuicons/prev.png"  
+    HeightRequest="50" 
+    WidthRequest="50" >
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapImgBack" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                        <Label Margin="5,0,0,0"
+Text="Meter Reading"
+TextColor="White"
+FontSize="18"    
+ VerticalOptions="Center"
+HorizontalOptions="Start"/>
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Grid.Row="0" Grid.Column="1" HorizontalOptions="End" >
+                        <CheckBox x:Name="chkPrintOn" 
+                    
+                          CheckedChanged="OnCheckPrint"
+                          Color="White"
+IsChecked="false"    
+/>
+                        <Label  Text="Auto Print"
+                       
+                        TextColor="White"
+VerticalOptions="Center"
+FontSize="14"                        
+/>
+                    </HorizontalStackLayout>
+
+                </Grid>-->
+
+                <BoxView Color="#3269cd"
+                    HorizontalOptions="FillAndExpand"
+                    VerticalOptions="FillAndExpand"
+                    HeightRequest="50" 
+                    Grid.Row="0"
+                    Grid.Column="0"/>
+
+                <Grid  Grid.Row="0" Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                   
+                    <!--<HorizontalStackLayout Grid.Row="0" Grid.Column="0" HorizontalOptions="Start" >
+                        <CheckBox x:Name="chkPrintOn" 
+                    
+                          CheckedChanged="OnCheckPrint"
+                          Color="White"
+IsChecked="false"    
+/>
+                        <Label  Text="Auto Print"
+                       
+                        TextColor="White"
+VerticalOptions="Center"
+FontSize="14"                        
+/>
+                    </HorizontalStackLayout>-->
+                    <Label x:Name="lblSummaryCount" VerticalOptions="Center"
+                           TextColor="White"
+HorizontalOptions="Start"
+   Text="0 / 0"
+   FontSize="22"
+   FontAttributes="Bold"
+   Margin="10,0,20,0"
+   Grid.Row="0"
+    Grid.Column="0"   
+   />
+                    <Image Source="menuicons/options1.png"  Grid.Row="0" Grid.Column="1" HorizontalOptions="End" x:Name="imgoption"
+Margin="0,5,10,0"
+                           HeightRequest="40" 
+WidthRequest="40" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapShowOPtions" />
+                        </Image.GestureRecognizers>
+                    </Image>
+
+                </Grid>
+                <Grid x:Name="gridOptions"  
+                    Grid.Row="1" Grid.Column="0" IsVisible="False"  >
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Picker x:Name="pickerBillingFilter" 
+SelectedIndexChanged="OnConsumerTypeChanged"
+HorizontalOptions="Start"    
+Grid.Row="1"
+Grid.Column="0"                    
+Margin="10,0,10,0"
+Title="Choose Consumer Status" />
+                    <HorizontalStackLayout Grid.Row="0" Grid.Column="1" HorizontalOptions="End" >
+                        <CheckBox x:Name="chkPrintOn" 
+                    
+                          CheckedChanged="OnCheckPrint"
+                          Color="Black"
+IsChecked="false"    
+/>
+                        <Label  Text="Auto Print"
+                       Margin="0,0,10,0"
+                        TextColor="Black"
+VerticalOptions="Center"
+FontSize="14"                        
+/>
+                    </HorizontalStackLayout>
+
+                </Grid>
+
+                
+                
+                <!--<Label x:Name="lblSummaryCount" IsVisible="False"
+    HorizontalOptions="End"
+       Text="0 / 0"
+       FontSize="22"
+       FontAttributes="Bold"
+       Margin="0,10,20,0"
+       Grid.Row="1"
+        Grid.Column="0"   
+       />-->
+
+                <Grid x:Name="gridDetails"
+                        Grid.Row="2" Grid.Column="0"
+                        IsVisible="True"                                     
+                        >
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />                      
+                    </Grid.ColumnDefinitions>
+                    <BoxView x:Name="boxConsumerType" 
+                            Color="#3269cd"                            
+                            CornerRadius="10"                            
+                            IsVisible="true"
+                            Grid.Row="0" Grid.Column="0" Grid.RowSpan="5"                            
+                             />
+                    <BoxView x:Name="boxWhite" 
+                            Color="White"                            
+                            CornerRadius="10"
+                            IsVisible="true"
+                            Margin="10,30,10,10"
+                            Grid.Row="0" Grid.Column="0" Grid.RowSpan="4"
+                             />
+                    
+                    <Label x:Name="lblRecordNo" 
+                        Grid.Row="0" Grid.Column="0"     
+                           Margin="10,5,0,0"
+FontAttributes="Bold"
+Text="#123 of 123"
+TextColor="White"                               
+FontSize="14"
+     />
+                    <Label x:Name="lblaccountno" 
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        FontAttributes="Bold"
+                           Margin="0,5,0,0"
+                        Text="Account No:"
+                        TextColor="White"
+                        FontSize="16"                                                  
+                        HorizontalOptions="Center"/>
+                    <Grid Grid.Row="1" Grid.Column="0" Margin="20,0,20,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>                       
+                        
+                        <Image x:Name="btnStartRecord" 
+                            HorizontalOptions="Start"
+                            Grid.Row="0"
+                            Grid.Column="0"                            
+                            Source="menuicons/startrecord.png" 
+                            HeightRequest="30" 
+                            WidthRequest="30" >
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnFirstRecordTapped" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                        <Image x:Name="btnPrevRecord" 
+                            Grid.Row="0"
+                               HorizontalOptions="Start"
+    Grid.Column="1"   
+    Source="menuicons/prev.png" 
+    HeightRequest="30" 
+    WidthRequest="30" >
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnPrevRecordTapped" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                        <Entry x:Name="txtConsumerAcctNo"
+                        Grid.Row="0"
+                               IsReadOnly="True"
+    Grid.Column="2"                             
+    Placeholder="00-000000"    
+    FontSize="18"                                                                                 
+    HorizontalOptions="Center">
+                            <Entry.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnAcctNoTapped" />
+                            </Entry.GestureRecognizers>
+                        </Entry>
+                        <Image x:Name="btnNextRecord" 
+                            Grid.Row="0"
+                               HorizontalOptions="End"
+Grid.Column="3"
+Source="menuicons/next.png" 
+HeightRequest="30" 
+WidthRequest="30" >
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnNextRecordTapped" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                     
+                        <Image x:Name="btnLastRecord" 
+                            Grid.Row="0"
+                               HorizontalOptions="End"
+Grid.Column="4"
+Source="menuicons/endrecord.png" 
+HeightRequest="30" 
+WidthRequest="30" >
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnLastRecordTapped" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                    </Grid>
+                    <!--<ScrollView x:Name="scrollDetails"                         
+                            Grid.Row="2" Grid.Column="0"                            
+                            HeightRequest="330">-->
+                        <Grid x:Name="gridConsumerDetails" Grid.Row="2" Grid.Column="0"    
+                            Padding="0,0,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Label Grid.Row="1" x:Name="lblName"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Name:"
+                TextColor="Black"
+                FontSize="14"
+                Margin="10,5,10,0"                                
+                HorizontalOptions="End"/>
+                            <Label x:Name="txtConsumerName"
+                                    Grid.Row="1"
+                Grid.Column="1"     
+                Text="Juan dela Cruz"
+                         
+                MaxLines="2"
+                Margin="10,5,10,0"          
+                FontSize="14"                                                                                 
+                HorizontalOptions="Fill"/>
+                            <Label Grid.Row="2"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Meter No:"
+                TextColor="Black"
+                FontSize="14"
+                Margin="10"                                
+                HorizontalOptions="End"/>
+                            <BoxView Color="#3269cd"
+                                 Grid.Row="2"
+            Grid.Column="1"
+Margin="0,3,0,0"
+CornerRadius="5"       
+IsVisible="true"
+HorizontalOptions="FillAndExpand"
+VerticalOptions="FillAndExpand" >
+
+                            </BoxView>
+                            <Label x:Name="txtConsumerMeterNo"
+                                   TextColor="White"
+                                    Grid.Row="2"
+                Grid.Column="1"     
+                Text="4567890"
+                Margin="10"
+                FontSize="16"                
+                HorizontalOptions="Fill">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnMeterNoTapped" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Label x:Name="lbladdress" 
+                                Grid.Row="3"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Address:"
+                TextColor="Black"
+                FontSize="14"
+                Margin="10"                                
+                HorizontalOptions="End"/>
+                            <Label x:Name="txtConsumerAddress" 
+                                    Grid.Row="3"
+                Grid.Column="1"     
+                Text="#23 Mang David Rd. Baesa, Q.C."                
+                MaxLines="4"
+                Margin="10,5,10,0"
+                FontSize="14"                                 
+                HorizontalOptions="Fill"/>
+
+                            <Label Grid.Row="4" x:Name="lblpresreading"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Pres. Reading:"
+                TextColor="Black"
+                FontSize="14"
+                Margin="10"                                
+                HorizontalOptions="End"/>
+                            <BoxView Color="#3269cd"
+                                     Grid.Row="4"
+                Grid.Column="1"
+    Margin="0,3,0,0"
+    CornerRadius="5"     
+    
+    HorizontalOptions="FillAndExpand"
+    VerticalOptions="FillAndExpand" >
+
+                            </BoxView>
+                            <!--IsReadOnly="True"
+Keyboard="Numeric"-->
+                            <Label x:Name="txtConsumerPresReading"                                    
+                                Grid.Row="4"
+                Grid.Column="1"     
+                Text="0"
+                HorizontalTextAlignment="End"
+                                   VerticalOptions="Center"
+                                   TextColor="White"
+                Margin="10,0,13,0"
+                FontSize="18" 
+                                   
+                HorizontalOptions="Fill" >
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnPresReadingTapped" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                          
+                            <Grid  Grid.Row="5"
+Grid.Column="0" Grid.ColumnSpan="2"     >
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" /> 
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="65" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Label Grid.Row="0" x:Name="lblprevreading"
+Grid.Column="0"
+FontAttributes="Bold"
+Text="Prev. Reading:"
+TextColor="Black"
+FontSize="14"
+Margin="15,5,0,0"                                
+HorizontalOptions="End"/>
+                                <Label x:Name="txtConsumerPrevReading"
+                    Grid.Row="0"
+Grid.Column="1"     
+Text="0"
+HorizontalTextAlignment="End"
+Margin="10,5,5,0"          
+FontSize="16"                
+HorizontalOptions="Fill"/>
+                                <Label x:Name="lblusage"
+                    Grid.Row="0" 
+Grid.Column="2"
+FontAttributes="Bold"
+Text="Usage:"
+TextColor="Black"
+FontSize="14"
+Margin="10,5,0,0"                                
+HorizontalOptions="Start"/>
+                                <Label x:Name="txtConsumerUsage" 
+                    Grid.Row="0"
+Grid.Column="3"     
+Text="0"
+HorizontalTextAlignment="End"
+Margin="10,5,13,0"          
+FontSize="16"                                                 
+HorizontalOptions="Fill"/>
+                            </Grid>
+                            <!--<Label Grid.Row="5"
+Grid.Column="0"
+FontAttributes="Bold"
+Text="Prev. Reading:"
+TextColor="Black"
+FontSize="14"
+Margin="10,10,10,0"                                
+HorizontalOptions="End"/>
+                            <Label x:Name="txtConsumerPrevReading"
+                                    Grid.Row="5"
+                Grid.Column="1"     
+                Text="0"
+                HorizontalTextAlignment="End"
+                Margin="10,10,13,0"          
+                FontSize="16"                
+                HorizontalOptions="Fill"/>-->
+                            <!--<Label 
+                                    Grid.Row="6"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Usage:"
+                TextColor="Black"
+                FontSize="14"
+                Margin="10,0,10,0"                                
+                HorizontalOptions="End"/>
+                            <Label x:Name="txtConsumerUsage" 
+                                    Grid.Row="6"
+                Grid.Column="1"     
+                Text="0"
+                HorizontalTextAlignment="End"
+                Margin="10,0,13,0"          
+                FontSize="16"                                                 
+                HorizontalOptions="Fill"/>-->
+                           
+                            <Label 
+                                    Grid.Row="7" x:Name="lblcurrentbill"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Current Bill:"
+                TextColor="Black"                
+                FontSize="14"
+                Margin="10,5,10,0"                                
+                HorizontalOptions="End"/>
+                            <Label x:Name="txtConsumerCurrentBill" 
+                                    Grid.Row="7"
+                Grid.Column="1"     
+                Text="0.00"
+                                   FontAttributes="Bold"
+                HorizontalTextAlignment="End"
+                Margin="10,0,13,0"                 
+                  FontSize="16"
+                                            
+                HorizontalOptions="Fill"/>
+                            <!--<Label x:Name="lblArrears" 
+                                Grid.Row="8"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Arrears:"
+                TextColor="Black"
+                FontSize="14"
+                Margin="10,0,10,0"                                
+                HorizontalOptions="End"/>
+                            <Label x:Name="txtConsumerArrears"  
+                                    Grid.Row="8"
+                Grid.Column="1"     
+                Text="0.00"
+                HorizontalTextAlignment="End"
+                Margin="10,0,13,0"      
+                                       
+                FontSize="14"
+                                               
+                HorizontalOptions="Fill"/>-->
+                            <Grid  Grid.Row="8"
+Grid.Column="0" Grid.ColumnSpan="2"     >
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="65" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                               
+                                <Label x:Name="lblArrears" 
+                Grid.Row="0"
+Grid.Column="0"
+FontAttributes="Bold"
+Text="Arrears:"
+TextColor="Black"
+FontSize="14"
+Margin="55,5,0,0"                                
+HorizontalOptions="Start"/>
+                                <Label x:Name="txtConsumerArrears"  
+                    Grid.Row="0"
+Grid.Column="1"     
+Text="0.00"
+HorizontalTextAlignment="End"
+Margin="0,5,0,0"      
+                       
+FontSize="16"
+                               
+HorizontalOptions="Fill"/>
+                                <Label Grid.Row="0" x:Name ="lblOthers"
+Grid.Column="2"
+FontAttributes="Bold"
+Text="Other:"
+TextColor="Black"
+FontSize="13"
+Margin="10,5,10,0"                                
+HorizontalOptions="End"/>
+                                <Label x:Name="txtConsumerOthers"  
+                    Grid.Row="0"
+Grid.Column="3"     
+Text="0.00"
+HorizontalTextAlignment="End"
+Margin="0,5,13,0"      
+                       
+FontSize="16"
+                               
+HorizontalOptions="Fill"/>
+                            </Grid>
+                            <!--<Label Grid.Row="9"
+Grid.Column="0"
+FontAttributes="Bold"
+Text="Others:"
+TextColor="Black"
+FontSize="14"
+Margin="10,5,10,0"                                
+HorizontalOptions="End"/>
+                            <Label x:Name="txtConsumerOthers"  
+                    Grid.Row="9"
+Grid.Column="1"     
+Text="0.00"
+HorizontalTextAlignment="End"
+Margin="10,5,13,0"      
+                       
+FontSize="16"
+                               
+HorizontalOptions="Fill"/>-->
+                            <BoxView Color="#3269cd"
+                                 Grid.Row="10"
+            Grid.Column="1"
+Margin="0,3,0,0"
+CornerRadius="5"   
+
+IsVisible="true"
+HorizontalOptions="FillAndExpand"
+VerticalOptions="FillAndExpand" />
+                            <Label Grid.Row="10" x:Name="lbltotalbill"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Total Bill:"
+                TextColor="Black"
+                FontSize="14"
+                Margin="10"                                
+                HorizontalOptions="End"/>
+                            <Label x:Name="txtConsumerTotalBill"  
+                                    Grid.Row="10"
+                Grid.Column="1"
+                HorizontalTextAlignment="End"
+                Text="0.00"
+                Margin="10,5,13,0"      
+                           TextColor="White"            
+                FontSize="18"
+                                             
+                HorizontalOptions="Fill"/>
+                            <Label Grid.Row="11"
+                Grid.Column="0"
+                FontAttributes="Bold"
+                Text="Remarks:"
+                TextColor="Black"
+                FontSize="14"
+                Margin="10,10,10,0"                                
+                HorizontalOptions="End"/>
+                        <Label Grid.Row="11" IsVisible="True" x:Name="txtRemarks"
+Grid.Column="1"
+FontAttributes="Bold"
+Text="Normal Reading"
+TextColor="Black"
+FontSize="14"
+Margin="0,10,10,15"     
+                               VerticalOptions="Center"
+HorizontalOptions="Start">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnRemarkTapped" />
+                            </Label.GestureRecognizers>
+                        </Label>
+
+                        <Picker x:Name="pickerRemarks"   IsVisible="False"
+                                    Margin="0,0,10,15"
+                                    SelectedIndexChanged="OnRemarkChanged"
+                                Focused="OnRemarkFocus"
+                                Unfocused="OnRemarkUnFocus"
+                Grid.Row="11"
+                Grid.Column="1"
+                FontSize="14"                
+                Title="Choose Remarks">
+                                
+                            </Picker>
+                        </Grid>
+                    <!--</ScrollView>-->
+                    <BoxView Grid.Row="3" Grid.Column="0"
+                             HeightRequest="5"
+                             BackgroundColor="Transparent"
+                             />
+                    <Grid x:Name="gridCommands" Grid.Row="4" Grid.Column="0" Margin="0,0,0,20"
+                        >
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="btnCloseDetails" 
+                            Clicked="OnCloseDetails"
+                                Focused="OnSaveFocus"
+Unfocused="OnSaveUnFocus"
+                            Grid.Row="0" Grid.Column="0"
+                                BackgroundColor="White"
+                                Text="Back"
+                                TextColor="Black"
+                                FontSize="18"
+                                Margin="10,0,10,0">
+
+                        </Button>
+                        <Button x:Name="btnPrint" 
+Grid.Row="0" Grid.Column="1"   
+    Clicked="OnPrintBill"
+    BackgroundColor="White"
+    Text="Print"
+    TextColor="Black"
+    FontSize="18"
+    Margin="10,0,10,0">
+                        </Button>
+                        <Button x:Name="btnSave" 
+                            Grid.Row="0" Grid.Column="2"   
+                                Clicked="OnSaveReading"
+                                Focused="OnSaveFocus"
+                                Unfocused="OnSaveUnFocus"
+                                BackgroundColor="White"
+                                Text="Save"
+                                TextColor="Black"
+                                FontSize="18"
+                                Margin="10,0,10,0">                            
+                        </Button>
+                        
+                    </Grid>
+
+                </Grid>
+
+                
+            </Grid>
+        </ScrollView>
+
+    </AbsoluteLayout>
+   
+    
+   
+</ContentPage>

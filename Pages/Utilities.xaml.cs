@@ -1,0 +1,446 @@
+using eMRBCS.Global;
+using eMRBCS.Services;
+using MSRBC.Services;
+
+namespace eMRBCS.Pages;
+
+public partial class Utilities : ContentPage
+{
+
+    bool ImportFileStatus;
+    bool ImportDBStatus;
+
+    string importStatusMsg;
+
+    DBService dbService;
+
+    string profiles;
+
+    private static string logoBase64ImgStr = null;
+
+    public Utilities()
+    {
+        InitializeComponent();
+        dbService = new DBService();
+        ScreenAdjustment();
+        AccessCheck();
+    }
+
+    private void ScreenAdjustment()
+    {
+        if (MyDeviceInfo.device_heightpix < 900 && MyDeviceInfo.device_widthpix < 500)
+        {
+
+        }
+    }
+
+    private void AccessCheck()
+    {
+        int role = LoginUser.role;
+        switch (role)
+        {
+            case 1:
+                cmdSettings.IsVisible = true;
+                cmdRestore.IsVisible = true;
+                cmdUserAccess.IsVisible = true;
+                break;
+            case 2: //admin                
+                cmdRestore.IsVisible = false;
+                break;
+            case 3:
+                cmdRestore.IsVisible = false;
+                cmdUserAccess.IsVisible = false;
+                cmdSettings.IsVisible = false;
+                break;
+        }
+    }
+
+    private async void TapImgBack(object sender, EventArgs e)
+    {
+        await Navigation.PushAsync(new Mainmenu());
+    }
+
+    private async void TapGetData(object sender, EventArgs e)
+    {
+        //Check the latest import date.
+        string latest_importdate;
+        string import_message = "This process will import new data for " + DateTime.Now.ToString("yyyy-MM-dd") + " from server.";
+        bool isConfirmAgain = false;
+        string warningmsg = "";
+        bool withError = false;
+
+        bool confirm_answer;
+        int consumerFile = 0;
+        int remarkFile = 0;
+        int billrateFile = 0;
+        int userFile = 0;
+
+        bool isValidRequest = true;
+        bool isNewTransaction = false;
+
+        //Before anything else, check if IP address is valid
+        if (Serverdetails.Validnetwork == 0)
+        {
+            await DisplayAlertAsync("Warning", "Invalid Server address. Please contact administrator.", "Ok");
+            return;
+        }
+
+
+
+        Serverdetails.Server_Transactions = await dbService.GetLatestImportDate();
+
+        if (Serverdetails.Server_Transactions != null)
+        {
+            latest_importdate = Serverdetails.Server_Transactions.latest_importdate;
+
+            if (DateTime.Parse(latest_importdate).Date != DateTime.Today.Date)
+            {
+                isNewTransaction = true;
+                if (Serverdetails.Server_Transactions.latest_exportdate == null)
+                {
+                    isConfirmAgain = true;
+                    if (ConsumerRecords.noofrecordsBilled > 0)
+                    {
+                        import_message = import_message + " YOU HAVEN'T SUBMITTED YOUR DAILY REPORT. Do you still want to continue without submitting your daily transactions for " + DateTime.Parse(latest_importdate).Date.ToString("yyyy-MM-dd") + " ?";
+
+                    }
+                    else
+                    {
+                        import_message = import_message + " Existing consumer records for " + DateTime.Parse(latest_importdate).Date.ToString("yyyy-MM-dd") + " will be overwritten with " + DateTime.Today.Date.ToString("yyyy-MM-dd") + " consumers? Continue?";
+                    }
+
+                }
+                else
+                {
+                    import_message = import_message + " Do you want to continue?";
+                }
+            }
+            else
+            {
+
+                if (ConsumerRecords.noofrecordsBilled > 0)
+                {
+                    import_message = import_message + " YOU HAVE " + ConsumerRecords.noofrecordsBilled + " BILLED CONSUMERS. ALL DATA will be LOST!!! Continue?";
+                    isConfirmAgain = true;
+                }
+                else
+                {
+                    import_message = import_message + " Existing consumer records will be overwritten!!! Continue?";
+                }
+            }
+        }
+        else
+        {
+            isNewTransaction = true;
+            import_message = import_message + " Do you want to continue?";
+        }
+
+
+        confirm_answer = await DisplayAlertAsync("Warning", import_message, "Yes", "No");
+        if (confirm_answer)
+        {
+            if (isConfirmAgain)
+            {
+                bool confirm_overwrite = await DisplayAlertAsync("Confirmation", "Are you really sure you want to proceed?", "Yes", "No");
+                if (!confirm_overwrite)
+                {
+                    isValidRequest = false;
+                }
+            }
+
+        }
+        else
+        {
+
+            isValidRequest = false;
+        }
+
+        if (isValidRequest)
+        {
+            stackLoading.IsVisible = true;
+
+            FileService fileService = new FileService();
+
+            //Capture all 3 files
+            int loadpercent = 10;
+            for (int x = 0; x < 4; x++)
+            {
+                string ImportFileStatus = await fileService.ImportFileAsync(x);
+                loadpercent = loadpercent + 10;
+                lblpercentload.Text = loadpercent.ToString() + "%";
+                string[] items = ImportFileStatus.Split(';');
+                if (items[0].Trim() == "success")
+                {
+                    //Store it in DB per file
+                    switch (x)
+                    {
+                        case 0:
+                            ImportDBStatus = await dbService.ConsumerReadAndProcessileAsync(fileService.consumerFile);
+                            if (ImportDBStatus)
+                            {
+                                importStatusMsg = "Consumer File: Done | Records: " + ConsumerRecords.noofrecords_import.ToString() + " / " + ConsumerRecords.lstconsumers.Count.ToString();
+                                consumerFile = 1;
+                            }
+                            else
+                            {
+                                withError = true;
+                                importStatusMsg = "Consumer File: Failed";
+                            }
+                            break;
+                        case 1:
+                            ImportDBStatus = await dbService.RemarkReadAndProcessFileAsync(fileService.remarksFile);
+                            if (ImportDBStatus)
+                            {
+                                importStatusMsg = importStatusMsg + "\n" + "Remarks File: Done | Records: " + OtherRecords.noofremarks.ToString() + " / " + OtherRecords.LstRemarks.Count.ToString();
+                                remarkFile = 1;
+                            }
+                            else
+                            {
+                                withError = true;
+                                importStatusMsg = importStatusMsg + "\n" + "Remarks File: Failed";
+                            }
+                            break;
+                        case 2:
+                            ImportDBStatus = await dbService.BillRatesReadAndProcessFileAsync(fileService.billrateFile);
+                            if (ImportDBStatus)
+                            {
+                                importStatusMsg = importStatusMsg + "\n" + "Bill Rates File: Done | Records: " + OtherRecords.noofbillrates.ToString() + " / " + OtherRecords.LstBillrates.Count.ToString();
+                                billrateFile = 1;
+                            }
+                            else
+                            {
+                                withError = true;
+                                importStatusMsg = importStatusMsg + "\n" + "Bill Rates File: Failed";
+                            }
+                            break;
+                        case 3:
+                            ImportDBStatus = await dbService.UserReadAndProcessileAsync(fileService.userfile);
+                            if (ImportDBStatus)
+                            {
+                                importStatusMsg = importStatusMsg + "\n" + "User File: Done | Records: " + OtherRecords.noofusers.ToString() + " / " + OtherRecords.LstUsers.Count.ToString();
+                                billrateFile = 1;
+                            }
+                            else
+                            {
+                                withError = true;
+                                importStatusMsg = importStatusMsg + "\n" + "User File: Failed";
+                            }
+                            break;
+                    }
+                    loadpercent = loadpercent + 5;
+                    lblpercentload.Text = loadpercent.ToString() + "%";
+
+                }
+                else
+                {
+                    warningmsg = items[1].Trim();
+                    withError = true;
+                    if (x == 0)
+                    {
+                        importStatusMsg = "Consumer File: Failed";
+                    }
+                    else if (x == 1)
+                    {
+                        importStatusMsg = importStatusMsg + "\n" + "Remarks File: Failed";
+                    }
+                    else if (x == 2)
+                    {
+                        importStatusMsg = importStatusMsg + "\n" + "Bill Rates File: Failed";
+                    }
+                    else if (x == 3)
+                    {
+                        importStatusMsg = importStatusMsg + "\n" + "Users File: Failed";
+                    }
+                    loadpercent = loadpercent + 5;
+                    lblpercentload.Text = loadpercent.ToString() + "%";
+                }
+
+            }
+
+            bool isSaveImport = await dbService.ServerImportSave(consumerFile, remarkFile, billrateFile, userFile);
+
+            stackLoading.IsVisible = false;
+        }
+        else
+        {
+            return;
+        }
+
+        if (withError)
+        {
+            importStatusMsg = importStatusMsg + "\n\n" + warningmsg;
+        }
+        bool isLog = await dbService.SaveUserActivity("Utilities", "Tap Get Data", withError ? "Success with Error" : "Success");
+        await DisplayAlertAsync("Notice", importStatusMsg, "Ok");
+    }
+
+    private async void TapSendData(object sender, EventArgs e)
+    {
+        //await Navigation.PushAsync(new ExportData());
+        bool isConfirm = await DisplayAlertAsync("Confirm", "Are you sure you want to submit your report?", "Yes", "No");
+        if (!isConfirm)
+        {
+            return;
+        }
+        stackLoading.IsVisible = true;
+
+        //Dump data to table
+        bool isError = false;
+        ConsumerRecords.ErrorSendData = "";
+        dbService = new DBService();
+        bool isSaved = await dbService.PrepareTransaction();
+        if (isSaved)
+        {
+            //Prepare the file
+            FileService fileService = new FileService();
+            bool isWrite = await fileService.WriteDailyTrans();
+            if (isWrite)
+            {
+                bool isSend = await fileService.ExportFileAsync();
+                if (isSend)
+                {
+                    bool isExport = await dbService.ServerExportUpdate();
+                    if (isExport)
+                    {
+                        stackLoading.IsVisible = false;
+                        await DisplayAlertAsync("Notice", "Report file has been submitted", "Ok");
+                    }
+                    else
+                    {
+                        isError = true;
+                    }
+                }
+                else
+                {
+                    isError = true;
+                }
+            }
+            else
+            {
+                isError = true;
+
+            }
+
+        }
+        else
+        {
+            isError = true;
+
+        }
+        if (isError)
+        {
+            stackLoading.IsVisible = false;
+            await DisplayAlertAsync("Notice", "Failed to submit report file!\nError:\n" + ConsumerRecords.ErrorSendData, "Ok");
+        }
+
+
+    }
+    private async void TapSettings(object sender, EventArgs e)
+    {
+        dbService = new DBService();
+        bool isLog = await dbService.SaveUserActivity("Utilities", "Open Settings", "Success");
+        await Navigation.PushAsync(new AppSettings());
+
+    }
+
+    private async void TapUsers(object sender, TappedEventArgs e)
+    {
+
+        await Navigation.PushAsync(new UserAccess());
+    }
+
+    private async void TapBackup(object sender, TappedEventArgs e)
+    {
+        //await Navigation.PushAsync(new ExportData());
+
+        bool istoBackup = await DisplayAlertAsync("Notice", "Backup data to available external storage. Continue?", "Yes", "No");
+        if (istoBackup)
+        {
+            stackLoading.IsVisible = true;
+            string copyStatus = await CopyFileToExternalStorageAsync();
+            string[] tmpStatus = copyStatus.Split(':');
+            string alertStatus = "Copy " + tmpStatus[0] + "\nMessage: " + tmpStatus[1] + "\nDestination: " + tmpStatus[2];
+            stackLoading.IsVisible = false;
+            await DisplayAlertAsync("Notice", alertStatus, "Ok");
+        }
+
+    }
+
+    private async void TapRestore(object sender, TappedEventArgs e)
+    {
+        //await Navigation.PushAsync(new ExportData());
+        await Navigation.PushAsync(new ImportData());
+    }
+
+
+
+    private async void TapPrinterConfig(object sender, TappedEventArgs e)
+    {
+        await Navigation.PushAsync(new PrinterConfig());
+    }
+
+    public async Task<string> CopyFileToExternalStorageAsync()
+    {
+        bool isSuccess = true;
+        string copyStatus = "";
+        string copyError = "Unknown Error";
+        string destinationFilePath = "";
+        try
+        {
+
+            string sourceFilePath = Path.Combine(FileSystem.AppDataDirectory, database_info.dbName);
+
+
+            if (!File.Exists(sourceFilePath))
+            {
+                copyStatus = "Failed:Database file doesn't exists:" + destinationFilePath;
+                return copyStatus;
+            }
+
+
+            if (DeviceInfo.Platform == DevicePlatform.Android)
+            {
+                var status = await Permissions.RequestAsync<Permissions.StorageWrite>();
+                if (status != PermissionStatus.Granted)
+                {
+                    copyStatus = "Failed:Permission not granted:" + destinationFilePath;
+                    //return copyStatus;
+                }
+
+#if ANDROID
+                               
+                
+                foreach (var file in Android.App.Application.Context.GetExternalFilesDirs(null))
+                {
+                    if (file != null && !file.AbsolutePath.Contains("emulated"))
+                    {
+                        destinationFilePath =file.AbsolutePath;
+                        break;
+                    }
+                }
+                destinationFilePath = Path.Combine(destinationFilePath, database_info.dbName);
+                isSuccess = true; // Copy successful
+
+#endif
+            }
+
+            File.Copy(sourceFilePath, destinationFilePath, overwrite: true);
+
+
+        }
+        catch (Exception ex)
+        {
+
+            copyError = ex.Message;
+        }
+        if (isSuccess)
+        {
+            copyStatus = "Success:No error:" + destinationFilePath;
+        }
+        else
+        {
+            copyStatus = "Failed:" + copyError + ":" + destinationFilePath;
+        }
+        return copyStatus;
+    }
+}

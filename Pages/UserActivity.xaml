@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="eMRBCS.Pages.UserActivity"
+             NavigationPage.HasNavigationBar="False"
+             Title="UserActivity">
+    <ScrollView>
+        <VerticalStackLayout>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <!-- Row 1-->
+                <BoxView Color="#3269cd"
+      HorizontalOptions="FillAndExpand"
+      VerticalOptions="FillAndExpand"
+      HeightRequest="70" 
+      Grid.Row="0"
+      Grid.Column="0"/>
+                <AbsoluteLayout Grid.Row="0"
+        Grid.Column="0">
+                    <Image Source="menuicons/prev.png"                      
+          AbsoluteLayout.LayoutBounds="10,10"
+          HeightRequest="50" 
+          WidthRequest="50" >
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Tapped="TapImgBack" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                    <Label 
+         Text="User Activity"
+         TextColor="White"
+         FontSize="18"
+         AbsoluteLayout.LayoutBounds="70,20"
+         VerticalOptions="Start"
+         HorizontalOptions="Start"/>
+                </AbsoluteLayout>
+            </Grid>
+            <Grid Grid.Row="1" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>               
+                <AbsoluteLayout Grid.Row="0"
+                        Grid.Column="1">
+                    <Rectangle Fill="#3269cd"   
+                            WidthRequest="200"
+                            HeightRequest="40"
+                            AbsoluteLayout.LayoutBounds="10,10"
+                            RadiusX="0"
+                            RadiusY="10" />
+                    <Label TextColor="White"             
+                                Text="Available Logs"
+                                AbsoluteLayout.LayoutBounds="20,15"                            
+                                Margin="10,5,0,0"                 
+                                FontSize="14" />
+                </AbsoluteLayout>
+              
+            </Grid>
+            <Grid Margin="0,10,0,0"    Grid.Row="2" Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>                    
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <ListView x:Name="lstLogs" HeightRequest="400"
+                          Grid.Row="1" Grid.Column="0">
+                    
+                </ListView>
+                <Button x:Name="btnShowMore" 
+                    Grid.Row="2" Grid.Column="0"
+                        Text="Show more"
+                        Clicked="ClickShowMore"
+                        Margin="10"
+                    />
+
+
+
+            </Grid>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
