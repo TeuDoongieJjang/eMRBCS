@@ -39,7 +39,12 @@
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|AnyCPU'">
-	  <AndroidPackageFormat>apk</AndroidPackageFormat>
+		<AndroidPackageFormat>apk</AndroidPackageFormat>
+		<AndroidKeyStore>True</AndroidKeyStore>
+		<AndroidSigningKeyStore>emrbcs_app.keystore</AndroidSigningKeyStore>
+		<AndroidSigningKeyAlias>emrbcs_app_alias</AndroidSigningKeyAlias>
+		<AndroidSigningKeyPass>env:ANDROID_KEY_PASS</AndroidSigningKeyPass>
+		<AndroidSigningStorePass>env:ANDROID_STORE_PASS</AndroidSigningStorePass>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
