@@ -225,4 +225,8 @@
 	  <Folder Include="Platforms\Android\Resources\xml\" />
 	</ItemGroup>
 
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' AND '$(Configuration)' == 'Release'">
+		<AndroidLinkDescription Include="Platforms\Android\linker.xml" />
+	</ItemGroup>
+
 </Project>
