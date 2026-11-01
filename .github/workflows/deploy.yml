@@ -1,0 +1,129 @@
+name: Build and Release MAUI App
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # GitVersion needs full history
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install .NET MAUI workload
+        run: dotnet workload install maui-android
+
+      - name: Setup GitVersion
+        uses: gittools/actions/gitversion/setup@v4
+        with:
+          versionSpec: '6.x'
+
+      - name: Execute GitVersion
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v4
+
+      - name: Set full version for release commit
+        if: startsWith(github.event.head_commit.message, 'release-')
+        run: echo "VERSION=${{ steps.gitversion.outputs.MajorMinorPatch }}" >> $GITHUB_ENV
+
+      - name: Set pre-release version for normal commit
+        if: ${{ !startsWith(github.event.head_commit.message, 'release-') }}
+        run: echo "VERSION=${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_ENV
+
+      - name: Show calculated version
+        run: |
+          echo "GitVersion SemVer: ${{ steps.gitversion.outputs.semVer }}"
+          echo "Selected version: ${{ env.VERSION }}"
+          echo "Build number (run_number): ${{ github.run_number }}"
+
+      - name: Prepare Android keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | tr -d '\n' | base64 --decode > emrbcs_app.keystore
+          echo "ANDROID_KEY_PASS=${{ secrets.ANDROID_KEY_PASS }}"     >> $GITHUB_ENV
+          echo "ANDROID_STORE_PASS=${{ secrets.ANDROID_STORE_PASS }}" >> $GITHUB_ENV
+
+      - name: Build and publish
+        run: |
+          dotnet publish -c Release -f net10.0-android \
+            -p:ApplicationDisplayVersion=${{ env.VERSION }} \
+            -p:ApplicationVersion=${{ github.run_number }}
+
+      - name: Create tag if release commit
+        if: startsWith(github.event.head_commit.message, 'release-')
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = `v${{ steps.gitversion.outputs.MajorMinorPatch }}`; 
+            const { owner, repo } = context.repo;
+
+            try {
+              await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` });
+              console.log(`Tag ${tag} already exists – skipping.`);
+            } catch (e) {
+              if (e.status !== 404) throw e;
+              await github.rest.git.createRef({
+                owner, repo, sha: context.sha, ref: `refs/tags/${tag}`
+              });
+              console.log(`Tag ${tag} created.`);
+            }
+
+      - name: Generate version manifest
+        run: |
+          APK_FILE=$(basename "$(ls bin/Release/net10.0-android/*-Signed.apk 2>/dev/null | head -n1)" 2>/dev/null || true)
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE=$(basename "$(ls bin/Release/net10.0-android/*-Signed.apk 2>/dev/null | head -n1)" 2>/dev/null || true)
+          fi
+          if [ -z "$APK_FILE" ]; then
+            echo "ERROR: no APK found in bin/Release/net10.0-android" >&2
+            ls -la bin/Release/net10.0-android || true
+            exit 1
+          fi
+          echo "Detected APK: $APK_FILE"
+
+          cat > bin/Release/net10.0-android/version.json <<JSON
+          {
+            "versionName": "${{ env.VERSION }}",
+            "versionCode": ${{ github.run_number }},
+            "apkFileName": "$APK_FILE",
+            "releaseNotes": "Release ${{ env.VERSION }} (build ${{ github.run_number }})"
+          }
+          JSON
+
+          echo "----- version.json -----"
+          cat bin/Release/net10.0-android/version.json
+          echo "------------------------"
+
+      - name: Create GitHub Release
+        if: startsWith(github.event.head_commit.message, 'release-')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.gitversion.outputs.MajorMinorPatch }}
+          name: Release v${{ steps.gitversion.outputs.MajorMinorPatch }}
+          allowUpdates: true
+          files: |
+            ./bin/Release/net10.0-android/*-Signed.apk
+            ./bin/Release/net10.0-android/version.json
+
+      - name: Create GitHub Pre-Release (non-release commit)
+        if: ${{ !startsWith(github.event.head_commit.message, 'release-') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.gitversion.outputs.semVer }}
+          name: Pre-release v${{ steps.gitversion.outputs.semVer }}
+          prerelease: true
+          files: |
+            ./bin/Release/net10.0-android/*-Signed.apk
+            ./bin/Release/net10.0-android/version.json

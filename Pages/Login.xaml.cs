@@ -1,15 +1,9 @@
 using eMRBCS.Global;
 using eMRBCS.Models;
 using eMRBCS.Services;
-using SharpCifs.Util.Sharpen;
-using System;
-using System.Timers;
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Layouts;
-using Honeywell.AIDC.CrossPlatform.Print;
-using SharpCifs.Dcerpc;
-using System.Text;
 using System.Security.Cryptography;
+using System.Text;
+using System.Timers;
 
 
 namespace eMRBCS.Pages;
@@ -30,12 +24,12 @@ public partial class Login : ContentPage
     string encryptedText;
 
     public Login()
-	{
+    {
         InitializeComponent();
+        SetAppVersion();
 
 
 
-       
 
         lbldatetime.Text = DateTime.Now.ToString("yyyy-MM-dd");
 
@@ -43,17 +37,48 @@ public partial class Login : ContentPage
 
     }
 
+    private void SetAppVersion()
+    {
+        // 1. Get the version string applied by your GitHub Actions workflow
+        string rawVersion = AppInfo.Current.VersionString;
+
+        // 2. Strip the pre-release suffix (e.g., "1.0.1-2" becomes "1.0.1")
+        string fullVersion = rawVersion.Split('-')[0];
+
+        // 3. Apply the 'v' prefix and set it to the label
+        lblversion.Text = $"v{fullVersion}";
+    }
+
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        if (ApkInstaller.IsUpdateInProgress)
+            return;
+
+        var updateService = new UpdateService();
+        var updateInfo = await updateService.CheckForUpdateAsync("TeuDoongieJjang", "eMRBCS");
+
+        if (updateInfo != null)
+        {
+            bool answer = await DisplayAlertAsync("Update Available", "Download and install now?", "Yes", "No");
+
+            if (answer)
+            {
+                var installer = new ApkInstaller();
+                await installer.InstallApkAsync(updateInfo.DownloadUrl);
+            }
+        }
+
         await Task.Delay(2000);
         isServerValid = Serverdetails.Validnetwork;
         if (isServerValid == 0)
         {
-            
-            await DisplayAlertAsync("Notice", "Network address invalid.\nPlease contact your Administrator","Ok");
+
+            await DisplayAlertAsync("Notice", "Network address invalid.\nPlease contact your Administrator", "Ok");
         }
-        
+
+
 
     }
 
@@ -72,13 +97,13 @@ public partial class Login : ContentPage
 
     private void OnTimedEvent(Object source, ElapsedEventArgs e)
     {
-        
+
         MainThread.BeginInvokeOnMainThread(() =>
         {
             lbldatetime.Text = DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt");
         });
     }
-     
+
     private async void OnLoginButtonClicked(object sender, EventArgs e)
     {
         string username = usernameEntry.Text;
@@ -86,7 +111,7 @@ public partial class Login : ContentPage
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
-            
+
             await DisplayAlertAsync("Notice", "Please enter both username and password.", "Ok");
             return;
         }
@@ -103,7 +128,7 @@ public partial class Login : ContentPage
         }
     }
 
-    
+
     private async Task<bool> ValidateLogin(string username, string password)
     {
         loginuser = new Users();
@@ -111,7 +136,7 @@ public partial class Login : ContentPage
         bool isValidUser = false;
 
         //Try to get if the user is an admin
-        Users_admin adminuser = await dbService.GeAdminUser(username,password);
+        Users_admin adminuser = await dbService.GeAdminUser(username, password);
         if (adminuser != null)
         {
             loginuser = new Users
@@ -120,16 +145,16 @@ public partial class Login : ContentPage
                 username = adminuser.username,
                 fullname = adminuser.name,
                 trx_mode = adminuser.position,
-                password = password,                
+                password = password,
             };
 
-            LoginUser.login_user = loginuser;       
+            LoginUser.login_user = loginuser;
             LoginUser.user_position = adminuser.position;
             LoginUser.role = adminuser.role;
             bool isLog = await dbService.SaveUserActivity("Login", "login", "Success");
             isValidUser = true;
         }
-        
+
         if (!isValidUser)
         {
             if (Serverdetails.Validnetwork == 1)
@@ -144,24 +169,24 @@ public partial class Login : ContentPage
                     return true;
                 }
             }
-        }       
+        }
 
         return isValidUser;
     }
 
     private void DisplayGetScreenInfo(object sender, EventArgs e)
     {
-        
+
         var mainDisplayInfo = DeviceDisplay.MainDisplayInfo;
 
-        
+
         double screenWidth = mainDisplayInfo.Width;
         double screenHeight = mainDisplayInfo.Height;
 
-        
+
         double density = mainDisplayInfo.Density;
 
-        
+
         double screenWidthInDip = screenWidth / density;
         double screenHeightInDip = screenHeight / density;
 
@@ -170,8 +195,8 @@ public partial class Login : ContentPage
         DisplayAlertAsync("Notice", info, "Ok");
     }
 
-    
-       
+
+
     private async void ReadProFile()
     {
         string sourcefilename = "Datafiles/printer_profiles.JSON";
@@ -182,34 +207,34 @@ public partial class Login : ContentPage
         {
             profiles = reader.ReadToEnd();
         }
-        
+
     }
 
     private async void ReadImgToBase64String()
     {
-        
+
         string sourcefilename = "Datafiles/msl_print.bmp";
         //Stream stream = assembly.GetManifestResourceStream(resourcePrefix + fileName);
         using Stream stream = await FileSystem.Current.OpenAppPackageFileAsync(sourcefilename);
         byte[] imgByteArray = new byte[stream.Length];
         stream.Read(imgByteArray, 0, (int)stream.Length);
         logoBase64ImgStr = Convert.ToBase64String(imgByteArray);
-        
+
     }
 
-    
+
 
     public static string EncryptString(string plainText, string passphrase)
     {
-        
-        
+
+
         using (var aes = Aes.Create())
         {
             var keyDerivationFunction = new Rfc2898DeriveBytes(passphrase, Encoding.UTF8.GetBytes(passphrase), 10000);
             aes.Key = keyDerivationFunction.GetBytes(32); // 256-bit key
             aes.IV = keyDerivationFunction.GetBytes(16);  // 128-bit IV
 
-            
+
             using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
             using (var ms = new MemoryStream())
             {
@@ -227,14 +252,14 @@ public partial class Login : ContentPage
 
     public static string DecryptString(string encryptedText1, string passphrase)
     {
-        
+
         using (var aes = Aes.Create())
         {
             var keyDerivationFunction = new Rfc2898DeriveBytes(passphrase, Encoding.UTF8.GetBytes(passphrase), 10000);
             aes.Key = keyDerivationFunction.GetBytes(32);
             aes.IV = keyDerivationFunction.GetBytes(16);
 
-            
+
             using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
             using (var ms = new MemoryStream(Convert.FromBase64String(encryptedText1)))
             using (var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
@@ -248,8 +273,8 @@ public partial class Login : ContentPage
     private async void DoDecrypt(object sender, EventArgs e)
     {
         string decryptedText = DecryptString(encryptedText, "manny");
-        
-        
+
+
 
         await DisplayAlertAsync("Notice", encryptedText.ToUpper() + "\n" + decryptedText.ToUpper() + "\n" + MyDeviceInfo.device_AndroidID, "Ok");
     }

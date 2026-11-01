@@ -27,8 +27,8 @@
 		<ApplicationId>com.mls.emrbcs</ApplicationId>
 
 		<!-- Versions -->
-		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">6.5.100</ApplicationDisplayVersion>
+		<ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">11.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">13.1</SupportedOSPlatformVersion>
@@ -213,6 +213,7 @@
 
 	<ItemGroup>
 	  <Folder Include="Interfaces\" />
+	  <Folder Include="Platforms\Android\Resources\xml\" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">

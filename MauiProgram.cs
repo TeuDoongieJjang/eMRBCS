@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Maui.LifecycleEvents;
 using System.Text;
 
 namespace eMRBCS
@@ -15,6 +16,14 @@ namespace eMRBCS
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+
+#if ANDROID
+            builder.ConfigureLifecycleEvents(events =>
+            {
+                events.AddAndroid(android => android
+                    .OnResume(_ => eMRBCS.Services.ApkInstaller.OnActivityResumed()));
+            });
+#endif
 
 #if DEBUG
             builder.Logging.AddDebug();
