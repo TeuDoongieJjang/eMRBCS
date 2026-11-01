@@ -214,10 +214,4 @@
 	  <Folder Include="Platforms\Android\Resources\xml\" />
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
-	  <PackageReference Include="MAUI_OS_SDK">
-	    <Version>1.0.0</Version>
-	  </PackageReference>
-	</ItemGroup>
-
 </Project>
