@@ -82,7 +82,7 @@ public partial class LoadingScreen : ContentPage
 
     }
 
-    private async Task CopyDBFile()   // was async void
+    private async Task CopyDBFile()
     {
         using Stream inputStream = await FileSystem.Current.OpenAppPackageFileAsync(sourcefilename);
         string targetFile = Path.Combine(FileSystem.Current.AppDataDirectory, targetfilename);
