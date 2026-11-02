@@ -227,7 +227,7 @@
 
 
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' AND '$(Configuration)' == 'Release'">
-		<AndroidLinkDescription Include="Platforms\Android\linker.xml" />
+		<TrimmerRootAssembly Include="SMBLibrary" />
 	</ItemGroup>
 
 

@@ -64,6 +64,10 @@ jobs:
         run: |
           dotnet publish ./eMRBCS.csproj \
             -c Release -f net10.0-android \
+            -p:PublishTrimmed=false \
+            -p:AndroidLinkMode=None \
+            -p:RunAOTCompilation=false \
+            -p:AndroidEnableProfiledAot=false \
             -p:ApplicationDisplayVersion=${{ env.VERSION }} \
             -p:ApplicationVersion=${{ github.run_number }}
 
