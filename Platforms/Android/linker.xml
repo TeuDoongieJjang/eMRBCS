@@ -1,5 +1,3 @@
 ﻿<linker>
-	<assembly fullname="SMBLibrary">
-		<type fullname="*" preserve="all" />
-	</assembly>
+	<assembly fullname="SMBLibrary" preserve="all" />
 </linker>

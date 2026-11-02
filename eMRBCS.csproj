@@ -46,10 +46,11 @@
 		<AndroidSigningKeyPass>env:ANDROID_KEY_PASS</AndroidSigningKeyPass>
 		<AndroidSigningStorePass>env:ANDROID_STORE_PASS</AndroidSigningStorePass>
 
-		<!-- Disable aggressive trimming so SMBLibrary's reflection-based code survives -->
 		<AndroidLinkMode>None</AndroidLinkMode>
+		<PublishTrimmed>false</PublishTrimmed>
+		<TrimMode>partial</TrimMode>
 
-		<!-- Disable AOT to avoid the mono interp.c:8710 assertion -->
+		<!-- Keep AOT disabled as you already have -->
 		<RunAOTCompilation>false</RunAOTCompilation>
 		<AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
 
