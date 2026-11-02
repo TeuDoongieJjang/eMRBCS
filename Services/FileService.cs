@@ -79,27 +79,7 @@ namespace MSRBC.Services
             }
 
             System.Diagnostics.Debug.WriteLine("Before SMBConnect");
-            using (var tcpClient = new System.Net.Sockets.TcpClient())
-            {
-                try
-                {
-                    // A short timeout is fine for a diagnostic test
-                    var connectTask = tcpClient.ConnectAsync(ipAddr, 445);
-                    if (await Task.WhenAny(connectTask, Task.Delay(5000)) != connectTask)
-                    {
-                        throw new TimeoutException("TCP connection to port 445 timed out.");
-                    }
-                    // If we get here, the TCP socket connected successfully.
-                    System.Diagnostics.Debug.WriteLine("DIAGNOSTIC: Raw TCP connection to port 445 succeeded.");
-                }
-                catch (Exception ex)
-                {
-                    // This will give us the REAL reason.
-                    System.Diagnostics.Debug.WriteLine($"DIAGNOSTIC: Raw TCP connection FAILED. Exception: {ex.ToString()}");
-                    // Re-throw to stop the rest of the connection attempt in its tracks.
-                    throw;
-                }
-            }
+
             // ... then call client.Connect ...
             var client = new SMB2Client();
             try

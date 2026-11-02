@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools">
-	<application android:networkSecurityConfig="@xml/network_security_config" android:allowBackup="true" android:icon="@mipmap/mlsappicon" android:supportsRtl="true" android:label="eMRBCS" android:requestLegacyExternalStorage="true">
+	<application android:allowBackup="true" android:icon="@mipmap/mlsappicon" android:supportsRtl="true" android:label="eMRBCS" android:requestLegacyExternalStorage="true">
 		<provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
 			<meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
 		</provider>
