@@ -30,6 +30,12 @@ jobs:
         with:
           versionSpec: '6.x'
 
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'microsoft'
+          java-version: '17'
+
       - name: Execute GitVersion
         id: gitversion
         uses: gittools/actions/gitversion/execute@v4
@@ -56,9 +62,11 @@ jobs:
 
       - name: Build and publish
         run: |
-          dotnet publish -c Release -f net10.0-android \   
+          dotnet publish ./eMRBCS.csproj \
+            -c Release -f net10.0-android \   
             -p:ApplicationDisplayVersion=${{ env.VERSION }} \
-            -p:ApplicationVersion=${{ github.run_number }}
+            -p:ApplicationVersion=${{ github.run_number }} \
+            -p:JavaMaximumHeapSize=2G
 
       - name: Create tag if release commit
         if: startsWith(github.event.head_commit.message, 'release-')
