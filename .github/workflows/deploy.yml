@@ -57,11 +57,6 @@ jobs:
       - name: Build and publish
         run: |
           dotnet publish -c Release -f net10.0-android \   
-            -p:PublishTrimmed=false \
-            -p:TrimMode=copy \
-            -p:AndroidLinkMode=None \
-            -p:RunAOTCompilation=false \
-            -p:AndroidEnableProfiledAot=false \
             -p:ApplicationDisplayVersion=${{ env.VERSION }} \
             -p:ApplicationVersion=${{ github.run_number }}
 
