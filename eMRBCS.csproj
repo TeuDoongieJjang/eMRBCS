@@ -46,14 +46,6 @@
 		<AndroidSigningKeyPass>env:ANDROID_KEY_PASS</AndroidSigningKeyPass>
 		<AndroidSigningStorePass>env:ANDROID_STORE_PASS</AndroidSigningStorePass>
 
-		<AndroidLinkMode>None</AndroidLinkMode>
-		<PublishTrimmed>false</PublishTrimmed>
-		<TrimMode>partial</TrimMode>
-
-		<!-- Keep AOT disabled as you already have -->
-		<RunAOTCompilation>false</RunAOTCompilation>
-		<AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
-
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
@@ -223,11 +215,6 @@
 
 	<ItemGroup>
 	  <Folder Include="Interfaces\" />
-	</ItemGroup>
-
-
-	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' AND '$(Configuration)' == 'Release'">
-		<TrimmerRootAssembly Include="SMBLibrary" />
 	</ItemGroup>
 
 
