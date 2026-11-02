@@ -96,6 +96,22 @@ public partial class LoadingScreen : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        if (ApkInstaller.IsUpdateInProgress)
+            return;
+
+        var updateService = new UpdateService();
+        var updateInfo = await updateService.CheckForUpdateAsync("TeuDoongieJjang", "eMRBCS");
+
+        if (updateInfo != null)
+        {
+            bool answer = await DisplayAlertAsync("Update Available", "Download and install now?", "Yes", "No");
+
+            if (answer)
+            {
+                var installer = new ApkInstaller();
+                await installer.InstallApkAsync(updateInfo.DownloadUrl);
+            }
+        }
         try
         {
             string filePath = Path.Combine(FileSystem.AppDataDirectory, targetfilename);

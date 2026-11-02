@@ -53,22 +53,7 @@ public partial class Login : ContentPage
     {
         base.OnAppearing();
 
-        if (ApkInstaller.IsUpdateInProgress)
-            return;
 
-        var updateService = new UpdateService();
-        var updateInfo = await updateService.CheckForUpdateAsync("TeuDoongieJjang", "eMRBCS");
-
-        if (updateInfo != null)
-        {
-            bool answer = await DisplayAlertAsync("Update Available", "Download and install now?", "Yes", "No");
-
-            if (answer)
-            {
-                var installer = new ApkInstaller();
-                await installer.InstallApkAsync(updateInfo.DownloadUrl);
-            }
-        }
 
         await Task.Delay(2000);
         isServerValid = Serverdetails.Validnetwork;
