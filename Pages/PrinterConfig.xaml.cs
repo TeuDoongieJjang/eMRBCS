@@ -260,7 +260,7 @@ public partial class PrinterConfig : ContentPage
                 new PrintStyle(FontB: false, WidthMul: 1, HeightMul: 1, Bold: true));
 
             await printer.PrintTextAsync(
-                "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxTyZz-1234567890ñÑńŃňŇáÁéÉíÍóÓúÚüÜçÇàÀèÈùÙâÂêÊîÎôÔûÛäÄöÖåÅæÆøØß-'",
+                "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxTyZz-1234567890-ÑñÁáÉéÍíÓóÚúÀàÂâÈèÊêÌìÎîÒòÔôÙùÛûÄäËëÏïÖöÜü'",
                 PrintAlign.Left, new PrintStyle(Size: TextSize.Normal, Bold: true));
 
             await printer.FeedAsync(1);
@@ -288,7 +288,7 @@ public partial class PrinterConfig : ContentPage
                 new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1, Bold: true));
 
             await printer.PrintTextAsync(
-                "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxTyZz-1234567890",
+                "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxTyZz-1234567890-ÑñÁáÉéÍíÓóÚúÀàÂâÈèÊêÌìÎîÒòÔôÙùÛûÄäËëÏïÖöÜü'",
                 PrintAlign.Left, new PrintStyle(FontB: true));
 
             await printer.FeedAsync(1);
@@ -301,18 +301,18 @@ public partial class PrinterConfig : ContentPage
             await printer.FeedAsync(2);
 
             await printer.AlignAsync(PrintAlign.Center);
-            await printer.WriteBarcodeAsync("67-031112", BarcodeType.Code39, humanText: false, widthFraction: 1.0);
+            await printer.WriteBarcodeAsync("67-031112", BarcodeType.Code39, humanText: false, widthFraction: 1.5);
             await printer.WriteRawAsync(new byte[] { 0x0A, 0x0A });
             await printer.AlignAsync(PrintAlign.Left);
 
             // ============================== QR CODES ==============================
-            await printer.PrintQrSizedAsync("www.microlinesmanila.com.ph", widthFraction: 0.50);
+            await printer.PrintQrSizedAsync("www.microlinesmanila.com.ph", widthFraction: 0.60);
             await printer.FeedAsync(1);
 
             await printer.PrintQrSizedAsync(
-                EscPOScmdPrint.BuildAccountPayload("01-011234", "MjM Aparente", 1250.50m), widthFraction: 0.50);
+                EscPOScmdPrint.BuildAccountPayload("01-011234", "MjM Aparente", 1250.50m), widthFraction: 0.60);
 
-            await printer.FeedAsync(3);
+            await printer.FeedAsync(5);
             await printer.WriteRawAsync(new byte[] { 0x1B, 0x40 });
             await printer.FlushAsync();
             result = "Done printing.";
