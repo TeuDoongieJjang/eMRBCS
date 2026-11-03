@@ -32,11 +32,11 @@ HorizontalOptions="Center"
             />
             <!--AbsoluteLayout.LayoutBounds="0,200,250,100"-->
             <ActivityIndicator x:Name="activityIndicator"                    
-IsRunning="true"
-Color="#3269cd"                   
-HeightRequest="75"
-WidthRequest="75"
-IsVisible="true"       
+                                IsRunning="true"
+                                Color="#3269cd"                   
+                                HeightRequest="75"
+                                WidthRequest="75"
+                                IsVisible="true"       
                                AbsoluteLayout.LayoutBounds="0,60,250,100"
  />
             <!--AbsoluteLayout.LayoutBounds="0,240,250,100" />-->

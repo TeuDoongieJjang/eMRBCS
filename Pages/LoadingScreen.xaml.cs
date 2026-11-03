@@ -16,11 +16,15 @@ public partial class LoadingScreen : ContentPage
     string sourcefilename = database_info.packageDBfile;
     string targetfilename = database_info.dbName;
 
+    private bool _loadStarted;
+
     public LoadingScreen()
     {
         InitializeComponent();
         GetDeviceInfo();
         ScreenAdjustment();
+
+        ApkInstaller.UpdateFlowAborted += OnUpdateFlowAborted;
     }
 
     private void GetDeviceInfo()
@@ -99,27 +103,97 @@ public partial class LoadingScreen : ContentPage
         if (ApkInstaller.IsUpdateInProgress)
             return;
 
-        var updateService = new UpdateService();
-        var updateInfo = await updateService.CheckForUpdateAsync("TeuDoongieJjang", "eMRBCS");
+        if (_loadStarted)
+            return;
+
+        await CheckUpdateThenLoadAsync();
+
+        ApkInstaller.UpdateFlowAborted -= OnUpdateFlowAborted;
+    }
+
+    private async void OnUpdateFlowAborted()
+    {
+        if (_loadStarted)
+            return;
+
+        await MainThread.InvokeOnMainThreadAsync(LoadAppAsync);
+
+
+    }
+
+    private async Task CheckUpdateThenLoadAsync()
+    {
+        // ---- 1. Check for an update FIRST ----
+        UpdateInfo? updateInfo = null;
+        try
+        {
+            var updateService = new UpdateService();
+            updateInfo = await updateService.CheckForUpdateAsync("TeuDoongieJjang", "eMRBCS");
+        }
+        catch
+        {
+            // Network / parse error → silently skip update check
+        }
 
         if (updateInfo != null)
         {
-            bool answer = await DisplayAlertAsync("Update Available", "Download and install now?", "Yes", "No");
+            bool answer = await DisplayAlertAsync(
+                "Update Available",
+                $"Version {updateInfo.Version} is available. Download and install now?",
+                "Yes", "No");
 
             if (answer)
             {
-                var installer = new ApkInstaller();
-                await installer.InstallApkAsync(updateInfo.DownloadUrl);
+                // Show a clear "update in progress" state while we download
+                // and possibly send the user to Settings.
+                lblLoadingDetails.Text = "Downloading update...";
+                lblLoadingPercent.Text = "Please wait";
+                activityIndicator.IsRunning = true;
+
+                try
+                {
+                    var installer = new ApkInstaller();
+                    await installer.InstallApkAsync(updateInfo.DownloadUrl);
+
+                    // If the user was sent to Settings (permission needed),
+                    // InstallApkAsync returns with IsUpdateInProgress still true.
+                    if (ApkInstaller.IsUpdateInProgress)
+                    {
+                        lblLoadingDetails.Text = "Waiting for installation...";
+                        lblLoadingPercent.Text = "Please wait";
+                        activityIndicator.IsRunning = true;
+
+                        // Do NOT load the app — OnUpdateFlowAborted will
+                        // resume loading if the user denies permission.
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Download / install failed → show the error but continue
+                    await DisplayAlertAsync("Update Error", ex.Message, "Ok");
+                }
             }
         }
+
+        // ---- 2. No update (or user declined) → load the app ----
+        await LoadAppAsync();
+    }
+
+    private async Task LoadAppAsync()
+    {
+        if (_loadStarted)
+            return;
+        _loadStarted = true;
+
         try
         {
             string filePath = Path.Combine(FileSystem.AppDataDirectory, targetfilename);
             if (!File.Exists(filePath))
-                await CopyDBFile();          // <-- must be awaited
+                await CopyDBFile();
 
-            await Task.Delay(100);           // was 500 – just enough for UI to paint
-            await LoadConsumerFromClass();   // now a Task, awaited
+            await Task.Delay(100);
+            await LoadConsumerFromClass();
         }
         catch (Exception ex)
         {

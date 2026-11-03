@@ -51,6 +51,7 @@ namespace eMRBCS.Services
             catch
             {
                 IsUpdateInProgress = false;
+                UpdateFlowAborted?.Invoke();
                 throw;
             }
         }
@@ -87,23 +88,26 @@ namespace eMRBCS.Services
             if (OperatingSystem.IsAndroidVersionAtLeast(26)
                 && !Platform.AppContext.PackageManager.CanRequestPackageInstalls())
             {
-                // User came back without granting permission; end the flow.
-                Android.Widget.Toast.MakeText(Platform.AppContext, "Permission required to install updates", Android.Widget.ToastLength.Short)!.Show();
+                Android.Widget.Toast.MakeText(
+                    Platform.AppContext,
+                    "Permission required to install updates",
+                    Android.Widget.ToastLength.Short)!.Show();
+
                 IsUpdateInProgress = false;
+                UpdateFlowAborted?.Invoke();   // <-- tell LoadingScreen to keep loading
                 return;
             }
 
             try
             {
                 LaunchInstaller(apkPath);
+                // success → app will be replaced, no event needed
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Auto-resume APK installation failed: {ex}");
-            }
-            finally
-            {
                 IsUpdateInProgress = false;
+                UpdateFlowAborted?.Invoke();   // <-- continue loading the old app
             }
         }
     }
