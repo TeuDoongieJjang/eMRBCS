@@ -23,7 +23,6 @@
         {
             if (string.IsNullOrWhiteSpace(input)) return null;
 
-            // Strip pre‑release ("-alpha.1") and build metadata ("+sha").
             var core = input.Split('-', '+')[0];
 
             // System.Version requires at least 2 parts; pad "1" → "1.0".
