@@ -206,21 +206,25 @@ HeightRequest="20"
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Entry x:Name="import_pass" 
-                                Grid.Column="0"
-                                Margin="10,5,0,0"
-                                FontSize="12"
-                                VerticalOptions="Center"                        
-                                HorizontalOptions="Fill"
-                                IsPassword="True"/>
-                        <Button x:Name="btnToggleImportPass" 
-                                Grid.Column="1"
-                                Text="Unhide" 
-                                FontSize="12"
-                                TextColor="#3269cd"
-                                BackgroundColor="Transparent"
-                                Padding="10,0"
-                                VerticalOptions="Center" 
-                                Clicked="OnToggleImportPassword" />
+                               Grid.Column="0"
+                               Margin="10,5,0,0"
+                               FontSize="12"
+                               VerticalOptions="Center"                        
+                               HorizontalOptions="Fill"
+                               IsPassword="True"/>
+                        <ImageButton x:Name="btnToggleImportPass" 
+                                     Grid.Column="1"
+                                     Source="menuicons/eye.png"
+                                     HeightRequest="22"
+                                     WidthRequest="22"
+                                     MinimumHeightRequest="22"
+                                     MinimumWidthRequest="22"
+                                     Padding="0"
+                                     Margin="0,0,10,0"
+                                     Aspect="AspectFit"
+                                     BackgroundColor="Transparent"
+                                     VerticalOptions="Center" 
+                                     Clicked="OnToggleImportPassword" />
                     </Grid>
                 </Frame>
                 <!--#EndPass -->
@@ -332,21 +336,25 @@ HeightRequest="20"
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Entry x:Name="export_pass" 
-                                Grid.Column="0"
-                                Margin="10,5,0,0"
-                                FontSize="12"
-                                VerticalOptions="Center"                        
-                                HorizontalOptions="Fill"
-                                IsPassword="True"/>
-                        <Button x:Name="btnToggleExportPass" 
-                                Grid.Column="1"
-                                Text="Unhide" 
-                                FontSize="12"
-                                TextColor="#3269cd"
-                                BackgroundColor="Transparent"
-                                Padding="10,0"
-                                VerticalOptions="Center" 
-                                Clicked="OnToggleExportPassword" />
+                               Grid.Column="0"
+                               Margin="10,5,0,0"
+                               FontSize="12"
+                               VerticalOptions="Center"                        
+                               HorizontalOptions="Fill"
+                               IsPassword="True"/>
+                        <ImageButton x:Name="btnToggleExportPass" 
+                                     Grid.Column="1"
+                                     Source="menuicons/eye.png"
+                                     HeightRequest="22"
+                                     WidthRequest="22"
+                                     MinimumHeightRequest="22"
+                                     MinimumWidthRequest="22"
+                                     Padding="0"
+                                     Margin="0,0,10,0"
+                                     Aspect="AspectFit"
+                                     BackgroundColor="Transparent"
+                                     VerticalOptions="Center" 
+                                     Clicked="OnToggleExportPassword" />
                     </Grid>
                 </Frame>
                 <!--#End Pass -->

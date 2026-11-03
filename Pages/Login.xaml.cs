@@ -22,6 +22,7 @@ public partial class Login : ContentPage
     private static string logoBase64ImgStr = null;
 
     string encryptedText;
+    private bool _isPasswordVisible;
 
     public Login()
     {
@@ -35,6 +36,17 @@ public partial class Login : ContentPage
 
         ScreenAdjustment();
 
+    }
+    private void OnTogglePasswordClicked(object sender, EventArgs e)
+    {
+        _isPasswordVisible = !_isPasswordVisible;
+
+        // When visible, IsPassword must be false
+        passwordEntry.IsPassword = !_isPasswordVisible;
+
+        btnTogglePassword.Source = _isPasswordVisible
+            ? "menuicons/eye_off.png"
+            : "menuicons/eye.png";
     }
 
     private void SetAppVersion()
@@ -63,7 +75,9 @@ public partial class Login : ContentPage
             await DisplayAlertAsync("Notice", "Network address invalid.\nPlease contact your Administrator", "Ok");
         }
 
-
+        _isPasswordVisible = false;
+        if (passwordEntry != null) passwordEntry.IsPassword = true;
+        if (btnTogglePassword != null) btnTogglePassword.Source = "menuicons/eye.png";
 
     }
 

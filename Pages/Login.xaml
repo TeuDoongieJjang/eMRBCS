@@ -130,23 +130,36 @@ Grid.Row="0"/>
                     <HorizontalStackLayout Grid.Row="0" Grid.Column="0">
                         <Image Source="menuicons/username.png" 
                                Margin="0,0,10,0"
-    HeightRequest="25" 
-    WidthRequest="25" />
+                                HeightRequest="25" 
+                                WidthRequest="25" />
                         <Entry x:Name="usernameEntry" 
-    Text=""
-    WidthRequest="200"
-    AbsoluteLayout.LayoutBounds="40,5"
-    Placeholder="Username" />
+                                Text=""
+                                WidthRequest="200"
+                                AbsoluteLayout.LayoutBounds="40,5"
+                                Placeholder="Username" />
                     </HorizontalStackLayout>
+                    
                     <HorizontalStackLayout Grid.Row="1" Grid.Column="0">
                         <Image Source="menuicons/password.png"                      
-     Margin="0,0,10,0"
-     HeightRequest="25" 
-     WidthRequest="25" />
+                               Margin="0,0,10,0"
+                               HeightRequest="25" 
+                               WidthRequest="25" />
                         <Entry x:Name="passwordEntry" 
-   WidthRequest="200"   
-   Placeholder="Password" 
-   IsPassword="True" />
+                                WidthRequest="200"   
+                                Placeholder="Password" 
+                                IsPassword="True" />
+                        <ImageButton x:Name="btnTogglePassword"
+                                     Source="menuicons/eye.png"
+                                     HeightRequest="25"
+                                     WidthRequest="25"
+                                     MinimumHeightRequest="25"
+                                     MinimumWidthRequest="25"
+                                     Margin="5,0,0,0"
+                                     Padding="0"
+                                     BackgroundColor="Transparent"
+                                     Aspect="AspectFit"
+                                     SemanticProperties.Description="Show or hide password"
+                                     Clicked="OnTogglePasswordClicked" />
                     </HorizontalStackLayout>
                 </Grid>
              

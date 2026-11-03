@@ -89,13 +89,17 @@ public partial class AppSettings : ContentPage
     private void OnToggleImportPassword(object sender, EventArgs e)
     {
         import_pass.IsPassword = !import_pass.IsPassword;
-        btnToggleImportPass.Text = import_pass.IsPassword ? "Unhide" : "Hide";
+        btnToggleImportPass.Source = import_pass.IsPassword
+            ? "menuicons/eye.png"
+            : "menuicons/eye_off.png";
     }
 
     private void OnToggleExportPassword(object sender, EventArgs e)
     {
         export_pass.IsPassword = !export_pass.IsPassword;
-        btnToggleExportPass.Text = export_pass.IsPassword ? "Unhide" : "Hide";
+        btnToggleExportPass.Source = export_pass.IsPassword
+            ? "menuicons/eye.png"
+            : "menuicons/eye_off.png";
     }
 
     private async void CheckServerStatus()
