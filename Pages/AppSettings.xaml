@@ -133,14 +133,14 @@ HeightRequest="20"
                     HorizontalOptions="Start"/>
 
                 <!-- Row 4-->
-                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="3"
-                        Grid.Column="0">
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="3" Grid.Column="0">
                     <Entry  x:Name="import_ipaddress"                            
-                        Placeholder="192.168.1.0"
-                        Margin="10,5,0,0"
-                        FontSize="12"
-                        VerticalOptions="Start"                        
-                        HorizontalOptions="Fill"/>
+                            Placeholder="192.168.1.1"
+                            TextChanged="OnIpAddressChanged"
+                            Margin="10,5,0,0"
+                            FontSize="12"
+                            VerticalOptions="Start"                        
+                            HorizontalOptions="Fill"/>
                 </Frame>
                 <!--#End IP Address -->
 
@@ -199,14 +199,29 @@ HeightRequest="20"
                     HorizontalOptions="Start"/>
 
                 <!-- Row 4-->
-                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="9"
-                        Grid.Column="0">
-                    <Entry  x:Name="import_pass"
-                        Margin="10,5,0,0"
-                        FontSize="12"
-                        VerticalOptions="Start"                        
-                        HorizontalOptions="Fill"
-                        IsPassword="True"/>
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="9" Grid.Column="0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Entry x:Name="import_pass" 
+                                Grid.Column="0"
+                                Margin="10,5,0,0"
+                                FontSize="12"
+                                VerticalOptions="Center"                        
+                                HorizontalOptions="Fill"
+                                IsPassword="True"/>
+                        <Button x:Name="btnToggleImportPass" 
+                                Grid.Column="1"
+                                Text="Unhide" 
+                                FontSize="12"
+                                TextColor="#3269cd"
+                                BackgroundColor="Transparent"
+                                Padding="10,0"
+                                VerticalOptions="Center" 
+                                Clicked="OnToggleImportPassword" />
+                    </Grid>
                 </Frame>
                 <!--#EndPass -->
                 
@@ -244,14 +259,14 @@ HeightRequest="20"
                     HorizontalOptions="Start"/>
 
                 <!-- Row 4-->
-                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="13"
-                    Grid.Column="0">
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="13" Grid.Column="0">
                     <Entry  x:Name="export_ipaddress"                            
-                        Placeholder="0.0.0.0"
-                        Margin="10,5,0,0"
-                        FontSize="12"
-                        VerticalOptions="Start"                        
-                        HorizontalOptions="Fill"/>
+                            Placeholder="192.168.1.1"
+                            TextChanged="OnIpAddressChanged"
+                            Margin="10,5,0,0"
+                            FontSize="12"
+                            VerticalOptions="Start"                        
+                            HorizontalOptions="Fill"/>          
                 </Frame>
                 <!--#End IP Address -->
 
@@ -310,14 +325,29 @@ HeightRequest="20"
                     HorizontalOptions="Start"/>
 
                 <!-- Row 4-->
-                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="19"
-                    Grid.Column="0">
-                    <Entry  x:Name="export_pass"
-                        Margin="10,5,0,0"
-                        FontSize="12"
-                        VerticalOptions="Start"                        
-                        HorizontalOptions="Fill"
-                        IsPassword="True"/>
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="19" Grid.Column="0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Entry x:Name="export_pass" 
+                                Grid.Column="0"
+                                Margin="10,5,0,0"
+                                FontSize="12"
+                                VerticalOptions="Center"                        
+                                HorizontalOptions="Fill"
+                                IsPassword="True"/>
+                        <Button x:Name="btnToggleExportPass" 
+                                Grid.Column="1"
+                                Text="Unhide" 
+                                FontSize="12"
+                                TextColor="#3269cd"
+                                BackgroundColor="Transparent"
+                                Padding="10,0"
+                                VerticalOptions="Center" 
+                                Clicked="OnToggleExportPassword" />
+                    </Grid>
                 </Frame>
                 <!--#End Pass -->
                 <Button Text="Save Changes"

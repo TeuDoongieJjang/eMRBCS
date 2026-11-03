@@ -2052,7 +2052,7 @@ public partial class Reading : ContentPage
 
             // ================= BARCODE =================
             await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
-                                            widthFraction: 1.5, heightDots: 70,
+                                            widthFraction: 1.3, heightDots: 70,
                                             humanText: false, maxModuleDots: 3,
                                             align: PrintAlign.Center);
 

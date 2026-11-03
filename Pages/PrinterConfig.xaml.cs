@@ -1,7 +1,7 @@
 using eMRBCS.Global;
 using eMRBCS.Models;
 using eMRBCS.Services;
-
+using System.Text.RegularExpressions;
 
 
 #if ANDROID
@@ -19,12 +19,84 @@ public partial class PrinterConfig : ContentPage
 
     string profiles;
 
+    private static readonly Regex MacRegex = new Regex("^([0-9A-F]{2}:){5}[0-9A-F]{2}$", RegexOptions.Compiled);
+
+    private bool _isFormattingMacAddress;
+    private string _lastMacDisplay = string.Empty;
+
     private static string logoBase64ImgStr = null;
     public PrinterConfig()
     {
         InitializeComponent();
         LoadPickers();
 
+#if ANDROID
+        bluetooth_address.HandlerChanged += (s, e) =>
+        {
+            if (bluetooth_address.Handler?.PlatformView is Android.Widget.EditText et)
+            {
+                et.InputType = Android.Text.InputTypes.ClassText
+                             | Android.Text.InputTypes.TextFlagCapCharacters
+                             | Android.Text.InputTypes.TextFlagNoSuggestions;
+            }
+        };
+#endif
+
+    }
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await LoadAndSelectLatestAsync();
+    }
+
+    private async Task LoadAndSelectLatestAsync()
+    {
+        dbService = new DBService();
+
+        pickerProfiles.ItemsSource ??= new List<string>
+        {
+            "PB21", "P6824SERIAL", "P6824BT", "PR2", "PB31", "PB42", "PB51"
+        };
+
+        _printerConfigs = (await dbService.GetAllPrinterConfig()) ?? new List<Printerconfig>();
+
+        var names = new List<string> { "New Config" };
+        names.AddRange(_printerConfigs.Select(p => p.profile_name));
+        pickerConfigName.ItemsSource = names;
+
+        // Priority: currently loaded -> default -> most recently saved (highest id)
+        Printerconfig target = null;
+
+        if (MyDeviceInfo.currentPrintConfig != null)
+            target = _printerConfigs.FirstOrDefault(p => p.id == MyDeviceInfo.currentPrintConfig.id);
+
+        target ??= _printerConfigs.FirstOrDefault(p => p.isdefault == 1);
+        target ??= _printerConfigs.OrderByDescending(p => p.id).FirstOrDefault();
+
+        SelectConfigInPicker(target?.profile_name);
+
+        // If the config we picked is already the active one, allow Test Print
+        if (target != null &&
+            MyDeviceInfo.currentPrintConfig != null &&
+            MyDeviceInfo.currentPrintConfig.id == target.id)
+        {
+            btnTestPrint.IsEnabled = true;
+        }
+    }
+
+    private void SelectConfigInPicker(string name)
+    {
+        var names = pickerConfigName.ItemsSource as List<string>;
+        int idx = 0;
+        if (names != null && !string.IsNullOrEmpty(name))
+        {
+            int found = names.IndexOf(name);
+            if (found > 0) idx = found;
+        }
+
+        // Force the change event to fire even if the index is already idx
+        pickerConfigName.SelectedIndex = -1;
+        pickerConfigName.SelectedIndex = idx;
     }
 
     private async void OnLoadPrintConfig()
@@ -48,15 +120,91 @@ public partial class PrinterConfig : ContentPage
         await Navigation.PopAsync();
     }
 
+    private static string BuildMacDisplay(string hex)
+    {
+        if (hex.Length > 12) hex = hex[..12];
+
+        var sb = new System.Text.StringBuilder(17);
+        for (int i = 0; i < hex.Length; i++)
+        {
+            if (i > 0 && i % 2 == 0) sb.Append(':');
+            sb.Append(hex[i]);
+        }
+
+        // Show the next separator while the value is still incomplete
+        if (hex.Length > 0 && hex.Length < 12 && hex.Length % 2 == 0)
+            sb.Append(':');
+
+        return sb.ToString();
+    }
+
+    private void OnBluetoothAddressChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_isFormattingMacAddress) return;
+
+        var entry = (Entry)sender;
+        string prev = _lastMacDisplay;
+        string raw = e.NewTextValue ?? string.Empty;
+
+        string hex = new string(raw.Where(Uri.IsHexDigit).ToArray()).ToUpperInvariant();
+        if (hex.Length > 12) hex = hex[..12];
+
+        string display = BuildMacDisplay(hex);
+
+        // Backspace landed on the auto-inserted trailing colon -> drop a digit too
+        if (raw.Length < prev.Length && display == prev && hex.Length > 0)
+        {
+            hex = hex[..^1];
+            display = BuildMacDisplay(hex);
+        }
+
+        _lastMacDisplay = display;
+
+        if (display != raw)
+        {
+            _isFormattingMacAddress = true;
+            entry.Text = display;
+            _isFormattingMacAddress = false;
+        }
+
+        Dispatcher.Dispatch(() => entry.CursorPosition = display.Length);
+    }
+
+    private void SetBluetoothAddress(string value)
+    {
+        _isFormattingMacAddress = true;
+        bluetooth_address.Text = value ?? string.Empty;
+        _lastMacDisplay = bluetooth_address.Text;
+        _isFormattingMacAddress = false;
+    }
+
 
 
     private async void OnSaveChanges(object sender, EventArgs e)
     {
-        if (pickerConfigName.SelectedIndex == -1 || pickerProfiles.SelectedIndex == -1 || bluetooth_address.Text == "" || line_spaces.Text == "")
+        if (pickerConfigName.SelectedIndex == -1 ||
+            pickerProfiles.SelectedIndex == -1 ||
+            string.IsNullOrWhiteSpace(bluetooth_address.Text) ||
+            string.IsNullOrWhiteSpace(line_spaces.Text))
         {
             await DisplayAlertAsync("Notice", "Incomplete Information to save.", "Ok");
             return;
+        }
 
+        // ---- Bluetooth must be a full XX:XX:XX:XX:XX:XX ----
+        if (!MacRegex.IsMatch(bluetooth_address.Text ?? string.Empty))
+        {
+            await DisplayAlertAsync("Notice",
+                "Please enter a complete Bluetooth address (XX:XX:XX:XX:XX:XX).", "Ok");
+            return;
+        }
+
+        // ---- Line spacing must be a positive integer ----
+        if (!int.TryParse(line_spaces.Text, out int p_linespaces) || p_linespaces <= 0)
+        {
+            await DisplayAlertAsync("Notice",
+                "Line space must be a positive number.", "Ok");
+            return;
         }
 
         int isupdate = 0;
@@ -64,112 +212,181 @@ public partial class PrinterConfig : ContentPage
         dbService = new DBService();
         int p_nameindex = pickerConfigName.SelectedIndex;
         int isdefault = chkDefault.IsChecked ? 1 : 0;
-        string p_name = "";
+
+        string p_name;
         if (p_nameindex == 0)
         {
-
             p_name = await DisplayPromptAsync("Notice", "Please input new config name: ");
-            if (p_name == null)
+            if (string.IsNullOrWhiteSpace(p_name))
             {
-                await DisplayAlertAsync("Notice", "You need to enter a name for your config", "Ok");
+                await DisplayAlertAsync("Notice",
+                    "You need to enter a name for your config", "Ok");
+                return;
+            }
+            p_name = p_name.Trim();
+
+            if (_printerConfigs != null &&
+                _printerConfigs.Any(p => string.Equals(p.profile_name, p_name,
+                    StringComparison.OrdinalIgnoreCase)))
+            {
+                await DisplayAlertAsync("Notice",
+                    $"A config named \"{p_name}\" already exists.", "Ok");
                 return;
             }
         }
         else
         {
-            p_name = pickerConfigName.Items[p_nameindex];
-            p_id = _selectedprinter.id;
+            p_name = (string)pickerConfigName.Items[p_nameindex];
+            p_id = _selectedprinter?.id ?? 0;
             isupdate = 1;
         }
-        int p_profileindex = pickerConfigName.SelectedIndex;
-        string p_profile = pickerProfiles.Items[p_profileindex];
-        int p_linespaces = line_spaces.Text == "" ? 0 : int.Parse(line_spaces.Text);
 
-        bool isSaved = await dbService.PrinterconfigSave(p_name, bluetooth_address.Text, p_profile, p_linespaces, isupdate, p_id, isdefault);
-        if (isSaved)
-        {
-            await DisplayAlertAsync("Notice", "Printer config saved.", "Ok");
-            if (isupdate == 1)
-            {
-                _selectedprinter.linespacing = int.Parse(line_spaces.Text);
-                _selectedprinter.profileconfig = p_profile;
-                _selectedprinter.bluetooth_address = bluetooth_address.Text;
-            }
-            if (isdefault == 1 && isupdate == 0)
-            {
-                //Load printer if default
-                MyDeviceInfo.currentPrintConfig = await dbService.GetDefaultPrinterConfig();
-                if (MyDeviceInfo.currentPrintConfig != null)
-                {
-                    await DisplayAlertAsync("Notice", "Printer has been loaded as Default Printer", "Ok");
-                    pickerConfigName.SelectedIndex = 0;
-                    bluetooth_address.Text = "";
-                    pickerProfiles.SelectedIndex = 0;
-                    line_spaces.Text = "0";
-                    chkDefault.IsChecked = false;
-                }
-            }
-        }
-        else
+        string p_profile = (string)pickerProfiles.Items[pickerProfiles.SelectedIndex];
+
+        bool isSaved = await dbService.PrinterconfigSave(
+            p_name, bluetooth_address.Text, p_profile, p_linespaces,
+            isupdate, p_id, isdefault);
+
+        if (!isSaved)
         {
             await DisplayAlertAsync("Warning", "Printer config not saved.", "Ok");
+            return;
         }
+
+        await DisplayAlertAsync("Notice", "Printer config saved.", "Ok");
+
+        // Reload from DB and re-select the just-saved config so the picker
+        // and every field stay populated without leaving the page.
+        _printerConfigs = (await dbService.GetAllPrinterConfig()) ?? new List<Printerconfig>();
+
+        var names = new List<string> { "New Config" };
+        names.AddRange(_printerConfigs.Select(p => p.profile_name));
+        pickerConfigName.ItemsSource = names;
+        SelectConfigInPicker(p_name);
+
+        if (isdefault == 1)
+        {
+            MyDeviceInfo.currentPrintConfig = await dbService.GetDefaultPrinterConfig();
+            if (MyDeviceInfo.currentPrintConfig != null)
+            {
+                await DisplayAlertAsync("Notice",
+                    "Printer has been loaded as Default Printer", "Ok");
+                btnTestPrint.IsEnabled = true;
+            }
+        }
+    }
+
+    private async void OnDeleteConfig(object sender, EventArgs e)
+    {
+        if (pickerConfigName.SelectedIndex <= 0 || _selectedprinter == null)
+        {
+            await DisplayAlertAsync("Notice",
+                "Please select a saved config to remove.", "Ok");
+            return;
+        }
+
+        bool confirm = await DisplayAlertAsync("Remove Config",
+            $"Remove printer config \"{_selectedprinter.profile_name}\"?",
+            "Yes", "No");
+        if (!confirm) return;
+
+        int removedId = _selectedprinter.id;
+        dbService = new DBService();
+
+        // NOTE: match this name to whatever your DBService exposes
+        // (PrinterconfigDelete / DeletePrinterConfig / RemovePrinterConfig).
+        bool deleted = await dbService.PrinterconfigDelete(removedId);
+
+        if (!deleted)
+        {
+            await DisplayAlertAsync("Warning", "Printer config not removed.", "Ok");
+            return;
+        }
+
+        // If we removed the active config, drop it from MyDeviceInfo
+        if (MyDeviceInfo.currentPrintConfig != null &&
+            MyDeviceInfo.currentPrintConfig.id == removedId)
+        {
+            MyDeviceInfo.currentPrintConfig = await dbService.GetDefaultPrinterConfig();
+        }
+
+        await DisplayAlertAsync("Notice", "Printer config removed.", "Ok");
+
+        _selectedprinter = null;
+        await LoadAndSelectLatestAsync();
     }
 
     private async void LoadPickers()
     {
-        _printerConfigs = new List<Printerconfig>();
         dbService = new DBService();
-        _printerConfigs = await dbService.GetAllPrinterConfig();
-        List<string> _printernames = new List<string>();
-        _printernames.Add("New Config");
-        if (_printerConfigs != null)
-        {
-
-            foreach (var item in _printerConfigs)
-            {
-                _printernames.Add(item.profile_name);
-            }
-        }
-
-        pickerConfigName.ItemsSource = _printernames;
 
         pickerProfiles.ItemsSource = new List<string>
+    {
+        "PB21", "P6824SERIAL", "P6824BT", "PR2", "PB31", "PB42", "PB51"
+    };
+
+        await RefreshPrinterConfigPickerAsync(null);
+    }
+
+    private async Task RefreshPrinterConfigPickerAsync(string selectName)
+    {
+        _printerConfigs = (await dbService.GetAllPrinterConfig()) ?? new List<Printerconfig>();
+
+        var names = new List<string> { "New Config" };
+        names.AddRange(_printerConfigs.Select(p => p.profile_name));
+
+        pickerConfigName.ItemsSource = names;
+
+        if (!string.IsNullOrEmpty(selectName))
         {
-            "PB21",
-            "P6824SERIAL",
-            "P6824BT",
-            "PR2",
-            "PB31",
-            "PB42",
-            "PB51"
-        };
+            int idx = names.FindIndex(n => n == selectName);
+            if (idx > 0)
+            {
+                // Setting SelectedIndex fires OnPrinterConfigChange,
+                // which re-populates every field from the DB record.
+                pickerConfigName.SelectedIndex = idx;
+            }
+        }
     }
 
     private void OnPrinterConfigChange(object sender, EventArgs e)
     {
-        if (pickerConfigName.SelectedIndex > 0)
+        if (pickerConfigName.SelectedIndex > 0 && _printerConfigs != null)
         {
-            string _selectedname = pickerConfigName.Items[pickerConfigName.SelectedIndex];
-            _selectedprinter = new Printerconfig();
-            _selectedprinter = _printerConfigs.Where(p => p.profile_name == _selectedname).FirstOrDefault();
-            bluetooth_address.Text = _selectedprinter.bluetooth_address;
+            string selectedName = (string)pickerConfigName.Items[pickerConfigName.SelectedIndex];
+            _selectedprinter = _printerConfigs.FirstOrDefault(p => p.profile_name == selectedName);
+
+            if (_selectedprinter == null)
+            {
+                btnSave.Text = "Save Config";
+                btnLoad.IsEnabled = false;
+                btnTestPrint.IsEnabled = false;
+                btnDelete.IsEnabled = false;
+                return;
+            }
+
+            SetBluetoothAddress(_selectedprinter.bluetooth_address);
             line_spaces.Text = _selectedprinter.linespacing.ToString();
             pickerProfiles.SelectedItem = _selectedprinter.profileconfig;
-            chkDefault.IsChecked = _selectedprinter.isdefault == 1 ? true : false;
+            chkDefault.IsChecked = _selectedprinter.isdefault == 1;
+
             btnSave.Text = "Update Config";
             btnLoad.IsEnabled = true;
             btnTestPrint.IsEnabled = false;
-
+            btnDelete.IsEnabled = true;
         }
         else
         {
-            bluetooth_address.Text = "";
+            _selectedprinter = null;
+            SetBluetoothAddress("");
             line_spaces.Text = "0";
-            pickerProfiles.SelectedIndex = 0;
+            pickerProfiles.SelectedIndex = -1;
+            chkDefault.IsChecked = false;
+
             btnSave.Text = "Save Config";
             btnLoad.IsEnabled = false;
             btnTestPrint.IsEnabled = false;
+            btnDelete.IsEnabled = false;
         }
     }
 
@@ -180,6 +397,8 @@ public partial class PrinterConfig : ContentPage
 
     private async void OnLoadConfig(object sender, EventArgs e)
     {
+        if (_selectedprinter == null) return;
+
         MyDeviceInfo.currentPrintConfig = _selectedprinter;
         btnTestPrint.IsEnabled = true;
         await DisplayAlertAsync("Notice", "Selected Config Profile has been loaded.", "Ok");
@@ -366,7 +585,7 @@ public partial class PrinterConfig : ContentPage
         {
             //string outputTest = await DoTestPrint();
             //await DisplayAlertAsync("Notice", outputTest, "Ok");
-            bool isConfirm = await DisplayAlertAsync("Test Print", "Click YES for Generic Test Print \n or NO for Honeywell Test Print.", "Yes", "No");
+            bool isConfirm = await DisplayAlertAsync("Test Print", "Would you like to perform a test print?", "Yes", "No");
             if (isConfirm)
             {
                 output = await DoEscPOS_Print();

@@ -155,14 +155,18 @@ Title="Choose Name">
                     HorizontalOptions="Start"/>
 
                 <!-- Row 4-->
-                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="5"
-                        Grid.Column="0">
-                    <Entry  x:Name="bluetooth_address"                            
-                        Placeholder="00:00:00:00"
-                        Margin="10,5,0,0"
-                        FontSize="14"
-                        VerticalOptions="Start"                        
-                        HorizontalOptions="Fill"/>
+                <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="5" Grid.Column="0">
+                    <Entry x:Name="bluetooth_address"
+                           Placeholder="00:00:00:00:00:00"
+                           MaxLength="17"
+                           Keyboard="Text"
+                           IsSpellCheckEnabled="False"
+                           IsTextPredictionEnabled="False"
+                           TextChanged="OnBluetoothAddressChanged"
+                           Margin="10,5,0,0"
+                           FontSize="14"
+                           VerticalOptions="Start"
+                           HorizontalOptions="Fill"/>
                 </Frame>
                 <!--#End IP Address -->
 
@@ -232,27 +236,35 @@ Title="Choose Name">
                 <!--#End Pass -->
                 <Button x:Name="btnSave" 
                         Margin="10,0,10,5"
-                    Text="Save Config"
-                    Clicked="OnSaveChanges"
-                    BackgroundColor="#3269cd"
-                    Grid.Row="11"
-                    Grid.Column="0" />
+                        Text="Save Config"
+                        Clicked="OnSaveChanges"
+                        BackgroundColor="#3269cd"
+                        Grid.Row="11"
+                        Grid.Column="0" />  
                 <Button x:Name="btnLoad" 
                         Margin="10,0,10,5"
-     Text="Load Config"
-     Clicked="OnLoadConfig"
-     BackgroundColor="#3269cd"
+                        Text="Load Config"
+                        Clicked="OnLoadConfig"
+                        BackgroundColor="#3269cd"
                         IsEnabled="False"
-     Grid.Row="12"
-     Grid.Column="0" />
+                        Grid.Row="12"
+                        Grid.Column="0" />
                 <Button x:Name="btnTestPrint" 
                         Margin="10,0,10,5"
-Text="Test Print"
-Clicked="OnTestPrint"
-BackgroundColor="#3269cd"
-                   IsEnabled="False"
-Grid.Row="13"
-Grid.Column="0" />
+                        Text="Test Print"
+                        Clicked="OnTestPrint"
+                        BackgroundColor="#3269cd"
+                        IsEnabled="False"
+                        Grid.Row="13"
+                        Grid.Column="0" />
+                <Button x:Name="btnDelete"
+                        Margin="10,0,10,5"
+                        Text="Remove Config"
+                        Clicked="OnDeleteConfig"
+                        BackgroundColor="#c0392b"
+                        IsEnabled="False"
+                        Grid.Row="14"
+                        Grid.Column="0" />
             </Grid>
 
 

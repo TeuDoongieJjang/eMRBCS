@@ -1,17 +1,7 @@
 ﻿using eMRBCS.Global;
-using SQLite;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using eMRBCS.Models;
+using SQLite;
 using System.Windows.Input;
-using eMRBCS.Pages;
-using Microsoft.Maui.Controls;
-using SharpCifs.Util.Sharpen;
-using System.Diagnostics.Metrics;
-using System.Net;
 
 
 
@@ -44,7 +34,7 @@ namespace eMRBCS.Services
             {
                 string dbPath = Path.Combine(FileSystem.AppDataDirectory, targetfilename);
                 Database = new SQLiteConnection(dbPath);
-            }                    
+            }
         }
 
         private static int CheckRecordExists(string recordKey, int tableType)
@@ -91,7 +81,7 @@ namespace eMRBCS.Services
 
         public async Task<bool> UserReadAndProcessileAsync(string sourcefile)
         {
-            
+
             int userid;
             string usercode;
             string username;
@@ -140,7 +130,7 @@ namespace eMRBCS.Services
                         user_items.Add(newItem);
                     }
                 }
-                
+
             }
             bool isDone = await UserSaveItemsToDatabase(user_items);
             return isDone;
@@ -164,7 +154,7 @@ namespace eMRBCS.Services
                     {
 
                     }
-                                 
+
                 }
                 OtherRecords.noofusers = noofrecords;
                 OtherRecords.LstUsers = items;
@@ -185,7 +175,7 @@ namespace eMRBCS.Services
             float average_usage;
             float special_penalty_rate;
             string billdate;
-            string duedate;            
+            string duedate;
             int metersize;
             float othercharges;
             int consumer_type;
@@ -234,7 +224,7 @@ namespace eMRBCS.Services
                             average_usage = ParseFloat(items[8]),
                             special_penalty_rate = ParseFloat(items[9]),
                             billdate = items[10].Trim(),
-                            duedate = items[11].Trim(),                            
+                            duedate = items[11].Trim(),
                             metersize = int.Parse(items[12].Trim()),
                             othercharges = ParseFloat(items[13].Trim()),
                             consumer_type = int.Parse(items[14].Trim()),
@@ -285,6 +275,8 @@ namespace eMRBCS.Services
             Database.Execute(querycmd);
         }
 
+
+
         public async Task<bool> RequestForConsumers()
         {
             bool isDone = true;
@@ -302,7 +294,7 @@ namespace eMRBCS.Services
                 ConsumerRecords.lstconsumers = Database.Table<Consumers>().OrderBy(c => c.accountID).ToList();
                 ConsumerRecords.noofrecords_import = ConsumerRecords.lstconsumers.Count;
             });
-            
+
         }
 
         public async Task<List<Consumers>> LoadReportConsumersToList(int rptRequest)
@@ -314,8 +306,8 @@ namespace eMRBCS.Services
                 {
                     _newlist = Database.Table<Consumers>().Where(c => c.status == 1).OrderBy(c => c.accountID).ToList();
                 }
-                
-                
+
+
             });
             return _newlist;
         }
@@ -353,7 +345,7 @@ namespace eMRBCS.Services
             bool isSuccess = true;
             int noofrecords = 0;
             await Task.Run(() =>
-            {                
+            {
                 try
                 {
                     DeleteAllRecords("Consumers");
@@ -375,7 +367,7 @@ namespace eMRBCS.Services
                 catch (Exception ex)
                 {
                     isSuccess = false;
-                }          
+                }
             });
             ConsumerRecords.noofrecords_import = noofrecords;
             return isSuccess;
@@ -385,13 +377,13 @@ namespace eMRBCS.Services
         {
             bool isSuccess = true;
             await Task.Run(() =>
-            {                
+            {
                 try
                 {
                     //var consumer = Database.Table<Consumers>().FirstOrDefault(p => p.accountNo == _consumer.accountNo);
                     //consumer.presreading = _consumer.presreading;
-                    consumer.status = 1;                    
-                    consumer.billedby = LoginUser.login_user.fullname;                   
+                    consumer.status = 1;
+                    consumer.billedby = LoginUser.login_user.fullname;
                     consumer.billdate = DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt");
                     //consumer.total_bill = _consumer.total_bill;
                     //consumer.usage = _consumer.usage;
@@ -463,9 +455,9 @@ namespace eMRBCS.Services
             remark_items = new List<Remarks>();
             await Task.Run(() =>
             {
-                
+
                 remark_items = Database.Table<Remarks>().ToList();
-                
+
             });
             return remark_items;
         }
@@ -484,12 +476,13 @@ namespace eMRBCS.Services
                         Database.Insert(item);
                         noofrecords++;
                     }
-                    catch (Exception ex) {
-                    
-                    
+                    catch (Exception ex)
+                    {
+
+
                     }
 
-                    
+
                 }
             });
             OtherRecords.noofremarks = noofrecords;
@@ -520,9 +513,9 @@ namespace eMRBCS.Services
                 while ((line = await reader.ReadLineAsync()) != null)
                 {
                     string[] items = line.Split('~');
-                    consumer_type = int.Parse(items[0].Trim());                    
+                    consumer_type = int.Parse(items[0].Trim());
 
-                    if (consumer_type !=0)
+                    if (consumer_type != 0)
                     {
                         Billing_rates newItem = new Billing_rates
                         {
@@ -568,7 +561,7 @@ namespace eMRBCS.Services
                     {
 
                     }
-                    
+
                 }
             });
 
@@ -624,7 +617,7 @@ namespace eMRBCS.Services
 
                 NetworkSaveItemsToDatabase(networkconfig);
             });
-            
+
             return isSuccess;
         }
 
@@ -634,28 +627,28 @@ namespace eMRBCS.Services
             await Task.Run(() =>
             {
                 InitializeDatabase();
-                networkconfig= Database.Table<Networkconfig>().OrderBy(r => r.id).FirstOrDefault();
+                networkconfig = Database.Table<Networkconfig>().OrderBy(r => r.id).FirstOrDefault();
             });
             return networkconfig;
         }
 
         private void NetworkSaveItemsToDatabase(Networkconfig item)
         {
-            Database.Update(item);            
-            
+            Database.Update(item);
+
         }
 
         public async Task<Users> GetLoginUser(string username, string password)
         {
-            Users loginuser = new Users();            
+            Users loginuser = new Users();
             await Task.Run(() =>
             {
                 InitializeDatabase();
-                loginuser = Database.Table<Users>().FirstOrDefault(u => u.username == username && u.password == password);                               
+                loginuser = Database.Table<Users>().FirstOrDefault(u => u.username == username && u.password == password);
             });
-            
-            return loginuser;            
-            
+
+            return loginuser;
+
         }
 
         public async Task<Users_admin> GeAdminUser(string username, string password)
@@ -706,7 +699,7 @@ namespace eMRBCS.Services
                 {
                     isSuccess = false;
                 }
-                
+
 
             });
 
@@ -730,7 +723,7 @@ namespace eMRBCS.Services
                         _user.name = fullname;
                         _user.position = position;
                         _user.password = password;
-                        Database.Update(_user);                        
+                        Database.Update(_user);
                     }
                     else
                     {
@@ -743,7 +736,7 @@ namespace eMRBCS.Services
                             role = 2
                         };
                         Database.Insert(_user);
-                       
+
                     }
                 }
                 catch (Exception ex)
@@ -761,17 +754,17 @@ namespace eMRBCS.Services
         public async Task<List<Users_admin>> LoadAllAdmins()
         {
             List<Users_admin> _adminusers = new List<Users_admin>();
-           
+
             await Task.Run(() =>
             {
                 try
                 {
                     InitializeDatabase();
-                    _adminusers = Database.Table<Users_admin>().Where(u => u.role == 2).ToList();                    
+                    _adminusers = Database.Table<Users_admin>().Where(u => u.role == 2).ToList();
                 }
                 catch (Exception ex)
                 {
-                    
+
                 }
 
 
@@ -783,7 +776,7 @@ namespace eMRBCS.Services
 
         public async Task<bool> SaveUserActivity(string formname, string activity, string status)
         {
-            
+
             bool isSuccess = true;
             await Task.Run(() =>
             {
@@ -802,18 +795,18 @@ namespace eMRBCS.Services
                         lvlaccess = LoginUser.role
                     };
                     Database.Insert(_useractivity);
-                    
+
                 }
                 catch (Exception ex)
                 {
                     isSuccess = false;
                 }
-                    
-               
+
+
             });
 
             return isSuccess;
-            
+
 
         }
 
@@ -834,7 +827,7 @@ namespace eMRBCS.Services
 
         public async Task<List<User_activity>> GetAllUserActivity(int role)
         {
-            List<User_activity> userActivity_items  = new List<User_activity>();
+            List<User_activity> userActivity_items = new List<User_activity>();
             await Task.Run(() =>
             {
                 InitializeDatabase();
@@ -846,7 +839,7 @@ namespace eMRBCS.Services
         }
 
 
-        public async Task<bool> ServerImportSave(int consumerfile,int remarkfile,int billratefile, int userfile)
+        public async Task<bool> ServerImportSave(int consumerfile, int remarkfile, int billratefile, int userfile)
         {
             bool isSuccess = true;
             await Task.Run(() =>
@@ -854,24 +847,24 @@ namespace eMRBCS.Services
                 try
                 {
                     InitializeDatabase();
-                   
-                        Server_transactions server_Transactions = new Server_transactions
-                        {
-                            latest_importdate = DateTime.Now.ToString(),
-                            consumers_file = consumerfile,
-                            billrate_file = billratefile,
-                            remark_file = remarkfile,
-                            users_file = userfile,
-                            user_import = LoginUser.login_user.username
-                        };
 
-                        Database.Insert(server_Transactions);    
+                    Server_transactions server_Transactions = new Server_transactions
+                    {
+                        latest_importdate = DateTime.Now.ToString(),
+                        consumers_file = consumerfile,
+                        billrate_file = billratefile,
+                        remark_file = remarkfile,
+                        users_file = userfile,
+                        user_import = LoginUser.login_user.username
+                    };
+
+                    Database.Insert(server_Transactions);
                 }
                 catch (Exception ex)
                 {
                     isSuccess = false;
                 }
-                
+
             });
 
             return isSuccess;
@@ -908,7 +901,7 @@ namespace eMRBCS.Services
 
                         Database.Insert(server_Transactions);
                     }
-                    
+
                 }
                 catch (Exception ex)
                 {
@@ -928,56 +921,56 @@ namespace eMRBCS.Services
             List<Daily_transactions> dailyTrans = new List<Daily_transactions>();
             await Task.Run(() =>
             {
-               
-                    InitializeDatabase();
+
+                InitializeDatabase();
                 DeleteAllRecords("daily_transactions");
                 //Get billed consumers
                 List<Consumers> consumers = new List<Consumers>();
                 //consumers = Database.Table<Consumers>().Where(c => c.status==1).ToList();
                 consumers = Database.Table<Consumers>().Where(c => c.status == 1).OrderByDescending(c => c.billdate).ToList();
                 if (consumers.Count > 0)
+                {
+                    foreach (Consumers consumer in consumers)
                     {
-                        foreach (Consumers consumer in consumers)
+                        try
                         {
-                            try
+                            Daily_transactions _dailytrans = new Daily_transactions
                             {
-                                Daily_transactions _dailytrans = new Daily_transactions
-                                {
-                                    isbilled = 1,
-                                    accountno = consumer.accountNo,
-                                    consumer_name = consumer.consumer_name,
-                                    address = consumer.address,
-                                    meterno = consumer.meterno,
-                                    consumer_type = consumer.consumer_type,
-                                    prevreading = consumer.prevreading,
-                                    presreading = consumer.presreading,
-                                    //usage = consumer.presreading - consumer.presreading,
-                                    usage = consumer.usage,
-                                    billdate = consumer.billdate,
-                                    billamount = consumer.total_bill,
-                                    remarks = consumer.remarks,
-                                    arrears = consumer.arrears,
-                                    other_charges = 0,
-                                    billmonth = consumer.billdate,
-                                    device_user = LoginUser.login_user.fullname,
-                                    seqno = consumer.seqno,
-                                    timestamp = DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt")
+                                isbilled = 1,
+                                accountno = consumer.accountNo,
+                                consumer_name = consumer.consumer_name,
+                                address = consumer.address,
+                                meterno = consumer.meterno,
+                                consumer_type = consumer.consumer_type,
+                                prevreading = consumer.prevreading,
+                                presreading = consumer.presreading,
+                                //usage = consumer.presreading - consumer.presreading,
+                                usage = consumer.usage,
+                                billdate = consumer.billdate,
+                                billamount = consumer.total_bill,
+                                remarks = consumer.remarks,
+                                arrears = consumer.arrears,
+                                other_charges = 0,
+                                billmonth = consumer.billdate,
+                                device_user = LoginUser.login_user.fullname,
+                                seqno = consumer.seqno,
+                                timestamp = DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt")
 
-                                };
-                                Database.Insert(_dailytrans);
-                                dailyTrans.Add(_dailytrans);
-                            }
-                            catch (Exception ex1)
-                            {
-                                   isSuccess = false;
-                            }
-
-                            
+                            };
+                            Database.Insert(_dailytrans);
+                            dailyTrans.Add(_dailytrans);
                         }
-                        ConsumerRecords.daily_Transactions = dailyTrans;
+                        catch (Exception ex1)
+                        {
+                            isSuccess = false;
+                        }
+
+
                     }
-                
-               
+                    ConsumerRecords.daily_Transactions = dailyTrans;
+                }
+
+
             });
 
 
@@ -1003,12 +996,12 @@ namespace eMRBCS.Services
             await Task.Run(() =>
             {
                 InitializeDatabase();
-                printer_item = Database.Table<Printerconfig>().Where(p => p.isdefault==1).FirstOrDefault();
+                printer_item = Database.Table<Printerconfig>().Where(p => p.isdefault == 1).FirstOrDefault();
 
             });
             return printer_item;
         }
-        
+
         public async Task<bool> PrinterconfigSave(string configname, string bluetooth_address, string printerconfig, int linespacing, int isupdate, int printerID, int isdefault)
         {
             bool isSuccess = true;
@@ -1037,13 +1030,33 @@ namespace eMRBCS.Services
                         Database.Update(printer_new);
                     }
 
-                    
+
                 }
                 catch (Exception ex)
                 {
                     isSuccess = false;
                 }
 
+            });
+
+            return isSuccess;
+        }
+
+        public async Task<bool> PrinterconfigDelete(int printerID)
+        {
+            bool isSuccess = true;
+            await Task.Run(() =>
+            {
+                try
+                {
+                    InitializeDatabase();
+                    // SQLite-net allows deleting by Primary Key (id)
+                    Database.Delete<Printerconfig>(printerID);
+                }
+                catch (Exception ex)
+                {
+                    isSuccess = false;
+                }
             });
 
             return isSuccess;
