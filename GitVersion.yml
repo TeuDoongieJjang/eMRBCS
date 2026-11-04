@@ -1,20 +1,31 @@
 workflow: GitHubFlow/v1
 mode: ContinuousDelivery
 
-# 1. Force the default increment for the master branch to be a Patch (not Minor)
-branches:
-  master:
-    increment: Patch
-  main:
-    increment: Patch
+# ── 1. ACTIVE STRATEGIES ─────────────────────────────────────────────
+# Without CommitMessage here, GitVersion never reads your bump regexes.
+strategies:
+  - ConfiguredNextVersion
+  - MergeMessage
+  - TaggedCommit
+  - TrackReleaseBranches
+  - VersionInBranchName
+  - Fallback
 
+# ── 2. FALLBACK INCREMENT ON MAIN ───────────────────────────────────
+# Must live under branches.main; a root-level increment: Patch is ignored in v6.
+branches:
+  main:
+    regex: ^master$
+    increment: Patch
+    label: ''
+    is-main-branch: true
+
+# ── 3. COMMIT-MESSAGE BUMP RULES ────────────────────────────────────
 commit-message-incrementing: Enabled
 
-# 2. Removed the \b to prevent YAML parsing issues. 
-# This matches both 'patch:' and 'release-patch:'
-patch-version-bump-message: '^(release-)?patch'
-minor-version-bump-message: '^(release-)?minor'
-major-version-bump-message: '^(release-)?major'
+patch-version-bump-message: '(?i)^(release-)?patch\b'
+minor-version-bump-message: '(?i)^(release-)?minor\b'
+major-version-bump-message: '(?i)^(release-)?major\b'
+no-bump-message: '(?i)(\[skip ci\]|\+semver:\s?(none|skip))'
 
-no-bump-message: '(\[skip ci\]|\+semver:\s?(none|skip))'
 tag-prefix: 'v'
