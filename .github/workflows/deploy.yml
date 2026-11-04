@@ -34,12 +34,22 @@ jobs:
         id: gitversion
         uses: gittools/actions/gitversion/execute@v4
 
+      - name: Detect release commit
+        id: release_check
+        run: |
+          FIRST_LINE=$(printf '%s' "${{ github.event.head_commit.message }}" | head -n1)
+          if [[ "$FIRST_LINE" =~ ^release- ]]; then
+            echo "IS_RELEASE=true"  >> $GITHUB_OUTPUT
+          else
+            echo "IS_RELEASE=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set full version for release commit
-        if: startsWith(github.event.head_commit.message, 'release-')
+        if: steps.release_check.outputs.IS_RELEASE == 'true'
         run: echo "VERSION=${{ steps.gitversion.outputs.MajorMinorPatch }}" >> $GITHUB_ENV
 
       - name: Set pre-release version for normal commit
-        if: ${{ !startsWith(github.event.head_commit.message, 'release-') }}
+        if: steps.release_check.outputs.IS_RELEASE == 'false'
         run: echo "VERSION=${{ steps.gitversion.outputs.semVer }}" >> $GITHUB_ENV
 
       - name: Show calculated version
@@ -62,7 +72,7 @@ jobs:
             -p:ApplicationVersion=${{ github.run_number }}
 
       - name: Create tag if release commit
-        if: startsWith(github.event.head_commit.message, 'release-')
+        if: steps.release_check.outputs.IS_RELEASE == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -108,7 +118,7 @@ jobs:
           echo "------------------------"
 
       - name: Create GitHub Release
-        if: startsWith(github.event.head_commit.message, 'release-')
+        if: steps.release_check.outputs.IS_RELEASE == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.gitversion.outputs.MajorMinorPatch }}
@@ -119,7 +129,7 @@ jobs:
             ./bin/Release/net10.0-android/version.json
 
       - name: Create GitHub Pre-Release (non-release commit)
-        if: ${{ !startsWith(github.event.head_commit.message, 'release-') }}
+        if: steps.release_check.outputs.IS_RELEASE == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.gitversion.outputs.semVer }}

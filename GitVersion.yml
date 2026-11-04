@@ -1,12 +1,16 @@
 workflow: GitHubFlow/v1
 mode: ContinuousDelivery
 
+increment: Patch
+
 commit-message-incrementing: Enabled
 
-# Match both 'patch:' and 'release-patch:'
-patch-version-bump-message: '^(release-)?patch\b'
-minor-version-bump-message: '^(release-)?minor\b'
-major-version-bump-message: '^(release-)?major\b'
+patch-version-bump-message: '(?i)^(release-)?patch\b'
 
-no-bump-message: '(\[skip ci\]|\+semver:\s?(none|skip))'
+minor-version-bump-message: '(?i)^(release-)?minor\b'
+
+major-version-bump-message: '(?i)^(release-)?major\b'
+
+no-bump-message: '(?i)(\[skip ci\]|\+semver:\s?(none|skip))'
+
 tag-prefix: 'v'
