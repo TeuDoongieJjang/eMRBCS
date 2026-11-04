@@ -2048,8 +2048,6 @@ public partial class Reading : ContentPage
             if (!string.IsNullOrWhiteSpace(strNotif))
                 await printer.PrintTextAsync("REMINDER : " + strNotif, PrintAlign.Left, new PrintStyle(Bold: true));
 
-            await printer.FeedAsync();
-
             // ================= BARCODE =================
             await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
                                             widthFraction: 1.2, heightDots: 70,
