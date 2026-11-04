@@ -1,18 +1,23 @@
 workflow: GitHubFlow/v1
 mode: ContinuousDelivery
 
-# 1. Force the default increment for the master branch to be a Patch (not Minor)
-branches:
-  master:
-    increment: Patch
-  main:
-    increment: Patch
+# ── Fallback increment ─────────────────────────────────────────────
+# GitHubFlow/v1 defaults to Minor when no bump message is matched.
+# Force Patch so an ordinary commit bumps 6.5.101 → 6.5.102.
+increment: Patch
 
+# ── Commit-message bump rules (case-insensitive) ──────────────────
 commit-message-incrementing: Enabled
 
-patch-version-bump-message: '^(release-)?patch'
-minor-version-bump-message: '^(release-)?minor'
-major-version-bump-message: '^(release-)?major'
+# Matches both  'patch: …'  and  'release-patch: …'
+patch-version-bump-message: '(?i)^(release-)?patch\b'
 
-no-bump-message: '(\[skip ci\]|\+semver:\s?(none|skip))'
+# Matches both  'minor: …'  and  'release-minor: …'
+minor-version-bump-message: '(?i)^(release-)?minor\b'
+
+# Matches both  'major: …'  and  'release-major: …'
+major-version-bump-message: '(?i)^(release-)?major\b'
+
+no-bump-message: '(?i)(\[skip ci\]|\+semver:\s?(none|skip))'
+
 tag-prefix: 'v'
