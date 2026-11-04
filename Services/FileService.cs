@@ -720,7 +720,6 @@ namespace MSRBC.Services
                     // 1. Get Configuration (1 = Import server settings)
 
 
-                    // If execution reaches here, the connection and folder access are completely successful.
 
                     // 6. Clean up Connection
                     session.Store.Disconnect();
