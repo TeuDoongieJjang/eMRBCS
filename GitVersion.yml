@@ -1,21 +1,12 @@
 workflow: GitHubFlow/v1
 mode: ContinuousDelivery
 
-# ── Fallback increment ─────────────────────────────────────────────
-# GitHubFlow/v1 defaults to Minor when no bump message is matched.
-# Force Patch so an ordinary commit bumps 6.5.101 → 6.5.102.
 increment: Patch
 
-# ── Commit-message bump rules (case-insensitive) ──────────────────
 commit-message-incrementing: Enabled
 
-# Matches both  'patch: …'  and  'release-patch: …'
 patch-version-bump-message: '(?i)^(release-)?patch\b'
-
-# Matches both  'minor: …'  and  'release-minor: …'
 minor-version-bump-message: '(?i)^(release-)?minor\b'
-
-# Matches both  'major: …'  and  'release-major: …'
 major-version-bump-message: '(?i)^(release-)?major\b'
 
 no-bump-message: '(?i)(\[skip ci\]|\+semver:\s?(none|skip))'
