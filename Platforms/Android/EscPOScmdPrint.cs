@@ -11,15 +11,14 @@ namespace eMRBCS.Platforms.Android
     public enum PrintAlign { Left, Center, Right }
     public enum TextSize { Default, Small, Normal, Big, Large }
 
-    public readonly record struct PrintStyle(
-        bool Bold = false,
-        bool Wide = false,
-        bool High = false,
-        bool Underline = false,
-        bool FontB = false,
-        TextSize Size = TextSize.Default,   // NEW
-        int WidthMul = 0,                   // NEW: 0 = derive from Size/Wide
-        int HeightMul = 0);                 // NEW: 0 = derive from Size/High
+    public readonly record struct PrintStyle(bool Bold = false,
+                                              bool Wide = false,
+                                              bool High = false,
+                                              bool Underline = false,
+                                              bool FontB = false,
+                                              TextSize Size = TextSize.Default,   // NEW
+                                              int WidthMul = 0,                   // NEW: 0 = derive from Size/Wide
+                                              int HeightMul = 0);                 // NEW: 0 = derive from Size/High
     public enum BarcodeType { Code39, Code128 }
 
     /// <summary>

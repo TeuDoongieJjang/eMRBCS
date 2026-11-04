@@ -1844,45 +1844,45 @@ public partial class Reading : ContentPage
             // ============= COMPANY HEADER =============
             if (IsIndangWD)
             {
-                await printer.PrintTextAsync("San Gregorio St., Indang, Cavite", PrintAlign.Center);
-                await printer.PrintTextAsync("NON VAT Reg.TIN 000-773-614-000", PrintAlign.Center);
-                await printer.PrintTextAsync("Mobile#: 0917-825-3813", PrintAlign.Center);
+                await printer.PrintTextAsync("San Gregorio St., Indang, Cavite", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("NON VAT Reg.TIN 000-773-614-000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("Mobile#: 0917-825-3813", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
             }
             else if (IsCWD)
             {
-                await printer.PrintTextAsync("Lakeview Subd.Halang,Calamba City", PrintAlign.Center);
-                await printer.PrintTextAsync("NON VAT Reg.TIN 001-222-423-00000", PrintAlign.Center);
-                await printer.PrintTextAsync("Tel#: 545-2863/545-1614/545-9344", PrintAlign.Center);
+                await printer.PrintTextAsync("Lakeview Subd.Halang,Calamba City", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("NON VAT Reg.TIN 001-222-423-00000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("Tel#: 545-2863/545-1614/545-9344", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
             }
             else if (IsSJWD)
             {
-                await printer.PrintTextAsync("HallSt,Poblacion,SanJuan,Batangas", PrintAlign.Center);
-                await printer.PrintTextAsync("NON VAT Reg.TIN 001-774-488-000", PrintAlign.Center);
-                await printer.PrintTextAsync("Mobile#: 09199947756", PrintAlign.Center);
+                await printer.PrintTextAsync("HallSt,Poblacion,SanJuan,Batangas", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("NON VAT Reg.TIN 001-774-488-000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("Mobile#: 09199947756", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
             }
             else if (IsMVWD)
             {
-                await printer.PrintTextAsync("Pantay Daya,Vigan City,IlocosSur", PrintAlign.Center);
-                await printer.PrintTextAsync("TIN 000-566-175-000 Non-VAT", PrintAlign.Center);
-                await printer.PrintTextAsync("Tel. No. 077-674-0870", PrintAlign.Center);
+                await printer.PrintTextAsync("Pantay Daya,Vigan City,IlocosSur", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("TIN 000-566-175-000 Non-VAT", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("Tel. No. 077-674-0870", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
             }
 
             await printer.FeedAsync(1);
 
             // ================= TITLE =================
-            await printer.PrintTextAsync("BILLING NOTICE", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
+            await printer.PrintTextAsync("BILLING NOTICE", PrintAlign.Center, new PrintStyle(Bold: true, Wide: true));
             await printer.PrintTextAsync("For the month of " + printCurrentMonthYear, PrintAlign.Center);
             await printer.PrintTextAsync("(" + printPrevMonth + " Consumption)", PrintAlign.Center);
             await printer.FeedAsync(1);
 
             // ============= CONSUMER INFO =============
-            await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(Bold: true));
+            await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(Bold: true, Size: TextSize.Normal));
             await printer.PrintTextAsync(consumer.address, PrintAlign.Left);
 
             string accountNoText = (IsMVWD || IsSJWD)
                 ? "AccountNo:" + consumer.accountNo + "-" + consumer.consumer_type + consumer.metersize
                 : "AccountNo:" + consumer.accountNo;
-            await printer.PrintTextAsync(accountNoText, PrintAlign.Left, new PrintStyle(High: true));
+            await printer.PrintTextAsync(accountNoText, PrintAlign.Left, new PrintStyle(Bold: true));
 
             if (IsSJWD)
             {
@@ -1903,7 +1903,7 @@ public partial class Reading : ContentPage
 
             await printer.PrintRowAsync("Period From", printPrevDate);
             await printer.PrintRowAsync("Period To", printCurrentDate);
-            await printer.PrintRowAsync("Due Date", printDueDate, new PrintStyle(High: true));
+            await printer.PrintRowAsync("Due Date", printDueDate, new PrintStyle(Bold: true));
             await printer.PrintSeparatorAsync('-');
 
             // ============= AMOUNT CALCULATION =============
@@ -1957,7 +1957,7 @@ public partial class Reading : ContentPage
             if (currentBill > 0)
             {
                 runningTotalBill += currentBill;
-                await printer.PrintRowAsync("Current Bill", currentBill.ToString("#,##0.00"));
+                await printer.PrintRowAsync("Current Bill", currentBill.ToString("#,##0.00"), new PrintStyle(Bold: true));
             }
 
             if (sewerageAmount > 0)
@@ -1995,10 +1995,11 @@ public partial class Reading : ContentPage
             }
 
             await printer.PrintRowAsync("BEFORE DUE", runningTotalBill.ToString("#,##0.00"),
-                                        new PrintStyle(High: true));
+                                        new PrintStyle(Bold: true));
 
             await printer.PrintSeparatorAsync('-');
             await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
+            await printer.FeedAsync();
 
             if (penaltyAmount < 0 || consumer.isnopenalty == 1)
                 penaltyAmount = 0.00m;
@@ -2009,7 +2010,7 @@ public partial class Reading : ContentPage
             runningTotalBill += penaltyAmount;
 
             await printer.PrintRowAsync("AFTER DUE", runningTotalBill.ToString("#,##0.00"),
-                                        new PrintStyle(High: true));
+                                        new PrintStyle(Bold: true));
             await printer.PrintSeparatorAsync('=');
 
             if (IsSJWD)
@@ -2035,7 +2036,7 @@ public partial class Reading : ContentPage
             string printRemarks = string.IsNullOrWhiteSpace(consumer.remarks) ? "Normal Reading" : consumer.remarks;
             await printer.PrintRowAsync("Remarks", printRemarks);
             await printer.PrintRowAsync("Meter Reader", consumer.billedby);
-
+            await printer.FeedAsync();
             // ================= NOTICES =================
             await printer.PrintTextAsync("This is not valid as", PrintAlign.Center);
             await printer.PrintTextAsync("Official Receipt", PrintAlign.Center);
