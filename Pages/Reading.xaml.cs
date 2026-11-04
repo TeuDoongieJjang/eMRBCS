@@ -1995,7 +1995,6 @@ public partial class Reading : ContentPage
 
             await printer.PrintSeparatorAsync('-');
             await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
-            await printer.FeedAsync();
 
             if (penaltyAmount < 0 || consumer.isnopenalty == 1)
                 penaltyAmount = 0.00m;
