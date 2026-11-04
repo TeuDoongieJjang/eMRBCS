@@ -32,7 +32,7 @@ public class UpdateService
             if (manifest.VersionName.Contains('-'))
                 return null;
 
-            // 4. Check versions
+            // 4. Check  versions
             var codeIsNewer = manifest.VersionCode > localVersionCode;
             var nameIsNewer = VersionHelper.IsGreater(manifest.VersionName, localVersionName);
 
