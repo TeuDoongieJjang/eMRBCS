@@ -10,8 +10,6 @@ branches:
 
 commit-message-incrementing: Enabled
 
-# 2. Removed the \b to prevent YAML parsing issues. 
-# This matches both 'patch:' and 'release-patch:'
 patch-version-bump-message: '^(release-)?patch'
 minor-version-bump-message: '^(release-)?minor'
 major-version-bump-message: '^(release-)?major'
