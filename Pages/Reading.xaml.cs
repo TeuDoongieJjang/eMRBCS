@@ -1848,12 +1848,12 @@ public partial class Reading : ContentPage
                 await printer.PrintTextAsync("NON VAT Reg.TIN 000-773-614-000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
                 await printer.PrintTextAsync("Mobile#: 0917-825-3813", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
             }
-            else if (IsCWD)
-            {
-                await printer.PrintTextAsync("Lakeview Subd.Halang,Calamba City", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("NON VAT Reg.TIN 001-222-423-00000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("Tel#: 545-2863/545-1614/545-9344", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-            }
+            //else if (IsCWD)
+            //{
+            //    await printer.PrintTextAsync("Lakeview Subd.Halang,Calamba City", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+            //    await printer.PrintTextAsync("NON VAT Reg.TIN 001-222-423-00000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+            //    await printer.PrintTextAsync("Tel#: 545-2863/545-1614/545-9344", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+            //}
             else if (IsSJWD)
             {
                 await printer.PrintTextAsync("HallSt,Poblacion,SanJuan,Batangas", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
