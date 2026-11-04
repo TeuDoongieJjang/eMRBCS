@@ -24,7 +24,6 @@
 
 		<ApplicationId>com.mls.emrbcs</ApplicationId>
 
-		<!-- Versions -->
 		<ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">6.5.100</ApplicationDisplayVersion>
 		<ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
 
