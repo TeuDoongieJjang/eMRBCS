@@ -408,13 +408,13 @@ public partial class Utilities : ContentPage
                 }
 
 #if ANDROID
-                               
-                
+
+
                 foreach (var file in Android.App.Application.Context.GetExternalFilesDirs(null))
                 {
                     if (file != null && !file.AbsolutePath.Contains("emulated"))
                     {
-                        destinationFilePath =file.AbsolutePath;
+                        destinationFilePath = file.AbsolutePath;
                         break;
                     }
                 }

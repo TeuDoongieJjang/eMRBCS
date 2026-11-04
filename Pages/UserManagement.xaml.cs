@@ -5,48 +5,48 @@ namespace eMRBCS.Pages;
 
 public partial class UserManagement : ContentPage
 {
-	List<Users_admin> adminusers;
-	DBService dbService;
+    List<Users_admin> adminusers;
+    DBService dbService;
 
     bool isNewuser = false;
-	public UserManagement()
-	{
-		InitializeComponent();
-		LoadUsers();
+    public UserManagement()
+    {
+        InitializeComponent();
+        LoadUsers();
 
     }
 
-	private async void LoadUsers()
-	{
+    private async void LoadUsers()
+    {
         adminusers = new List<Users_admin>();
         dbService = new DBService();
         adminusers = await dbService.LoadAllAdmins();
         List<string> user_fullnames = new List<string>();
         if (adminusers != null && adminusers.Count > 0)
-		{
-			
-			foreach (Users_admin user in adminusers)
-			{
-				user_fullnames.Add(user.name);
-			}
+        {
+
+            foreach (Users_admin user in adminusers)
+            {
+                user_fullnames.Add(user.name);
+            }
             lstUsers.ItemsSource = user_fullnames;
             lblnodata.IsVisible = false;
             lstUsers.IsVisible = true;
         }
-		else
-		{
+        else
+        {
             lblnodata.IsVisible = true;
-			lstUsers.IsVisible = false;
+            lstUsers.IsVisible = false;
 
         }
 
-		
+
 
     }
 
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
-		await Navigation.PopAsync();	
+        await Navigation.PopAsync();
     }
 
     private void OnEditUser(object sender, EventArgs e)
@@ -95,9 +95,9 @@ public partial class UserManagement : ContentPage
             {
                 await DisplayAlertAsync("Notice", "Username already exists. Please try again", "Ok");
                 return;
-            }            
+            }
         }
-       
+
         bool isSucess = await dbService.SaveAdminOperators(txtusername.Text, txtpassword.Text, txtname.Text, txtposition.Text);
         if (isSucess)
         {
@@ -113,6 +113,6 @@ public partial class UserManagement : ContentPage
         {
             await DisplayAlertAsync("Notice", "Something went wrong. Failed to save user!", "Ok");
         }
-       
+
     }
 }

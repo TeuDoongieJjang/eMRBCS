@@ -719,6 +719,9 @@ namespace MSRBC.Services
                     using var session = OpenSession(1);
                     // 1. Get Configuration (1 = Import server settings)
 
+
+                    // If execution reaches here, the connection and folder access are completely successful.
+
                     // 6. Clean up Connection
                     session.Store.Disconnect();
                     session.Client.Logoff();
