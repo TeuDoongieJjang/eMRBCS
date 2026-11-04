@@ -61,7 +61,7 @@ HorizontalOptions="CenterAndExpand"
 
 
                 <Label x:Name="lblversion" 
-                       Text="v6.5.102"
+                       Text=""
                        FontAttributes="Bold"               
                        Margin="10"
                        FontSize="12" 
