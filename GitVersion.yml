@@ -1,14 +1,18 @@
 workflow: GitHubFlow/v1
 mode: ContinuousDelivery
 
+# ── THE FIX ────────────────────────────────────────────────────────
+# GitHubFlow/v1 defaults to Minor when no bump message is matched.
+# Override the fallback to Patch so ordinary / release-patch commits
+# bump 6.5.101 -> 6.5.102 instead of 6.6.0.
 increment: Patch
 
+# ── Commit-message bump rules ─────────────────────────────────────
 commit-message-incrementing: Enabled
 
+# (?i) makes them case-insensitive; \b stops 'patchable:' matching
 patch-version-bump-message: '(?i)^(release-)?patch\b'
-
 minor-version-bump-message: '(?i)^(release-)?minor\b'
-
 major-version-bump-message: '(?i)^(release-)?major\b'
 
 no-bump-message: '(?i)(\[skip ci\]|\+semver:\s?(none|skip))'
