@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0          # full history + all tags needed for versioning
+          fetch-depth: 0         
           fetch-tags: true
 
       - name: Setup .NET
@@ -26,11 +26,6 @@ jobs:
       - name: Install .NET MAUI workload
         run: dotnet workload install maui-android
 
-      # ------------------------------------------------------------------
-      # Version calculation (replaces GitVersion)
-      #   release-major: / release-minor: / release-patch:  -> release build
-      #   any other commit                                  -> pre-release build
-      # ------------------------------------------------------------------
       - name: Calculate version
         id: version
         shell: bash
@@ -41,7 +36,6 @@ jobs:
           SUBJECT_LC="$(printf '%s' "$SUBJECT" | tr '[:upper:]' '[:lower:]')"
           RELEASE_RE='^v[0-9]+\.[0-9]+\.[0-9]+$'
 
-          # 1. Is this a release commit, and which part to bump?
           IS_RELEASE=false
           BUMP=patch
           if [[ "$SUBJECT_LC" == release-* ]]; then
@@ -53,10 +47,8 @@ jobs:
             esac
           fi
 
-          # 2. Latest RELEASE tag (vX.Y.Z only - pre-release tags are ignored)
           LAST_TAG="$(git tag --list 'v*' --sort=-v:refname | grep -E "$RELEASE_RE" | head -n1 || true)"
 
-          # 3. Re-run protection: if this exact commit is already tagged, reuse that version
           HEAD_TAG=""
           if [ "$IS_RELEASE" = "true" ]; then
             HEAD_TAG="$(git tag --points-at HEAD | grep -E "$RELEASE_RE" | head -n1 || true)"
