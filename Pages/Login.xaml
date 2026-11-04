@@ -61,13 +61,18 @@ HorizontalOptions="CenterAndExpand"
 
 
                 <Label x:Name="lblversion" 
-                    Text=""                 
-               FontAttributes="Bold"               
-   Margin="10"
-FontSize="12" 
-HorizontalOptions="Center"                
-Grid.Column="0"
-Grid.Row="2"/>
+                       Text="v6.5.102"
+                       FontAttributes="Bold"               
+                       Margin="10"
+                       FontSize="12" 
+                       HorizontalOptions="Center"                
+                       Grid.Column="0"
+                       Grid.Row="2"/>
+                <!-- WHAT'S NEW 
+                     v6.5.102 
+                        1. Added delete features in printer configuration.
+                        2. Auto select new printer config on save.
+                -->
                 <Grid Grid.Row="3" Grid.Column="0" Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />

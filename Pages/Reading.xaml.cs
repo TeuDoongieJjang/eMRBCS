@@ -1778,9 +1778,6 @@ public partial class Reading : ContentPage
         //   32 / 48       => 32 / 48 columns, DefaultAlignment (usually left)
         //   321 / 482     => columns + alignment digit  (1 = L, 2 = C, 3 = R)
         //   323           => 32 columns, right aligned
-        // The PaperProfile computes OffsetDots, and EscPOScmdPrint sends
-        // GS L / GS W from that offset, so the WHOLE receipt is physically
-        // shifted on the paper — no per-line PadLeft/PadRight needed.
         // ==================================================================
         var paper = PaperProfile.FromLineSpace(MyDeviceInfo.currentPrintConfig.linespacing);
 
@@ -1875,7 +1872,7 @@ public partial class Reading : ContentPage
             await printer.FeedAsync(1);
 
             // ============= CONSUMER INFO =============
-            await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(Bold: true, FontB: true, High: true));
+            await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(FontB: true, High: true));
             await printer.PrintTextAsync(consumer.address, PrintAlign.Left);
 
             string accountNoText = (IsMVWD || IsSJWD)
@@ -1891,7 +1888,7 @@ public partial class Reading : ContentPage
                     .FirstOrDefault() ?? "";
 
                 if (!string.IsNullOrWhiteSpace(consumerTypeDescription))
-                    await printer.PrintTextAsync(consumerTypeDescription.Trim(), PrintAlign.Left, new PrintStyle(Bold: true));
+                    await printer.PrintTextAsync(consumerTypeDescription.Trim(), PrintAlign.Left);
             }
 
             await printer.PrintTextAsync("Meter No.   : " + consumer.meterno, PrintAlign.Left);
@@ -1956,7 +1953,7 @@ public partial class Reading : ContentPage
             if (currentBill > 0)
             {
                 runningTotalBill += currentBill;
-                await printer.PrintRowAsync("Current Bill", currentBill.ToString("#,##0.00"), new PrintStyle(Bold: true));
+                await printer.PrintRowAsync("Current Bill", currentBill.ToString("#,##0.00"));
             }
 
             if (sewerageAmount > 0)
@@ -1994,7 +1991,7 @@ public partial class Reading : ContentPage
             }
 
             await printer.PrintRowAsync("BEFORE DUE", runningTotalBill.ToString("#,##0.00"),
-                                        new PrintStyle(High: true, Bold: true));
+                                        new PrintStyle(High: true));
 
             await printer.PrintSeparatorAsync('-');
             await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
@@ -2009,7 +2006,7 @@ public partial class Reading : ContentPage
             runningTotalBill += penaltyAmount;
 
             await printer.PrintRowAsync("AFTER DUE", runningTotalBill.ToString("#,##0.00"),
-                                        new PrintStyle(Bold: true, High: true));
+                                        new PrintStyle(High: true));
             await printer.PrintSeparatorAsync('=');
 
             if (IsSJWD)
@@ -2046,7 +2043,7 @@ public partial class Reading : ContentPage
 
             string strNotif = LoginUser.login_user.msgmo;
             if (!string.IsNullOrWhiteSpace(strNotif))
-                await printer.PrintTextAsync("REMINDER : " + strNotif, PrintAlign.Left, new PrintStyle(Bold: true));
+                await printer.PrintTextAsync("REMINDER : " + strNotif, PrintAlign.Left);
 
             // ================= BARCODE =================
             await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
@@ -2055,7 +2052,7 @@ public partial class Reading : ContentPage
                                             align: PrintAlign.Center);
 
             // ============== SEND EVERYTHING ==============
-            await printer.FeedAsync(3);
+            await printer.FeedAsync(2);
             await printer.FlushAsync();
 
             result = "Done printing.";
