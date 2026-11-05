@@ -1800,10 +1800,10 @@ public partial class Reading : ContentPage
     //      DoPrintBill just prints the pre-computed values.
     // =========================================================================
     private static BillAmounts ComputeBillAmounts(Consumers consumer,
-                                                  bool isSJWD,
-                                                  bool isMVWD,
-                                                  bool isIndangWD,
-                                                  bool isCWD)
+                                              bool isSJWD,
+                                              bool isMVWD,
+                                              bool isIndangWD,
+                                              bool isCWD)
     {
         if (consumer == null) throw new ArgumentNullException(nameof(consumer));
 
@@ -1861,6 +1861,18 @@ public partial class Reading : ContentPage
         if (bill.CurrentBill > 0) runningTotalBill += bill.CurrentBill;
         if (bill.SewerageAmount > 0) runningTotalBill += bill.SewerageAmount;
 
+        // =====================================================================
+        // FIX: separate base for penalty.
+        //   For CWD      : penalty base = runningTotalBill WITHOUT sewerage,
+        //                  i.e. penalty is charged on the current bill only.
+        //   For everyone : penalty base = runningTotalBill (unchanged behaviour).
+        // =====================================================================
+        decimal penaltyBase = runningTotalBill;
+        if (isCWD && bill.SewerageAmount > 0)
+        {
+            penaltyBase -= bill.SewerageAmount;
+        }
+
         // ---------------- senior discount ----------------
         bill.SeniorDiscount = 0.00m;
         if (!isIndangWD)
@@ -1872,6 +1884,7 @@ public partial class Reading : ContentPage
                     ApplyRounding(bill.CurrentBill * 0.05m, isCWD) * -1m;
 
                 runningTotalBill += seniorDiscount;
+                penaltyBase += seniorDiscount;      // discount also reduces penalty base
                 bill.SeniorDiscount = seniorDiscount;
                 bill.ShowSeniorDiscount = true;
             }
@@ -1879,14 +1892,15 @@ public partial class Reading : ContentPage
 
         // ---------------- penalty (initial) ----------------
         decimal penaltyRate = Convert.ToDecimal(consumer.special_penalty_rate);
-        decimal penaltyAmount = runningTotalBill * penaltyRate;
+        decimal penaltyAmount = penaltyBase * penaltyRate;
 
         // ---------------- arrears / advance ----------------
         bill.Arrears = ApplyRounding(Convert.ToDecimal(consumer.arrears), isCWD);
         runningTotalBill += bill.Arrears;
+        penaltyBase += bill.Arrears;            // advance reduces, arrears reflects
 
         if (consumer.arrears < 0)
-            penaltyAmount = runningTotalBill * penaltyRate;
+            penaltyAmount = penaltyBase * penaltyRate;
 
         // ---------------- other charges ----------------
         bill.Others = ApplyRounding(Convert.ToDecimal(consumer.othercharges), isCWD);
@@ -1900,7 +1914,7 @@ public partial class Reading : ContentPage
         else if (isCWD)
             penaltyAmount = ApplyRounding(penaltyAmount, isCWD: true);   // truncate
         else if (isMVWD)
-            penaltyAmount = Math.Round(penaltyAmount, 1);                 // 1‑decimal rule
+            penaltyAmount = Math.Round(penaltyAmount, 1);                 // 1-decimal rule
         else
             penaltyAmount = Math.Round(penaltyAmount, 2);
 
@@ -1909,7 +1923,6 @@ public partial class Reading : ContentPage
 
         return bill;
     }
-
 
     public async Task<string> DoPrintBill(Consumers consumer)
     {
@@ -1929,7 +1942,13 @@ public partial class Reading : ContentPage
         //   321 / 482     => columns + alignment digit  (1 = L, 2 = C, 3 = R)
         //   323           => 32 columns, right aligned
         // ==================================================================
+
         var paper = PaperProfile.FromLineSpace(MyDeviceInfo.currentPrintConfig.linespacing);
+        if (paper == null)
+        {
+            return "Invalid Line Space setting. Please check the printer configuration and try again.";
+        }
+
 
 #if ANDROID
         bool hasPermission = await BluetoothPermissionHelper.EnsureBluetoothPermissionsAsync();
@@ -2072,7 +2091,7 @@ public partial class Reading : ContentPage
                 await printer.PrintRowAsync("Current Bill", bill.CurrentBill.ToString("#,##0.00"));
 
             if (bill.SewerageAmount > 0)
-                await printer.PrintRowAsync(IsMVWD ? "Sewerage" : "Septage Mgmt. Fee",
+                await printer.PrintRowAsync(IsMVWD ? "Sewerage" : IsCWD ? "ESF" : "Septage Mgmt. Fee",
                                             bill.SewerageAmount.ToString("#,##0.00"));
 
             if (bill.ShowSeniorDiscount)
@@ -2112,7 +2131,15 @@ public partial class Reading : ContentPage
                     await printer.PrintRowAsync("Discon Date", printDiscDate, new PrintStyle(High: true));
                     await printer.PrintSeparatorAsync('-');
                 }
-                await printer.PrintRowAsync("Reading Date", currentbilldate.ToString("MM/dd/yyyy"));
+                if (IsCWD)
+                {
+                    await printer.PrintRowAsync("Reading Date/Time", currentbilldate.ToString("MM/dd/yyyy hh:mm tt"), new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                }
+                else
+                {
+                    await printer.PrintRowAsync("Reading Date", currentbilldate.ToString("MM/dd/yyyy"));
+                }
+
                 await printer.PrintSeparatorAsync('-');
             }
 
