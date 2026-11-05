@@ -4,6 +4,7 @@ using eMRBCS.Services;
 using System.Text.RegularExpressions;
 
 
+
 #if ANDROID
 using eMRBCS.Platforms.Android;
 #endif
@@ -444,9 +445,7 @@ public partial class PrinterConfig : ContentPage
         try
         {
             string mac = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
-            await printer.ConnectAsync(mac);
-            await Task.Delay(200);
-            await printer.InitializeAsync();
+            await printer.ConnectAndPrepareAsync(mac);
             await printer.AlignAsync(PrintAlign.Left);      // we do alignment ourselves
 
             // ---- LOGO ----

@@ -1978,9 +1978,7 @@ public partial class Reading : ContentPage
             BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD);
 
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
-            await printer.ConnectAsync(macAddress);
-            await Task.Delay(200);
-            await printer.InitializeAsync();
+            await printer.ConnectAndPrepareAsync(macAddress);
             await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves
 
             // ================= LOGO =================

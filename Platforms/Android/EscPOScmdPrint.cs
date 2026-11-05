@@ -12,10 +12,10 @@ namespace eMRBCS.Platforms.Android
     public enum TextSize { Default, Small, Normal, Big, Large }
 
     public readonly record struct PrintStyle(bool Bold = false,
-                                              bool Wide = false,
-                                              bool High = false,
-                                              bool Underline = false,
-                                              bool FontB = false,
+                                                bool Wide = false,
+                                                bool High = false,
+                                                bool Underline = false,
+                                                bool FontB = false,
                                               TextSize Size = TextSize.Default,   // NEW
                                               int WidthMul = 0,                   // NEW: 0 = derive from Size/Wide
                                               int HeightMul = 0);                 // NEW: 0 = derive from Size/High
@@ -130,10 +130,13 @@ namespace eMRBCS.Platforms.Android
         public int LogoChunkSize { get; set; } = 256;
 
         /// <summary>Pause between Bluetooth writes for logo data, in milliseconds.</summary>
-        public int LogoChunkDelayMs { get; set; } = 5;
+        public int LogoChunkDelayMs { get; set; } = 10;
 
         /// <summary>Only for RasterBands: pause after each band = rows * this value. Leave 0 (pauses create gaps).</summary>
         public int LogoMsPerRow { get; set; } = 0;
+
+        /// <summary>Pause after each 24-dot bit-image strip, in milliseconds.</summary>
+        public int LogoInterStripPauseMs { get; set; } = 3;
 
         /// <summary>Only for BitImage: paper feed after each 24-row strip (24 = exact; if a thin gap remains try 23 or 22).</summary>
 
@@ -360,25 +363,6 @@ namespace eMRBCS.Platforms.Android
             await WriteRawAsync(new byte[] { 0x1B, 0x74, n });
         }
 
-        public void Disconnect()
-        {
-            try
-            {
-                if (_outputStream != null && (_queue.Count > 0 || _cur.Count > 0))
-                {
-                    // Wait for FlushAsync to actually finish, not just for the lambda to return.
-                    Task.Run(async () => await FlushAsync()).GetAwaiter().GetResult();
-                }
-            }
-            catch { /* swallow – best effort */ }
-
-            ClearBuffer();
-            try { _outputStream?.Close(); } catch { }
-            try { _socket?.Close(); } catch { }
-            _outputStream = null;
-            _socket = null;
-        }
-
         public Task WriteRawAsync(byte[] payload) => WriteRawAsync(payload, SendChunkSize, SendChunkDelayMs);
 
         public Task WriteRawAsync(byte[] payload, int chunk, int delayMs) =>
@@ -583,7 +567,6 @@ namespace eMRBCS.Platforms.Android
             _heightMul = hMul;
             _fontB = fontB;
 
-            // --- ESC ! (0x1B 0x21) : cheap printers obey this for 1x/2x -----------
             byte escBang = 0;
             if (fontB) escBang |= 0x01;   // font B
             if (s.Bold) escBang |= 0x08;   // bold
@@ -591,7 +574,6 @@ namespace eMRBCS.Platforms.Android
             if (_widthMul >= 2) escBang |= 0x20;   // double width   <-- the fix
             if (s.Underline) escBang |= 0x80;   // underline
 
-            // --- GS ! (0x1D 0x21) : real multipliers 1x..8x, sent LAST so it wins --
             byte gsBang = (byte)(((_widthMul - 1) << 4) | (_heightMul - 1));
 
             await WriteRawAsync(new byte[]
@@ -947,16 +929,20 @@ namespace eMRBCS.Platforms.Android
         0x1B, 0x33, 0x00                                               // ESC 3 0 - zero line spacing
             });
 
-            const int StripHeight = 24;                                  // ESC * mode 33 prints 24 dots tall
-            int step = Math.Clamp(LogoStripFeedDots, 1, StripHeight);    // paper advance per strip, <= 24
+            const int StripHeight = 24;
+            int step = Math.Clamp(LogoStripFeedDots, 1, StripHeight);
 
-            var all = new List<byte>();
+            // NEW: give the printer a moment to apply the setup commands (GS L / GS W / ESC 3 0)
+            // before the very first strip arrives. This is the single most effective guard
+            // against the "first logo after connect is cut" symptom.
+            await Task.Delay(50);
 
             for (int y0 = 0; y0 < h; y0 += step)
             {
                 var buf = new byte[5 + totalW * 3];
-                buf[0] = 0x1B; buf[1] = 0x2A; buf[2] = 33;               // ESC * 33
-                buf[3] = (byte)(totalW & 0xFF); buf[4] = (byte)(totalW >> 8);
+                buf[0] = 0x1B; buf[1] = 0x2A; buf[2] = 33;    // ESC * 33  (24-dot strip)
+                buf[3] = (byte)(totalW & 0xFF);
+                buf[4] = (byte)(totalW >> 8);
 
                 for (int x = 0; x < dataW; x++)
                 {
@@ -972,17 +958,27 @@ namespace eMRBCS.Platforms.Android
                         buf[5 + col * 3 + b] = v;
                     }
                 }
-                all.AddRange(buf);
 
-                // ESC J n - print and feed n vertical motion units.
-                // On the last strip advance only the rows still needed, so the bottom
-                // of the logo is not followed by a blank gap.
                 int advance = Math.Min(step, h - y0);
-                all.AddRange(new byte[] { 0x1B, 0x4A, (byte)advance });
+
+                // combine the strip + its vertical feed into one segment
+                var stripBytes = new byte[buf.Length + 3];
+                Array.Copy(buf, stripBytes, buf.Length);
+                stripBytes[buf.Length] = 0x1B;
+                stripBytes[buf.Length + 1] = 0x4A;
+                stripBytes[buf.Length + 2] = (byte)advance;
+
+                // NEW: send each strip as its own segment with a small pause after.
+                // This way a burst-loss on the Bluetooth side can only drop one strip,
+                // not a run of strips, and the printer never has to buffer the whole logo.
+                await EnqueueOrSendAsync(
+                    stripBytes,
+                    ResolveChunk(LogoChunkSize),
+                    ResolveDelay(LogoChunkDelayMs),
+                    pauseAfterMs: LogoInterStripPauseMs);
+
                 RasterRows += advance;
             }
-
-            await EnqueueOrSendAsync(all.ToArray(), ResolveChunk(LogoChunkSize), ResolveDelay(LogoChunkDelayMs), 0);
 
             // restore state for text
             int o = Profile.OffsetDots;
@@ -1126,7 +1122,77 @@ namespace eMRBCS.Platforms.Android
             await WriteRawAsync(FeedDots(UnderlineTailFeed));
         }
 
+        public async Task FlushAsync(bool sendTailDelay = true)
+        {
+            CloseCurrentSegment();
+            if (_queue.Count == 0) return;
 
+            var stream = _outputStream
+                ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+
+            var segments = _queue.ToArray();
+            _queue.Clear();
+
+            await Task.Run(() =>
+            {
+                foreach (var s in segments) WriteSegmentSync(stream, s);
+                stream.Flush();
+            });
+
+            if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
+        }
+
+        // ---- NEW: clean the printer before the first real data arrives ----
+        public async Task WarmUpAsync(int settleMs = 400)
+        {
+            if (_outputStream == null)
+                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+
+            ClearBuffer();
+
+            await WriteRawAsync(new byte[] { 0x1B, 0x40 });   // ESC @ alone
+            await FlushAsync(sendTailDelay: false);           // actually send it
+            if (settleMs > 0) await Task.Delay(settleMs);     // let the printer finish resetting
+        }
+
+        // ---- NEW: one-call prepare (call this instead of Connect + Delay + Initialize) ----
+        public async Task ConnectAndPrepareAsync(
+            string macAddress,
+            int postConnectDelayMs = 500,
+            int settleMs = 400)
+        {
+            await ConnectAsync(macAddress);
+            if (postConnectDelayMs > 0) await Task.Delay(postConnectDelayMs);
+
+            await WarmUpAsync(settleMs);       // ESC @ + flush + wait
+            await InitializeAsync();           // code page, margins, etc.
+            await FlushAsync();                // init is on the printer BEFORE the logo
+            if (settleMs > 0) await Task.Delay(settleMs / 2);
+        }
+        public void Disconnect()
+        {
+            try
+            {
+                if (_outputStream != null && (_queue.Count > 0 || _cur.Count > 0))
+                {
+                    Task.Run(async () => await FlushAsync()).GetAwaiter().GetResult();
+                }
+            }
+            catch { }
+
+            try
+            {
+                // let the Bluetooth stack finish handing the bytes to the printer
+                if (TailDelayMs > 0) System.Threading.Thread.Sleep(TailDelayMs);
+            }
+            catch { }
+
+            ClearBuffer();
+            try { _outputStream?.Close(); } catch { }
+            try { _socket?.Close(); } catch { }
+            _outputStream = null;
+            _socket = null;
+        }
         public void Dispose() => Disconnect();
     }
 }
