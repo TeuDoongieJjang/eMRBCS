@@ -24,8 +24,8 @@
 
 		<ApplicationId>com.mls.emrbcs</ApplicationId>
 
-		<ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">6.5.100</ApplicationDisplayVersion>
-		<ApplicationVersion Condition="'$(ApplicationVersion)' == ''">1</ApplicationVersion>
+		<ApplicationDisplayVersion Condition="'$(ApplicationDisplayVersion)' == ''">6.5.102</ApplicationDisplayVersion>
+		<ApplicationVersion Condition="'$(ApplicationVersion)' == ''">102</ApplicationVersion>
 
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">11.0</SupportedOSPlatformVersion>
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">13.1</SupportedOSPlatformVersion>
@@ -42,7 +42,6 @@
 		<AndroidSigningKeyAlias>emrbcs_app_alias</AndroidSigningKeyAlias>
 		<AndroidSigningKeyPass>env:ANDROID_KEY_PASS</AndroidSigningKeyPass>
 		<AndroidSigningStorePass>env:ANDROID_STORE_PASS</AndroidSigningStorePass>
-
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">

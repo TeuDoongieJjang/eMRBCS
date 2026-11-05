@@ -72,6 +72,25 @@ public partial class Reading : ContentPage
     private static string logoBase64ImgStr = null;
     private float _averageCons;
 
+    // =========================================================================
+    // NEW: result container for the print-time bill computation
+    // =========================================================================
+    private sealed class BillAmounts
+    {
+        public decimal CurrentBill { get; set; }
+        public decimal SewerageAmount { get; set; }
+        public decimal SeniorDiscount { get; set; }
+        public decimal Arrears { get; set; }
+        public decimal Others { get; set; }
+        public decimal BeforeDueTotal { get; set; }
+        public decimal PenaltyAmount { get; set; }
+        public decimal AfterDueTotal { get; set; }
+
+        public bool IsSewerage { get; set; }
+        public bool IsFlatRate { get; set; }
+        public bool ShowSeniorDiscount { get; set; }
+    }
+
     public Reading()
     {
         InitializeComponent();
@@ -1759,6 +1778,137 @@ public partial class Reading : ContentPage
     //////    return string.Join(":", Enumerable.Range(0, 6).Select(i => hexOnly.Substring(i * 2, 2)));
     //////}
 
+    // =========================================================================
+    // NEW: single rounding entry-point used by every money value
+    //   - CWD : truncate to N decimals  (.666666 -> .66, .333333 -> .33, .999999 -> .99)
+    //   - else: normal Math.Round
+    // =========================================================================
+    private static decimal ApplyRounding(decimal value, bool isCWD, int decimals = 2)
+    {
+        if (isCWD)
+        {
+            // truncate toward zero, so -0.666666 also becomes -0.66
+            decimal scale = 1m;
+            for (int i = 0; i < decimals; i++) scale *= 10m;
+            return Math.Truncate(value * scale) / scale;
+        }
+        return Math.Round(value, decimals);
+    }
+
+    // =========================================================================
+    // NEW: all money math for DoPrintBill lives here.
+    //      DoPrintBill just prints the pre-computed values.
+    // =========================================================================
+    private static BillAmounts ComputeBillAmounts(Consumers consumer,
+                                                  bool isSJWD,
+                                                  bool isMVWD,
+                                                  bool isIndangWD,
+                                                  bool isCWD)
+    {
+        if (consumer == null) throw new ArgumentNullException(nameof(consumer));
+
+        var bill = new BillAmounts
+        {
+            IsSewerage = consumer.parameters.Contains("IsSewerage"),
+            IsFlatRate = consumer.parameters.Contains("IsFlatRate"),
+        };
+
+        // ---------------- current bill (starting amount) ----------------
+        decimal currentBill = ApplyRounding(Convert.ToDecimal(consumer.currentbill), isCWD);
+
+        // ---------------- sewerage ----------------
+        decimal sewerageAmount = 0.00m;
+
+        if (isMVWD)
+        {
+            if (bill.IsSewerage)
+            {
+                sewerageAmount = ApplyRounding(Convert.ToDecimal(consumer.sewerage), isCWD);
+                if (bill.IsFlatRate) currentBill = 0.00m;
+            }
+        }
+        else
+        {
+            float sewerageRate = Database.Table<Billing_rates>()
+                .Where(b => b.consumer_type == consumer.consumer_type
+                         && b.metersize == consumer.metersize)
+                .Select(b => b.sewerage)
+                .FirstOrDefault();
+
+            sewerageAmount = Convert.ToDecimal(sewerageRate);
+
+            if (double.IsNaN(Convert.ToDouble(sewerageAmount)) || sewerageAmount == 0)
+            {
+                sewerageAmount = 0.00m;
+                if (isCWD) sewerageAmount = 2.93m;
+            }
+
+            if (sewerageAmount > 0)
+            {
+                decimal usageDec = Convert.ToDecimal(consumer.usage);
+                sewerageAmount = ApplyRounding(sewerageAmount * usageDec, isCWD);
+                decimal esfFtax = ApplyRounding(sewerageAmount * 0.02m, isCWD);
+                sewerageAmount = ApplyRounding(sewerageAmount + esfFtax, isCWD);
+            }
+        }
+
+        bill.CurrentBill = currentBill;
+        bill.SewerageAmount = sewerageAmount;
+
+        // ---------------- running total ----------------
+        decimal runningTotalBill = 0.00m;
+
+        if (bill.CurrentBill > 0) runningTotalBill += bill.CurrentBill;
+        if (bill.SewerageAmount > 0) runningTotalBill += bill.SewerageAmount;
+
+        // ---------------- senior discount ----------------
+        bill.SeniorDiscount = 0.00m;
+        if (!isIndangWD)
+        {
+            bool isSenior = consumer.parameters.Contains("IsSenior");
+            if (isSenior && consumer.usage <= 30)
+            {
+                decimal seniorDiscount =
+                    ApplyRounding(bill.CurrentBill * 0.05m, isCWD) * -1m;
+
+                runningTotalBill += seniorDiscount;
+                bill.SeniorDiscount = seniorDiscount;
+                bill.ShowSeniorDiscount = true;
+            }
+        }
+
+        // ---------------- penalty (initial) ----------------
+        decimal penaltyRate = Convert.ToDecimal(consumer.special_penalty_rate);
+        decimal penaltyAmount = runningTotalBill * penaltyRate;
+
+        // ---------------- arrears / advance ----------------
+        bill.Arrears = ApplyRounding(Convert.ToDecimal(consumer.arrears), isCWD);
+        runningTotalBill += bill.Arrears;
+
+        if (consumer.arrears < 0)
+            penaltyAmount = runningTotalBill * penaltyRate;
+
+        // ---------------- other charges ----------------
+        bill.Others = ApplyRounding(Convert.ToDecimal(consumer.othercharges), isCWD);
+        if (bill.Others > 0) runningTotalBill += bill.Others;
+
+        bill.BeforeDueTotal = ApplyRounding(runningTotalBill, isCWD);
+
+        // ---------------- final penalty ----------------
+        if (penaltyAmount < 0 || consumer.isnopenalty == 1)
+            penaltyAmount = 0.00m;
+        else if (isCWD)
+            penaltyAmount = ApplyRounding(penaltyAmount, isCWD: true);   // truncate
+        else if (isMVWD)
+            penaltyAmount = Math.Round(penaltyAmount, 1);                 // 1‑decimal rule
+        else
+            penaltyAmount = Math.Round(penaltyAmount, 2);
+
+        bill.PenaltyAmount = penaltyAmount;
+        bill.AfterDueTotal = ApplyRounding(runningTotalBill + penaltyAmount, isCWD);
+
+        return bill;
+    }
 
 
     public async Task<string> DoPrintBill(Consumers consumer)
@@ -1802,11 +1952,17 @@ public partial class Reading : ContentPage
         var printer = new EscPOScmdPrint { Profile = paper };
         try
         {
+            // ------------------------------------------------------------------
+            // NEW: single call – every money value is computed and pre-rounded
+            //      here (CWD = truncate, others = normal Round).
+            // ------------------------------------------------------------------
+            BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD);
+
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAsync(macAddress);
             await Task.Delay(200);
             await printer.InitializeAsync();
-            await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves — profile OffsetDots handles the rest
+            await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves
 
             // ================= LOGO =================
             await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);
@@ -1903,46 +2059,8 @@ public partial class Reading : ContentPage
             await printer.PrintSeparatorAsync('-');
 
             // ============= AMOUNT CALCULATION =============
-            decimal runningTotalBill = 0.00m;
-            decimal currentBill = Convert.ToDecimal(consumer.currentbill);
-            decimal sewerageAmount = 0.00m;
-
-            bool IsSewerage = consumer.parameters.Contains("IsSewerage");
-            bool IsFlatRate = consumer.parameters.Contains("IsFlatRate");
-
-            if (IsMVWD)
-            {
-                if (IsSewerage)
-                {
-                    sewerageAmount = Convert.ToDecimal(consumer.sewerage);
-                    if (IsFlatRate) currentBill = 0.00m;
-                }
-            }
-            else
-            {
-                float sewerageRate = Database.Table<Billing_rates>()
-                    .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
-                    .Select(b => b.sewerage)
-                    .FirstOrDefault();
-
-                sewerageAmount = Convert.ToDecimal(sewerageRate);
-
-                if (double.IsNaN(Convert.ToDouble(sewerageAmount)) || sewerageAmount == 0)
-                {
-                    sewerageAmount = 0.00m;
-                    if (IsCWD) sewerageAmount = 2.93m;
-                }
-
-                if (sewerageAmount > 0)
-                {
-                    decimal usage = Convert.ToDecimal(consumer.usage);
-                    sewerageAmount = Math.Round(sewerageAmount * usage, 2);
-                    decimal esfFtax = Math.Round(sewerageAmount * 0.02m, 2);
-                    sewerageAmount = Math.Round(sewerageAmount + esfFtax, 2);
-                }
-            }
-
-            if (!IsFlatRate || !IsMVWD)
+            // All amounts come pre-computed/pre-rounded from ComputeBillAmounts().
+            if (!bill.IsFlatRate || !IsMVWD)
             {
                 await printer.PrintRowAsync("Pres Reading", consumer.presreading.ToString());
                 await printer.PrintRowAsync("Prev Reading", consumer.prevreading.ToString());
@@ -1950,67 +2068,37 @@ public partial class Reading : ContentPage
                 await printer.PrintSeparatorAsync('-');
             }
 
-            if (currentBill > 0)
-            {
-                runningTotalBill += currentBill;
-                await printer.PrintRowAsync("Current Bill", currentBill.ToString("#,##0.00"));
-            }
+            if (bill.CurrentBill > 0)
+                await printer.PrintRowAsync("Current Bill", bill.CurrentBill.ToString("#,##0.00"));
 
-            if (sewerageAmount > 0)
-            {
-                runningTotalBill += sewerageAmount;
+            if (bill.SewerageAmount > 0)
                 await printer.PrintRowAsync(IsMVWD ? "Sewerage" : "Septage Mgmt. Fee",
-                                            sewerageAmount.ToString("#,##0.00"));
-            }
+                                            bill.SewerageAmount.ToString("#,##0.00"));
 
-            if (!IsIndangWD)
-            {
-                isSenior = consumer.parameters.Contains("IsSenior");
-                if (isSenior && consumer.usage <= 30)
-                {
-                    decimal seniorDiscount = Math.Round(currentBill * 0.05m * -1, 2);
-                    runningTotalBill += seniorDiscount;
-                    await printer.PrintRowAsync("Senior Discount", seniorDiscount.ToString("#,##0.00"));
-                }
-            }
+            if (bill.ShowSeniorDiscount)
+                await printer.PrintRowAsync("Senior Discount", bill.SeniorDiscount.ToString("#,##0.00"));
 
-            decimal penaltyAmount = runningTotalBill * Convert.ToDecimal(consumer.special_penalty_rate);
+            await printer.PrintRowAsync(consumer.arrears < 0 ? "Advance" : "Arrears",
+                                        bill.Arrears.ToString("#,##0.00"));
 
-            decimal dArrears = Convert.ToDecimal(consumer.arrears);
-            runningTotalBill += dArrears;
-            if (consumer.arrears < 0)
-                penaltyAmount = runningTotalBill * Convert.ToDecimal(consumer.special_penalty_rate);
+            if (bill.Others > 0)
+                await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
 
-            await printer.PrintRowAsync(consumer.arrears < 0 ? "Advance" : "Arrears", dArrears.ToString("#,##0.00"));
-
-            decimal dOthers = Convert.ToDecimal(consumer.othercharges);
-            if (dOthers > 0)
-            {
-                runningTotalBill += dOthers;
-                await printer.PrintRowAsync("Others", dOthers.ToString("#,##0.00"));
-            }
-
-            await printer.PrintRowAsync("BEFORE DUE", runningTotalBill.ToString("#,##0.00"),
+            await printer.PrintRowAsync("BEFORE DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
                                         new PrintStyle(High: true));
 
             await printer.PrintSeparatorAsync('-');
             await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
 
-            if (penaltyAmount < 0 || consumer.isnopenalty == 1)
-                penaltyAmount = 0.00m;
-            else
-                penaltyAmount = IsMVWD ? Math.Round(penaltyAmount, 1) : Math.Round(penaltyAmount, 2);
+            await printer.PrintRowAsync("Penalty", bill.PenaltyAmount.ToString("#,##0.00"));
 
-            await printer.PrintRowAsync("Penalty", penaltyAmount.ToString("#,##0.00"));
-            runningTotalBill += penaltyAmount;
-
-            await printer.PrintRowAsync("AFTER DUE", runningTotalBill.ToString("#,##0.00"),
+            await printer.PrintRowAsync("AFTER DUE", bill.AfterDueTotal.ToString("#,##0.00"),
                                         new PrintStyle(High: true));
             await printer.PrintSeparatorAsync('=');
 
             if (IsSJWD)
             {
-                if (runningTotalBill > 0.00m)
+                if (bill.AfterDueTotal > 0.00m)
                 {
                     await printer.PrintTextAsync("DUE FOR DISCONNECTION ON " + printDiscDate,
                                                  PrintAlign.Center, new PrintStyle(High: true));
@@ -2019,7 +2107,7 @@ public partial class Reading : ContentPage
             }
             else
             {
-                if (IsMVWD && dArrears >= 215.5m)
+                if (IsMVWD && bill.Arrears >= 215.5m)
                 {
                     await printer.PrintRowAsync("Discon Date", printDiscDate, new PrintStyle(High: true));
                     await printer.PrintSeparatorAsync('-');
@@ -2032,6 +2120,7 @@ public partial class Reading : ContentPage
             await printer.PrintRowAsync("Remarks", printRemarks);
             await printer.PrintRowAsync("Meter Reader", consumer.billedby);
             await printer.FeedAsync();
+
             // ================= NOTICES =================
             await printer.PrintTextAsync("This is not valid as", PrintAlign.Center);
             await printer.PrintTextAsync("Official Receipt", PrintAlign.Center);
@@ -2071,7 +2160,6 @@ public partial class Reading : ContentPage
 
         return result;
     }
-
     private async void ReadProFile()
     {
         string sourcefilename = "Datafiles/printer_profiles.JSON";
@@ -2443,5 +2531,9 @@ public partial class Reading : ContentPage
             return "";
         }
     }
+
+
+
+
 
 }
