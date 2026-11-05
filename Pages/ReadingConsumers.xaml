@@ -51,7 +51,7 @@ IsVisible="true"
                     <!--IP Address-->
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
                     <!--Folder-->
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -397,7 +397,7 @@ AbsoluteLayout.LayoutBounds="175,50,170,60"
             <Grid Grid.Row="4"
                         Grid.Column="0">
                 <!--HeightRequest="220"-->
-                <ScrollView HeightRequest="620" x:Name="gridContainerU" ZIndex="2" Scrolled="OnGridScrolledU">
+                <ScrollView x:Name="gridContainerU" ZIndex="2" Scrolled="OnGridScrolledU">
                         <StackLayout x:Name="gridBoxU">
                             <Grid x:Name="gridMainU"                              
                                   VerticalOptions="Start">
@@ -411,7 +411,7 @@ AbsoluteLayout.LayoutBounds="175,50,170,60"
                         </StackLayout>    
                     </ScrollView>
                  
-                <ScrollView HeightRequest="450" x:Name="gridContainerB" ZIndex="2" Scrolled="OnGridScrolledB" IsVisible="False">
+                <ScrollView  x:Name="gridContainerB" ZIndex="2" Scrolled="OnGridScrolledB" IsVisible="False">
                         <StackLayout x:Name="gridBoxB">
                         <Grid x:Name="gridMainB"                                
                   VerticalOptions="Start"

@@ -1,18 +1,10 @@
 using eMRBCS.Global;
 using eMRBCS.Models;
-using Microsoft.Maui.Controls;
-using Microsoft.Maui.Graphics;
-using System;
-using SQLite;
-using SharpCifs.Util.Sharpen;
-using System.Windows.Input;
 using eMRBCS.Services;
-using System.Reflection.Metadata;
-using SharpCifs.Netbios;
-using System.Data.SqlTypes;
-
-using Microsoft.Maui;
+using SharpCifs.Util.Sharpen;
+using SQLite;
 using System.Timers;
+using System.Windows.Input;
 
 
 
@@ -37,11 +29,11 @@ public partial class ReadingConsumers : ContentPage
     List<string> AutoID_ULoaded;
     List<string> AutoID_BLoaded;
 
-   
+
 
     Grid? tmpgridConsumer;
     Grid tmpgridConsumerBilled;
-    int rowindex = 0;    
+    int rowindex = 0;
 
     DBService? dbService;
 
@@ -72,8 +64,8 @@ public partial class ReadingConsumers : ContentPage
     private ICommand? FrameTappedCommand { get; set; }
 
     public ReadingConsumers()
-	{
-		InitializeComponent();
+    {
+        InitializeComponent();
 
         //activityIndicator.IsVisible = true;
         //activityIndicator.IsRunning= true;
@@ -88,32 +80,32 @@ public partial class ReadingConsumers : ContentPage
         overlaybox.BackgroundColor = Color.Parse("#80000000");
 
         _systimer = new System.Timers.Timer(3000);
-        _systimer.Enabled = false;        
+        _systimer.Enabled = false;
         _systimer.Elapsed += OnTimedEventv2;
 
-        ScreenAdjustment();
+        //ScreenAdjustment();
     }
 
     private async void ScreenAdjustment()
     {
         if (MyDeviceInfo.device_heightpix > 2200)
         {
-            
+
 
             gridContainerU.HeightRequest = 620;
             gridContainerB.HeightRequest = 620;
         }
         else if (MyDeviceInfo.device_heightpix < 900 && MyDeviceInfo.device_widthpix < 500)
         {
-            
+
             if (showOptions)
             {
                 gridContainerU.HeightRequest = 220;
                 gridContainerB.HeightRequest = 220;
 
-                
+
             }
-            
+
         }
     }
 
@@ -146,11 +138,11 @@ public partial class ReadingConsumers : ContentPage
             AutoID_BLoaded = new List<string>();
             //AutoID_UIndex = new List<string>();
             LoadAllConsumersfromRaw();
-            
+
         });
     }
 
-    
+
 
     private async Task<bool> LoadGridfromCache()
     {
@@ -181,7 +173,7 @@ public partial class ReadingConsumers : ContentPage
 
     private void OnTimedEvent(Object source, ElapsedEventArgs e)
     {
-        
+
     }
 
     protected override void OnDisappearing()
@@ -200,8 +192,9 @@ public partial class ReadingConsumers : ContentPage
         {
             //Check if batch is more than the count
             _gridbatch = _gridStatus == 0 ? batchctr_u : batchctr_b;
-            if (_gridbatch >= _gridListConsumers.Count  )            {
-                
+            if (_gridbatch >= _gridListConsumers.Count)
+            {
+
                 return;
             }
             if (_gridListConsumers.Count > 0)
@@ -216,7 +209,7 @@ public partial class ReadingConsumers : ContentPage
                     gridContainerB.Content = gridBoxB;
                     _gridID = "BGrid_";
                 }
-                            
+
                 FrameTappedCommand = new Command<string>(OnFrameTappedv1);
                 foreach (Grid _gridConsumer in _gridListConsumers)
                 {
@@ -234,13 +227,13 @@ public partial class ReadingConsumers : ContentPage
                                         tapgesture.Command = FrameTappedCommand;
                                     }
                                 }
-                                frame.IsVisible = true; 
+                                frame.IsVisible = true;
                             }
                             if (child is AbsoluteLayout abslayout)
                             {
                                 abslayout.IsVisible = true;
                             }
-                            
+
                         }
 
                         Dispatcher.Dispatch(() =>
@@ -264,7 +257,7 @@ public partial class ReadingConsumers : ContentPage
                             {
 
                             }
-                            
+
                         });
                         await Task.Delay(100);
 
@@ -272,7 +265,7 @@ public partial class ReadingConsumers : ContentPage
                         {
                             break;
                         }
-                        
+
                     }
 
                 }
@@ -284,7 +277,7 @@ public partial class ReadingConsumers : ContentPage
         {
 
         }
-        
+
     }
 
     private async Task LoadGridperBatch_new(List<Grid> _gridListConsumers, int _gridStatus)
@@ -297,12 +290,12 @@ public partial class ReadingConsumers : ContentPage
             {
                 return;
             }
-            int maxListCount = 0;            
+            int maxListCount = 0;
 
             if (_gridStatus == 0)
             {
                 _gridbatch = batchctr_u;
-               maxListCount = ConsumerRecords.gridConsumerUnbilledCollection.Count;
+                maxListCount = ConsumerRecords.gridConsumerUnbilledCollection.Count;
                 if (_gridbatch >= maxListCount)
                 {
                     allisLoadedU = true;
@@ -312,7 +305,7 @@ public partial class ReadingConsumers : ContentPage
             else
             {
                 _gridbatch = batchctr_b;
-               maxListCount = ConsumerRecords.gridConsumerBilledCollection.Count;
+                maxListCount = ConsumerRecords.gridConsumerBilledCollection.Count;
                 if (_gridbatch >= maxListCount)
                 {
                     allisLoadedB = true;
@@ -321,7 +314,7 @@ public partial class ReadingConsumers : ContentPage
             }
             //_gridbatch = _gridStatus == 0 ? batchctr_u : batchctr_b;
             //int maxListCount = _gridListConsumers.Count - 1;
-            
+
             if (maxListCount == 0)
             {
                 return;
@@ -335,7 +328,7 @@ public partial class ReadingConsumers : ContentPage
 
                 bool withError = false;
                 for (int ctrx = _gridbatch; ctrx < maxindex; ctrx++)
-                {                    
+                {
                     Grid _gridConsumer = _gridListConsumers[ctrx];
                     _gridConsumer.IsVisible = true;
                     bool isGridFound = false;
@@ -347,7 +340,7 @@ public partial class ReadingConsumers : ContentPage
                     {
                         isGridFound = AutoID_BLoaded.Contains(_gridConsumer.AutomationId);
                     }
-                    
+
                     if (!isGridFound)
                     {
                         foreach (var child in _gridConsumer.Children)
@@ -413,7 +406,7 @@ public partial class ReadingConsumers : ContentPage
                                 withError = true;
                                 customError = ex.Message;
                                 //await DisplayAlertAsync("Notice", "Something went wrong attaching Grid in batch " + batchctr_u + "\n" + _gridConsumer.AutomationId + "\n" + ex.Message, "Ok");                                
-                            }                           
+                            }
 
                         });
                         if (withError)
@@ -422,7 +415,7 @@ public partial class ReadingConsumers : ContentPage
                         }
                         await Task.Delay(100);
                     }
-                }         
+                }
 
             }
             if (_gridStatus == 0)
@@ -433,7 +426,7 @@ public partial class ReadingConsumers : ContentPage
             {
                 ConsumerRecords.batchctr_b = batchctr_b;
             }
-            
+
         }
         catch (Exception ex)
         {
@@ -441,14 +434,14 @@ public partial class ReadingConsumers : ContentPage
             customError = ex.Message;
         }
 
-        
+
     }
 
     private async Task LoadGridperBatch_Search(List<Grid> _gridListConsumers, int _gridStatus, List<Consumers> resulttoload)
     {
         customError = "";
         try
-        {           
+        {
             FrameTappedCommand = new Command<string>(OnFrameTappedv1);
 
             int _gridbatch = 0;
@@ -467,7 +460,7 @@ public partial class ReadingConsumers : ContentPage
             int maxindex_search = resulttoload.Count;
             int searchIndex = 0;
 
-            if (_gridStatus==0)
+            if (_gridStatus == 0)
             {
                 foreach (Grid _gridConsumer in gridMainU.Children)
                 {
@@ -481,14 +474,14 @@ public partial class ReadingConsumers : ContentPage
                     _gridConsumer.IsVisible = false;
                 }
             }
-            
+
 
             foreach (var item in resulttoload)
             {
                 int targetAcctID = item.accountID;
                 string current_meterno = item.meterno;
                 string gridInnerAutoID = $"UInnerGrid_{targetAcctID}";
-                
+
 
                 string foundAutoID = "";
                 if (_gridStatus == 0)
@@ -596,14 +589,14 @@ public partial class ReadingConsumers : ContentPage
                         _gridConsumer.IsVisible = true;
                     }
                 }
-                                
-                
-              
+
+
+
 
             }
 
 
-          
+
 
 
         }
@@ -635,8 +628,8 @@ public partial class ReadingConsumers : ContentPage
             {
                 maxBGridCount = ConsumerRecords.gridConsumerBilledCollection.Count;
             }
-            
-            
+
+
 
             if (maxUGridCount > 0)
             {
@@ -663,8 +656,8 @@ public partial class ReadingConsumers : ContentPage
                 await LoadGridperBatch_new(ConsumerRecords.gridConsumerBilledCollection, 1);
             }
 
-           
-            
+
+
             //await LoadGridperBatch(ConsumerRecords.gridConsumerUnbilledCollection, 0);
             //await LoadGridperBatch(ConsumerRecords.gridConsumerBilledCollection, 1);
 
@@ -711,11 +704,11 @@ public partial class ReadingConsumers : ContentPage
     }
 
 
-       
+
     //Rewrite code - Original
     private async void LoadConsumerFromRaw()
     {
-        
+
     }
 
     private async void OnGridScrolledU(object sender, ScrolledEventArgs e)
@@ -728,7 +721,7 @@ public partial class ReadingConsumers : ContentPage
                 await gridContainerU.ScrollToAsync(0, scrollY, false);
                 return;
             }
-           
+
             var scrollView = (ScrollView)sender;
             var scrolledY = e.ScrollY;
             var contentHeight = scrollView.ContentSize.Height;
@@ -780,8 +773,8 @@ public partial class ReadingConsumers : ContentPage
             customError = ex.Message;
             await DisplayAlertAsync("Warning", "Error on Search grid scroll\nError: " + customError, "Ok");
         }
-        
-       
+
+
     }
 
     private async void OnGridScrolledB(object sender, ScrolledEventArgs e)
@@ -832,13 +825,13 @@ public partial class ReadingConsumers : ContentPage
             customError = ex.Message;
             await DisplayAlertAsync("Warning", "Error on Search grid scroll\nError: " + customError, "Ok");
         }
-        
-       
+
+
     }
 
-    
-   
-    
+
+
+
     private void InitializeDatabase()
     {
         string dbPath = Path.Combine(FileSystem.AppDataDirectory, dbname);
@@ -847,7 +840,7 @@ public partial class ReadingConsumers : ContentPage
 
     private async void TapImgBack(object sender, EventArgs e)
     {
-        
+
 
         await Navigation.PushAsync(new Mainmenu());
     }
@@ -858,7 +851,7 @@ public partial class ReadingConsumers : ContentPage
         {
             "Meter No",
             "Account No",
-            "Name"            
+            "Name"
         };
 
         pickerBillingFilter.ItemsSource = new List<string>
@@ -869,7 +862,7 @@ public partial class ReadingConsumers : ContentPage
         };
         List<string> remarksList = new List<string>();
 
-       
+
         pickerBillingFilter.SelectedIndex = 0;
         pickerFiledFilter.SelectedIndex = 0;
 
@@ -899,7 +892,7 @@ public partial class ReadingConsumers : ContentPage
             gridContainerU.IsVisible = false;
             lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
         }
-     
+
     }
 
     private async void OnFrameTappedv1(string parameter)
@@ -919,9 +912,9 @@ public partial class ReadingConsumers : ContentPage
         await Navigation.PushAsync(new Reading());
     }
 
-    
 
-    
+
+
     private static float ParseFloat(string value)
     {
         if (float.TryParse(value, out float result))
@@ -933,7 +926,7 @@ public partial class ReadingConsumers : ContentPage
             return 0f;
         }
     }
-    
+
 
 
     private async void OnSearchFilter_new(object sender, EventArgs e)
@@ -985,17 +978,17 @@ public partial class ReadingConsumers : ContentPage
             }
 
             //load remaining grid before searching
-            
+
             isSearching = true;
             //await LoadGridperBatch_new(ConsumerRecords.gridConsumerUnbilledCollection, 0);
             //await LoadGridperBatch_new(ConsumerRecords.gridConsumerBilledCollection, 1);
 
-           
+
 
             switch (selectedFilterIndex)
             {
                 case 0:
-                    result = ConsumerRecords.lstconsumers.Where(c => c.meterno.Contains(searchValue, StringComparison.OrdinalIgnoreCase) && c.status==_gridStatus).ToList();
+                    result = ConsumerRecords.lstconsumers.Where(c => c.meterno.Contains(searchValue, StringComparison.OrdinalIgnoreCase) && c.status == _gridStatus).ToList();
                     break;
                 case 1:
 
@@ -1059,9 +1052,9 @@ public partial class ReadingConsumers : ContentPage
         catch (Exception ex)
         {
             customError = ex.Message;
-            await DisplayAlertAsync("Warning!", "Something weng wrong on your search.\n" + OnErrorLocation + "\n" + ex.Message,"Ok");
+            await DisplayAlertAsync("Warning!", "Something weng wrong on your search.\n" + OnErrorLocation + "\n" + ex.Message, "Ok");
         }
-        
+
 
     }
     private async void OnSearchFilter(object sender, EventArgs e)
@@ -1097,11 +1090,11 @@ public partial class ReadingConsumers : ContentPage
 
         switch (selectedFilterIndex)
         {
-            case 0:                
-                result = ConsumerRecords.lstconsumers.Where(c => c.meterno.Contains(searchValue,StringComparison.OrdinalIgnoreCase)).ToList();                
+            case 0:
+                result = ConsumerRecords.lstconsumers.Where(c => c.meterno.Contains(searchValue, StringComparison.OrdinalIgnoreCase)).ToList();
                 break;
             case 1:
-                
+
                 result = ConsumerRecords.lstconsumers.Where(c => c.accountNo.Contains(searchValue, StringComparison.OrdinalIgnoreCase)).ToList();
                 break;
             case 2:
@@ -1167,7 +1160,7 @@ public partial class ReadingConsumers : ContentPage
             lblSummaryCount.TextColor = Colors.Red;
             if (pickerBillingFilter.SelectedIndex == 0)
             {
-                
+
                 lblSummaryCount.Text = noofsearch.ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
 
             }
@@ -1224,11 +1217,11 @@ public partial class ReadingConsumers : ContentPage
             _systimer.Elapsed += OnTimedEventSearchClear;
             _systimer.Enabled = true;
 
-                       
 
-           
+
+
         }
-       
+
     }
 
     private void OnTimedEventSearchClear(Object source, ElapsedEventArgs e)
@@ -1254,8 +1247,8 @@ public partial class ReadingConsumers : ContentPage
                     _gridConsumer.IsVisible = true;
 
                 }
-            }           
-            
+            }
+
 
             lblSummaryCount.TextColor = Colors.Black;
             if (pickerBillingFilter.SelectedIndex == 0)
