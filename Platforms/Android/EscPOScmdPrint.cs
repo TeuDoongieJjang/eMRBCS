@@ -130,13 +130,13 @@ namespace eMRBCS.Platforms.Android
         public int LogoChunkSize { get; set; } = 256;
 
         /// <summary>Pause between Bluetooth writes for logo data, in milliseconds.</summary>
-        public int LogoChunkDelayMs { get; set; } = 10;
+        public int LogoChunkDelayMs { get; set; } = 15;
 
         /// <summary>Only for RasterBands: pause after each band = rows * this value. Leave 0 (pauses create gaps).</summary>
         public int LogoMsPerRow { get; set; } = 0;
 
         /// <summary>Pause after each 24-dot bit-image strip, in milliseconds.</summary>
-        public int LogoInterStripPauseMs { get; set; } = 3;
+        public int LogoInterStripPauseMs { get; set; } = 8;
 
         /// <summary>Only for BitImage: paper feed after each 24-row strip (24 = exact; if a thin gap remains try 23 or 22).</summary>
 
