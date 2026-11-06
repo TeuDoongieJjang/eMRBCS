@@ -2045,7 +2045,7 @@ public partial class Reading : ContentPage
             await printer.FeedAsync(1);
 
             // ============= CONSUMER INFO =============
-            await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(FontB: true, High: true));
+            await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(High: true));
             await printer.PrintTextAsync(consumer.address, PrintAlign.Left);
 
             string accountNoText = (IsMVWD || IsSJWD)
