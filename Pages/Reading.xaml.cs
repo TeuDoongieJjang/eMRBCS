@@ -1803,7 +1803,7 @@ public partial class Reading : ContentPage
                                               bool isSJWD,
                                               bool isMVWD,
                                               bool isIndangWD,
-                                              bool isCWD)
+                                              bool isCWD, bool isPlaWD)
     {
         if (consumer == null) throw new ArgumentNullException(nameof(consumer));
 
@@ -1841,6 +1841,7 @@ public partial class Reading : ContentPage
             {
                 sewerageAmount = 0.00m;
                 if (isCWD) sewerageAmount = 2.93m;
+                if (isPlaWD) sewerageAmount = 3m;
             }
 
             if (sewerageAmount > 0)
@@ -1868,7 +1869,7 @@ public partial class Reading : ContentPage
         //   For everyone : penalty base = runningTotalBill (unchanged behaviour).
         // =====================================================================
         decimal penaltyBase = runningTotalBill;
-        if (isCWD && bill.SewerageAmount > 0)
+        if (isCWD || isPlaWD && bill.SewerageAmount > 0)
         {
             penaltyBase -= bill.SewerageAmount;
         }
@@ -1935,6 +1936,7 @@ public partial class Reading : ContentPage
         bool IsMVWD = consumer.parameters.Contains("[MVWD]");
         bool IsIndangWD = consumer.parameters.Contains("[IWD]");
         bool IsCWD = consumer.parameters.Contains("[CWD]");
+        bool IsPlaWD = consumer.parameters.Contains("[PLAWD]");
 
         // ==================================================================
         // GLOBAL ALIGNMENT: parse the Line Space into a PaperProfile.
@@ -1975,7 +1977,7 @@ public partial class Reading : ContentPage
             // NEW: single call – every money value is computed and pre-rounded
             //      here (CWD = truncate, others = normal Round).
             // ------------------------------------------------------------------
-            BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD);
+            BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD, IsPlaWD);
 
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAndPrepareAsync(macAddress);
@@ -2035,14 +2037,28 @@ public partial class Reading : ContentPage
                 await printer.PrintTextAsync("TIN 000-566-175-000 Non-VAT", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
                 await printer.PrintTextAsync("Tel. No. 077-674-0870", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
             }
+            else if (IsPlaWD)
+            {
+                await printer.PrintTextAsync("Poblacion,Plaridel,Bulacan", PrintAlign.Center);
+                await printer.PrintTextAsync("NON VAT Reg. TIN 000-547-793-00000 ", PrintAlign.Center);
+                await printer.PrintTextAsync("Tel. No: 795-01-02", PrintAlign.Center);
+            }
 
-            await printer.FeedAsync(1);
+            await printer.PrintSeparatorAsync(' ');
 
             // ================= TITLE =================
-            await printer.PrintTextAsync("BILLING NOTICE", PrintAlign.Center, new PrintStyle(Bold: true, Wide: true, High: true));
+            if (IsPlaWD)
+            {
+                await printer.PrintTextAsync("STATEMENT OF ACCOUNT", PrintAlign.Center, new PrintStyle(Bold: true, Wide: true, High: true));
+            }
+            else
+            {
+                await printer.PrintTextAsync("BILLING NOTICE", PrintAlign.Center, new PrintStyle(Bold: true, Wide: true, High: true));
+            }
+
             await printer.PrintTextAsync("For the month of " + printCurrentMonthYear, PrintAlign.Center);
             await printer.PrintTextAsync("(" + printPrevMonth + " Consumption)", PrintAlign.Center);
-            await printer.FeedAsync(1);
+            await printer.PrintSeparatorAsync(' ');
 
             // ============= CONSUMER INFO =============
             await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(High: true));
@@ -2089,7 +2105,7 @@ public partial class Reading : ContentPage
                 await printer.PrintRowAsync("Current Bill", bill.CurrentBill.ToString("#,##0.00"));
 
             if (bill.SewerageAmount > 0)
-                await printer.PrintRowAsync(IsMVWD ? "Sewerage" : IsCWD ? "ESF" : "Septage Mgmt. Fee",
+                await printer.PrintRowAsync(IsMVWD ? "Sewerage" : IsCWD ? "ESF" : IsPlaWD ? "Environmental/Septage Fee" : "Septage Mgmt. Fee",
                                             bill.SewerageAmount.ToString("#,##0.00"));
 
             if (bill.ShowSeniorDiscount)
@@ -2100,18 +2116,54 @@ public partial class Reading : ContentPage
 
             if (bill.Others > 0)
                 await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
-
-            await printer.PrintRowAsync("BEFORE DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
+            if (IsPlaWD)
+            {
+                await printer.PrintRowAsync("TOTAL DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
                                         new PrintStyle(High: true));
+            }
+            else
+            {
+                await printer.PrintRowAsync("BEFORE DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
+                                        new PrintStyle(High: true));
+            }
+
 
             await printer.PrintSeparatorAsync('-');
-            await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
+            if (IsPlaWD)
+            {
+                await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left);
+                await printer.PrintRowAsync("Penalty (10%)", bill.PenaltyAmount.ToString("#,##0.00"));
+            }
+            else
+            {
+                await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
+                await printer.PrintRowAsync("Penalty", bill.PenaltyAmount.ToString("#,##0.00"));
+            }
 
-            await printer.PrintRowAsync("Penalty", bill.PenaltyAmount.ToString("#,##0.00"));
 
-            await printer.PrintRowAsync("AFTER DUE", bill.AfterDueTotal.ToString("#,##0.00"),
+            if (IsPlaWD)
+            {
+                await printer.PrintRowAsync("AFTER DUE DATE", bill.AfterDueTotal.ToString("#,##0.00"),
                                         new PrintStyle(High: true));
-            await printer.PrintSeparatorAsync('=');
+                await printer.PrintSeparatorAsync('=');
+                await printer.PrintTextAsync("DISCONNECTION REMINDER", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
+                await printer.PrintTextAsync("FOR DISCONNECTION FIVE(5) DAYS", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
+                await printer.PrintTextAsync("AFTER DUE DATE", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
+            }
+            else
+            {
+                await printer.PrintRowAsync("AFTER DUE", bill.AfterDueTotal.ToString("#,##0.00"),
+                                        new PrintStyle(High: true));
+            }
+
+            if (!IsPlaWD)
+            {
+                await printer.PrintSeparatorAsync('=');
+            }
+            if (IsPlaWD)
+            {
+                await printer.PrintSeparatorAsync('-');
+            }
 
             if (IsSJWD)
             {
@@ -2136,36 +2188,80 @@ public partial class Reading : ContentPage
                 else
                 {
                     await printer.PrintRowAsync("Reading Date", currentbilldate.ToString("MM/dd/yyyy"));
+
                 }
 
-                await printer.PrintSeparatorAsync('-');
+                if (!IsPlaWD)
+                {
+                    await printer.PrintSeparatorAsync('-');
+                }
+
             }
 
             string printRemarks = string.IsNullOrWhiteSpace(consumer.remarks) ? "Normal Reading" : consumer.remarks;
+
             await printer.PrintRowAsync("Remarks", printRemarks);
+
             await printer.PrintRowAsync("Meter Reader", consumer.billedby);
+
+
             await printer.FeedAsync();
 
+            if (!IsPlaWD)
+            {
+                await printer.PrintTextAsync("This is not valid as", PrintAlign.Center);
+                await printer.PrintTextAsync("Official Receipt", PrintAlign.Center);
+                await printer.PrintTextAsync("Please disregard arrears if", PrintAlign.Center);
+                await printer.PrintTextAsync("payment has been made", PrintAlign.Center);
+                await printer.PrintTextAsync("PAY YOUR BILLS ON TIME TO AVOID", PrintAlign.Center);
+                await printer.PrintTextAsync("PENALTY", PrintAlign.Center);
+            }
+
             // ================= NOTICES =================
-            await printer.PrintTextAsync("This is not valid as", PrintAlign.Center);
-            await printer.PrintTextAsync("Official Receipt", PrintAlign.Center);
-            await printer.PrintTextAsync("Please disregard arrears if", PrintAlign.Center);
-            await printer.PrintTextAsync("payment has been made", PrintAlign.Center);
-            await printer.PrintTextAsync("PAY YOUR BILLS ON TIME TO AVOID", PrintAlign.Center);
-            await printer.PrintTextAsync("PENALTY", PrintAlign.Center);
 
             string strNotif = LoginUser.login_user.msgmo;
             if (!string.IsNullOrWhiteSpace(strNotif))
-                await printer.PrintTextAsync("REMINDER : " + strNotif, PrintAlign.Left);
+                if (IsPlaWD)
+                {
+                    await printer.PrintTextAsync("- ANNOUNCEMENT -", PrintAlign.Center);
+                    await printer.PrintTextAsync(strNotif, PrintAlign.Left, new PrintStyle(FontB: true));
+                }
+                else
+                {
+                    await printer.PrintTextAsync("REMINDER : " + strNotif, PrintAlign.Left);
+                }
+            if (IsPlaWD)
+            {
+                await printer.PrintTextAsync("PAY YOUR BILLS ON TIME TO AVOID PENALTY", PrintAlign.Center);
+            }
 
             // ================= BARCODE =================
-            await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
+            if (IsPlaWD)
+            {
+                await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
                                             widthFraction: 1.2, heightDots: 70,
                                             humanText: false, maxModuleDots: 3,
                                             align: PrintAlign.Center);
+            }
+            else
+            {
+                await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
+                                            widthFraction: 1.2, heightDots: 70,
+                                            humanText: false, maxModuleDots: 3,
+                                            align: PrintAlign.Center);
+            }
+
 
             // ============== SEND EVERYTHING ==============
-            await printer.FeedAsync(2);
+            if (IsPlaWD)
+            {
+                await printer.FeedAsync(3);
+            }
+            else
+            {
+                await printer.FeedAsync(2);
+            }
+
             await printer.FlushAsync();
 
             result = "Done printing.";
@@ -2185,6 +2281,8 @@ public partial class Reading : ContentPage
 
         return result;
     }
+
+
     private async void ReadProFile()
     {
         string sourcefilename = "Datafiles/printer_profiles.JSON";

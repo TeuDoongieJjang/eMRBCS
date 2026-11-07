@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace eMRBCS.Global
+﻿namespace eMRBCS.Global
 {
     public static class MOA
     {
@@ -15,7 +11,7 @@ namespace eMRBCS.Global
             if (clientCode.Contains("[MVWD]")) return "MVWD_Header.bmp";
             if (clientCode.Contains("[IWD]")) return "IndangWD_Header.bmp";
             if (clientCode.Contains("[CWD]")) return "CalambaWD_Header.bmp";
-            if (clientCode.Contains("[PlaWD]")) return "PlaWD_Header.bmp";
+            if (clientCode.Contains("[PLAWD]")) return "PlaWD_Header.bmp";
 
             return "MLS_Header.bmp";
         }
