@@ -1,87 +1,83 @@
 ﻿namespace eMRBCS.Services
 {
+    public enum AlignMethod { Hardware, Software }
+
     public static class PrinterHardware
     {
         /// <summary>0 = automatic. Set a number only to force a head width.</summary>
         public static int HeadWidthDots { get; set; } = 0;
 
-        // CHANGED: used when the Line Space has no alignment digit (e.g. "48"). 1 = left, 2 = center, 3 = right
+        /// <summary>Used when the Line Space has no alignment digit (e.g. "48"). 1 = left, 2 = center, 3 = right.</summary>
         public static int DefaultAlignment { get; set; } = 2;
+
+        /// <summary>
+        /// Software (default) = leading spaces for text, blank dots for logo/barcode/QR. Works on every printer.
+        /// Hardware = GS L / GS W margins. Only for printers that honour them for text AND images.
+        /// </summary>
+        public static AlignMethod AlignBy { get; set; } = AlignMethod.Software;
+
+        /// <summary>
+        /// true = every print starts with GS L 0 / GS W (full head) on 3-inch heads, so margins left in the printer
+        /// by an earlier print can't shift a 48 or 32 print. Set false only if a printer prints stray "L" / "W".
+        /// </summary>
+        public static bool ResetMargins { get; set; } = true;
 
         public const bool RasterIgnoresMargin = true;
     }
 
+    /// <summary>The one P6824BT behaviour set. Tuned automatically from the Bluetooth device name.</summary>
     public sealed class PrinterCaps
     {
-        public string Name { get; init; } = "Universal";
+        public string Name { get; init; } = "P6824BT";
 
-        public int CodePage { get; init; } = 850;
-        public byte CodeTableId { get; init; } = 2;
-        public bool AsciiOnly { get; init; } = false;
-        public bool CancelKanji { get; init; } = false;
+        // text encoding
+        public int CodePage { get; init; } = 850;          // .NET code page
+        public byte CodeTableId { get; init; } = 2;        // ESC t n (0=CP437, 2=CP850, 16=WPC1252, 19=CP858)
+        public bool AsciiOnly { get; init; } = false;      // true: Ñ -> N (last resort)
+        public bool CancelKanji { get; init; } = false;    // FS . (Chinese-mode printers)
 
-        public bool UseMargins { get; init; } = false;
-        public bool AutoMargins { get; init; } = true;
+        // text sending
         public int SendChunkSize { get; init; } = 512;
         public int SendChunkDelayMs { get; init; } = 4;
         public int TailDelayMs { get; init; } = 400;
 
+        // barcode / QR / underline raster
         public int RasterSliceRows { get; init; } = 48;
         public int RasterChunkSize { get; init; } = 192;
         public int RasterChunkDelayMs { get; init; } = 8;
 
+        // logo
         public bool LogoBitImage { get; init; } = false;
         public int LogoSliceRows { get; init; } = 24;
         public int LogoChunkSize { get; init; } = 192;
         public int LogoChunkDelayMs { get; init; } = 8;
         public int LogoStripPauseMs { get; init; } = 0;
 
-        /// <summary>NEW: true for P6824BT and every profile that is not explicitly MPD31D or MHT-P29L.</summary>
-        public static bool IsAuto(string name)
-        {
-            string n = (name ?? "").Trim().ToUpperInvariant();
-            return n != "MPD31D" && n != "MHT-P29L";
-        }
-
-        /// <summary>NEW: picks the settings from the Bluetooth device name. null = unknown printer (use Universal).
-        /// Add new models here, one line each.</summary>
-        public static PrinterCaps FromDeviceName(string deviceName)
+        /// <summary>Add new models here, one line each. Unknown names keep the safe defaults.</summary>
+        public static PrinterCaps ForDevice(string deviceName)
         {
             string n = (deviceName ?? "").ToUpperInvariant();
-            if (n.Contains("MPD31")) return ForProfile("MPD31D");
-            if (n.Contains("MHT") || n.Contains("P29")) return ForProfile("MHT-P29L");
-            return null;
-        }
+            bool fast = n.Contains("MPD31");                       // Honeywell MPD31D
+            bool chinese = n.Contains("MHT") || n.Contains("P29"); // Milestone MHT-P29L
 
-        public static PrinterCaps ForProfile(string name)
-        {
-            switch ((name ?? "").Trim().ToUpperInvariant())
+            return new PrinterCaps
             {
-                case "MPD31D":
-                    return new PrinterCaps
-                    {
-                        Name = "MPD31D",
-                        CodePage = 850,
-                        CodeTableId = 2,
-                        UseMargins = true,
-                        SendChunkSize = 2048,
-                        SendChunkDelayMs = 0,
-                        TailDelayMs = 150,
-                        RasterSliceRows = 0,
-                        RasterChunkSize = 0,
-                        RasterChunkDelayMs = -1,
-                        LogoBitImage = true,
-                        LogoChunkSize = 256,
-                        LogoChunkDelayMs = 10,
-                        LogoStripPauseMs = 3
-                    };
+                CancelKanji = chinese,
 
-                case "MHT-P29L":
-                    return new PrinterCaps { Name = "MHT-P29L", CancelKanji = true };
+                SendChunkSize = fast ? 2048 : 512,
+                SendChunkDelayMs = fast ? 0 : 4,
+                TailDelayMs = fast ? 150 : 400,
 
-                default:
-                    return new PrinterCaps();
-            }
+                RasterSliceRows = fast ? 0 : 48,
+                RasterChunkSize = fast ? 0 : 192,
+                RasterChunkDelayMs = fast ? -1 : 8,
+
+                LogoBitImage = fast,
+                LogoSliceRows = 24,
+                LogoChunkSize = fast ? 256 : 192,
+                LogoChunkDelayMs = fast ? 10 : 8,
+                LogoStripPauseMs = fast ? 3 : 0
+            };
         }
     }
 
@@ -95,6 +91,7 @@
         public int ColsB { get; init; }
         public int Alignment { get; init; }
 
+        /// <summary>32/48 = columns only, 321/322/323/481... = columns + alignment digit (1 L, 2 C, 3 R).</summary>
         public static void ParseLineSpace(int raw, out int cols, out int alignment)
         {
             cols = raw;
@@ -111,15 +108,14 @@
         public static PaperProfile FromLineSpace(int raw)
         {
             ParseLineSpace(raw, out int cols, out int align);
-            return Build(cols, align, raw >= 100);      // CHANGED: remember if an alignment digit was typed
+            return Build(cols, align, raw >= 100);
         }
 
         public static PaperProfile FromColumns(int cols) => Build(cols, PrinterHardware.DefaultAlignment, false);
 
         private static PaperProfile Build(int cols, int align, bool explicitAlign)
         {
-            // CHANGED: 321/322/323 = 2-inch paper inside a 3-inch (576) printer.
-            //          "32" alone = 2-inch printer (384). 48/46 = 576.
+            // 321/322/323 = 2-inch paper in a 3-inch (576) printer. "32" alone = 2-inch printer (384). 46/48 = 576.
             int head = PrinterHardware.HeadWidthDots > 0
                 ? PrinterHardware.HeadWidthDots
                 : (explicitAlign ? 576 : (cols <= 34 ? 384 : 576));

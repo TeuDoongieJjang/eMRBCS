@@ -1,5 +1,4 @@
 ﻿using Android.Bluetooth;
-using eMRBCS.Global;
 using eMRBCS.Services;
 using Java.Util;
 using QRCoder;
@@ -23,14 +22,8 @@ namespace eMRBCS.Platforms.Android
         int HeightMul = 0);
 
     public enum BarcodeType { Code39, Code128 }
-
-    /// <summary>Raster = one GS v 0 | RasterBands = GS v 0 in small bands (universal) | BitImage = ESC * 24-dot strips.</summary>
     public enum LogoMode { Raster, RasterBands, BitImage }
 
-    /// <summary>
-    /// Generic Bluetooth (SPP) ESC/POS printer. Behaviour comes from PrinterCaps, chosen by the saved Printer Profile.
-    /// Everything is queued in memory and sent paced on FlushAsync().
-    /// </summary>
     public class EscPOScmdPrint : IDisposable
     {
         private static readonly UUID SppUuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB");
@@ -48,13 +41,11 @@ namespace eMRBCS.Platforms.Android
             set { _caps = value ?? new PrinterCaps(); ApplyCaps(); }
         }
 
-        private bool _autoDetect;
+        public string DeviceName { get; private set; } = "";
 
         public EscPOScmdPrint()
         {
-            string profile = MyDeviceInfo.currentPrintConfig?.profileconfig;
-            _autoDetect = PrinterCaps.IsAuto(profile);
-            Caps = PrinterCaps.ForProfile(profile);
+            Caps = PrinterCaps.ForDevice(null);
         }
 
         private void ApplyCaps()
@@ -114,7 +105,7 @@ namespace eMRBCS.Platforms.Android
         public int UnderlineBoldThicknessDots { get; set; } = 2;
         public int UnderlineTailFeed { get; set; } = 6;
 
-        // ---------------- raster settings (barcode, QR, underline) ----------------
+        // ---------------- raster settings ----------------
         public int RasterChunkSize { get; set; } = 192;
         public int RasterChunkDelayMs { get; set; } = 8;
         public int RasterSliceRows { get; set; } = 48;
@@ -149,28 +140,26 @@ namespace eMRBCS.Platforms.Android
         public int RasterRows { get; private set; }
 
         private int Head => Profile.HeadDots > 0 ? Profile.HeadDots : 384;
-        private double DotsPerCol => (double)Profile.WidthDots / (_fontB ? Profile.ColsB : Profile.ColsA);
         public int Cols => Math.Max(1, (_fontB ? Profile.ColsB : Profile.ColsA) / _widthMul);
 
         /// <summary>True for 32-column (2-inch) paper.</summary>
         public bool IsSmallPaper => Profile.ColsA <= 34;
 
-        private PrintStyle PickStyle(PrintStyle style, PrintStyle? style32, bool smallOn32)
-        {
-            if (!IsSmallPaper) return style;
-            if (style32.HasValue) return style32.Value;
-            if (smallOn32) return style with { FontB = true, WidthMul = 1, HeightMul = 1 };
-            return style;
-        }
+        // FIX: real character cell widths (Font A = 12 dots, Font B = 9 dots)
+        private int CellDots => _fontB ? 9 : 12;
 
-        private static PrintStyle SmallIf(bool smallOn32, bool isSmall, PrintStyle s)
-            => (smallOn32 && isSmall) ? s with { FontB = true, WidthMul = 1, HeightMul = 1 } : s;
+        // ONE place that decides how the global alignment is done.
+        private bool UseMarginsNow => PrinterHardware.AlignBy == AlignMethod.Hardware && Profile.OffsetDots > 0;
 
-        private bool UseMarginsNow => Caps.UseMargins || (Caps.AutoMargins && Profile.OffsetDots > 0);
-        // Without GS L (margins) the whole receipt is shifted right with spaces instead.
+        // Software mode: whole receipt shifted with leading spaces. FIX: floor, so a full line never overflows the head.
         private int LeadCols => (!UseMarginsNow && Profile.OffsetDots > 0)
-            ? (int)Math.Round(Profile.OffsetDots / (DotsPerCol * _widthMul)) : 0;
+            ? (int)Math.Floor(Profile.OffsetDots / (double)(CellDots * _widthMul)) : 0;
 
+        /// <summary>One line describing what the app parsed. Printed by Test Print.</summary>
+        public string Describe() =>
+            $"{(string.IsNullOrEmpty(DeviceName) ? "?" : DeviceName)} | {Profile.Name} align {Profile.Alignment} " +
+            $"head {Profile.HeadDots} off {Profile.OffsetDots} | " +
+            (Profile.OffsetDots == 0 ? "no shift" : UseMarginsNow ? "HW margin" : "space shift");
 
         private int UnderlineThickness(bool bold)
         {
@@ -178,7 +167,7 @@ namespace eMRBCS.Platforms.Android
             return Math.Max(1, t * _heightMul);
         }
         private int CellHeightDots => (_fontB ? FontBCellHeight : FontACellHeight) * _heightMul;
-        private int ColToDot(int col) => (int)Math.Round(col * DotsPerCol * _widthMul);
+        private int ColToDot(int col) => col * CellDots * _widthMul;
         private static byte[] FeedDots(int n) => new byte[] { 0x1B, 0x4A, (byte)Math.Clamp(n, 0, 255) };
 
         public async Task DoubleWideAsync(bool on) { _widthMul = on ? 2 : 1; await ApplySizeAsync(); }
@@ -271,15 +260,12 @@ namespace eMRBCS.Platforms.Android
 
             adapter.CancelDiscovery();
 
-            if (_autoDetect)
+            try
             {
-                try
-                {
-                    var detected = PrinterCaps.FromDeviceName(device.Name);
-                    if (detected != null) Caps = detected;   // MPD31D / MHT-P29L settings picked by name
-                }
-                catch { /* unknown name: keep Universal */ }
+                DeviceName = device.Name ?? "";
+                Caps = PrinterCaps.ForDevice(DeviceName);
             }
+            catch { /* unknown name: keep safe defaults */ }
 
             var errors = new List<string>();
 
@@ -331,26 +317,33 @@ namespace eMRBCS.Platforms.Android
             return (BluetoothSocket)method.Invoke(device, 1);
         }
 
-        /// <summary>CHANGED: only standard, parameter-safe commands. GS L / GS W only when Caps.UseMargins.</summary>
         public async Task InitializeAsync(int codeTable = -1)
         {
             byte table = codeTable >= 0 ? (byte)codeTable : Caps.CodeTableId;
             int w = Profile.WidthDots;
             int o = Profile.OffsetDots;
+            int head = Head;
+            bool hw = UseMarginsNow;
 
             var cmd = new List<byte>
             {
                 0x1B, 0x40,                 // ESC @ reset
-                0x1B, 0x74, table           // ESC t n code page
+                0x1B, 0x74, table,          // ESC t n code page
+                0x1B, 0x32                  // ESC 2 default line spacing
             };
-            if (Caps.CancelKanji) cmd.AddRange(new byte[] { 0x1C, 0x2E });   // FS .  cancel Chinese (GBK) mode
+            if (Caps.CancelKanji) cmd.AddRange(new byte[] { 0x1C, 0x2E });   // FS .
             cmd.AddRange(new byte[] { 0x1B, 0x61, 0x00 });                   // left align
-            if (UseMarginsNow)
+
+            // FIX: always overwrite margins left in the printer by an earlier print (3-inch heads).
+            bool sendMargins = hw || (PrinterHardware.ResetMargins && head > 384);
+            if (sendMargins)
             {
+                int left = hw ? o : 0;
+                int area = hw ? w : head;
                 cmd.AddRange(new byte[]
                 {
-                    0x1D, 0x4C, (byte)(o & 0xFF), (byte)(o >> 8),
-                    0x1D, 0x57, (byte)(w & 0xFF), (byte)(w >> 8)
+                    0x1D, 0x4C, (byte)(left & 0xFF), (byte)(left >> 8),      // GS L left margin
+                    0x1D, 0x57, (byte)(area & 0xFF), (byte)(area >> 8)       // GS W print area width
                 });
             }
             await WriteRawAsync(cmd.ToArray());
@@ -435,8 +428,8 @@ namespace eMRBCS.Platforms.Android
             int totalModules = pattern.Sum(c => c - '0');
             const int quiet = 10;
 
-            // CHANGED: never wider than the real print head (was the main cause of cut/garbled barcodes on 58 mm)
-            int maxDots = Math.Min((int)(Profile.WidthDots * widthFraction), Head - Profile.OffsetDots);
+            // FIX: limited to the PAPER width (was the head width, so it overflowed 2-inch paper on 321/322/323)
+            int maxDots = Math.Min((int)(Profile.WidthDots * widthFraction), Profile.WidthDots);
             int mw = Math.Min(maxModuleDots, maxDots / (totalModules + 2 * quiet));
             if (mw < 1)
                 throw new InvalidOperationException($"Barcode '{data}' is too long for this paper width.");
@@ -464,7 +457,6 @@ namespace eMRBCS.Platforms.Android
         }
 
         public async Task WriteTextAsync(string text) => await WriteRawAsync(Bytes(text));
-
         public async Task BoldAsync(bool on) => await WriteRawAsync(new byte[] { 0x1B, 0x45, (byte)(on ? 1 : 0) });
 
         private async Task ApplySizeAsync()
@@ -534,8 +526,6 @@ namespace eMRBCS.Platforms.Android
             return ((s.Wide ? 2 : 1), (s.High ? 2 : 1), s.FontB);
         }
 
-        /// <summary>CHANGED: ESC M / ESC E / ESC ! for normal sizes. GS ! is sent only for sizes above 2x
-        /// (and once more to reset it), because some cheap printers print GS ! as text.</summary>
         private async Task ApplyStyleAsync(PrintStyle s)
         {
             var (wMul, hMul, fontB) = ResolveSize(s);
@@ -586,12 +576,23 @@ namespace eMRBCS.Platforms.Android
             }
         }
 
+        /// <summary>style = 48 (anything wider than 34 columns). style32 = used on 32 when given.
+        /// Otherwise smallOn32 = Font B 1x1, otherwise style.</summary>
+        private PrintStyle PickStyle(PrintStyle style, PrintStyle? style32, bool smallOn32)
+        {
+            if (!IsSmallPaper) return style;
+            if (style32.HasValue) return style32.Value;
+            if (smallOn32) return style with { FontB = true, WidthMul = 1, HeightMul = 1 };
+            return style;
+        }
+
         public async Task PrintTextAsync(string text, PrintAlign align = PrintAlign.Left,
                                          PrintStyle style = default, PrintStyle? style32 = null,
                                          bool smallOn32 = false)
         {
             style = PickStyle(style, style32, smallOn32);
             bool underline = style.Underline;
+            bool bold = style.Bold;
             await ApplyStyleAsync(style with { Underline = false });
             int cols = Cols;
             int lead = LeadCols;
@@ -616,7 +617,7 @@ namespace eMRBCS.Platforms.Android
                     buf.AddRange(FeedDots(CellHeightDots));
                     await WriteRawAsync(buf.ToArray());
                     buf.Clear();
-                    await PrintUnderlineStripAsync(new List<(int, int)> { (pad + lead, l.Length) }, style.Underline);
+                    await PrintUnderlineStripAsync(new List<(int, int)> { (pad + lead, l.Length) }, bold);
                 }
                 else buf.Add(0x0A);
             }
@@ -631,6 +632,7 @@ namespace eMRBCS.Platforms.Android
         {
             style = PickStyle(style, style32, smallOn32);
             bool underline = style.Underline;
+            bool bold = style.Bold;
             await ApplyStyleAsync(style with { Underline = false });
             int cols = Cols;
             int lead = LeadCols;
@@ -662,7 +664,7 @@ namespace eMRBCS.Platforms.Android
                     buf.AddRange(FeedDots(CellHeightDots));
                     await WriteRawAsync(buf.ToArray());
                     buf.Clear();
-                    await PrintUnderlineStripAsync(spans, style.Underline);
+                    await PrintUnderlineStripAsync(spans, bold);
                 }
                 else buf.Add(0x0A);
             }
@@ -788,10 +790,11 @@ namespace eMRBCS.Platforms.Android
         }
 
         // ---------------- raster (GS v 0) ----------------
+        // absoluteX = true: the x positions already include the global offset (underline in space-shift mode).
         private async Task PrintRasterAsync(int contentW, int h, Func<int, int, bool> isBlack,
                             PrintAlign align = PrintAlign.Center,
                             int sliceRows = -1, int chunk = -1, int chunkDelay = -1, int msPerRow = 0,
-                            int sendW = -1, bool vDouble = false)
+                            int sendW = -1, bool vDouble = false, bool absoluteX = false)
         {
             if (sliceRows < 0) sliceRows = RasterSliceRows;
             int useChunk = ResolveChunk(chunk > 0 ? chunk : RasterChunkSize);
@@ -808,14 +811,14 @@ namespace eMRBCS.Platforms.Android
                 PrintAlign.Right => paperW - contentW,
                 _ => 0
             };
-            x0 = Math.Max(0, x0) + Profile.OffsetDots;
+            x0 = Math.Max(0, x0) + (absoluteX ? 0 : Profile.OffsetDots);   // FIX: no double offset
 
             int usedDots = Math.Min(head, x0 + sendW);
             int rowBytes = Math.Clamp((usedDots + 7) / 8, 1, headBytes);
             int rowDots = rowBytes * 8;
 
             var setup = new List<byte> { 0x1B, 0x61, 0x00 };
-            if (UseMarginsNow)
+            if (UseMarginsNow)   // hardware mode only: margin 0 + full head so x0 is exact
                 setup.AddRange(new byte[] { 0x1D, 0x4C, 0x00, 0x00, 0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8) });
             await WriteRawAsync(setup.ToArray());
 
@@ -877,7 +880,7 @@ namespace eMRBCS.Platforms.Android
             int x0 = Math.Max(0, baseX) + Profile.OffsetDots + trimLeft;
             x0 = Math.Min(x0, head - 8);
 
-            bool pad = LogoPadWithZeros || !UseMarginsNow;     // no margin command => pad with empty columns
+            bool pad = LogoPadWithZeros || !UseMarginsNow;   // software mode: pad with empty columns
             int dataW = Math.Clamp(trimW, 1, Math.Max(1, head - x0));
             int lead = pad ? x0 : 0;
             int marginDots = pad ? 0 : x0;
@@ -967,7 +970,7 @@ namespace eMRBCS.Platforms.Android
                 for (int i = 0; i < mask.Length; i++)
                 {
                     SKColor p = px[i];
-                    double a = p.Alpha / 255.0;      // transparent areas count as white
+                    double a = p.Alpha / 255.0;
                     double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
                     mask[i] = lum < 128;
                 }
@@ -1046,9 +1049,10 @@ namespace eMRBCS.Platforms.Android
         {
             if (spans.Count == 0) return;
 
+            int limit = Profile.WidthDots + Profile.OffsetDots;
             var segs = spans
                 .Where(s => s.len > 0)
-                .Select(s => (x0: ColToDot(s.col), x1: Math.Min(Profile.WidthDots, ColToDot(s.col + s.len))))
+                .Select(s => (x0: ColToDot(s.col), x1: Math.Min(limit, ColToDot(s.col + s.len))))
                 .ToList();
             if (segs.Count == 0) return;
 
@@ -1056,9 +1060,12 @@ namespace eMRBCS.Platforms.Android
             int thick = UnderlineThickness(bold);
             int width = segs.Max(s => s.x1);
 
+            // FIX: space-shift mode: the spans already include the lead columns -> absolute dots (no extra offset).
+            //      hardware mode: the spans exclude the margin -> the raster adds the offset itself.
             await PrintRasterAsync(width, gap + thick,
                 (x, y) => y >= gap && segs.Any(s => x >= s.x0 && x < s.x1),
-                PrintAlign.Left);
+                PrintAlign.Left,
+                absoluteX: !UseMarginsNow);
 
             await WriteRawAsync(FeedDots(UnderlineTailFeed));
         }

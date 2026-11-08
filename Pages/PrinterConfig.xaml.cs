@@ -258,7 +258,11 @@ public partial class PrinterConfig : ContentPage
         // Reload from DB and re-select the just-saved config so the picker
         // and every field stay populated without leaving the page.
         _printerConfigs = (await dbService.GetAllPrinterConfig()) ?? new List<Printerconfig>();
-
+        if (MyDeviceInfo.currentPrintConfig != null)
+        {
+            var fresh = _printerConfigs.FirstOrDefault(p => p.id == MyDeviceInfo.currentPrintConfig.id);
+            if (fresh != null) MyDeviceInfo.currentPrintConfig = fresh;
+        }
         var names = new List<string> { "New Config" };
         names.AddRange(_printerConfigs.Select(p => p.profile_name));
         pickerConfigName.ItemsSource = names;
@@ -365,8 +369,8 @@ public partial class PrinterConfig : ContentPage
 
             SetBluetoothAddress(_selectedprinter.bluetooth_address);
             line_spaces.Text = _selectedprinter.linespacing.ToString();
-            pickerProfiles.SelectedItem = string.IsNullOrWhiteSpace(_selectedprinter.profileconfig)
-                                          ? DefaultProfile : _selectedprinter.profileconfig;
+            pickerProfiles.SelectedItem = ProfileNames.Contains(_selectedprinter.profileconfig)
+                                           ? _selectedprinter.profileconfig : DefaultProfile;
             chkDefault.IsChecked = _selectedprinter.isdefault == 1;
 
             btnSave.Text = "Update Config";
