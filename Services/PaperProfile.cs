@@ -21,7 +21,7 @@
         public bool CancelKanji { get; init; } = false;
 
         public bool UseMargins { get; init; } = false;
-
+        public bool AutoMargins { get; init; } = true;
         public int SendChunkSize { get; init; } = 512;
         public int SendChunkDelayMs { get; init; } = 4;
         public int TailDelayMs { get; init; } = 400;

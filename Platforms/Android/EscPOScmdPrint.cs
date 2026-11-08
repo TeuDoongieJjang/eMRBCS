@@ -166,9 +166,11 @@ namespace eMRBCS.Platforms.Android
         private static PrintStyle SmallIf(bool smallOn32, bool isSmall, PrintStyle s)
             => (smallOn32 && isSmall) ? s with { FontB = true, WidthMul = 1, HeightMul = 1 } : s;
 
+        private bool UseMarginsNow => Caps.UseMargins || (Caps.AutoMargins && Profile.OffsetDots > 0);
         // Without GS L (margins) the whole receipt is shifted right with spaces instead.
-        private int LeadCols => (!Caps.UseMargins && Profile.OffsetDots > 0)
+        private int LeadCols => (!UseMarginsNow && Profile.OffsetDots > 0)
             ? (int)Math.Round(Profile.OffsetDots / (DotsPerCol * _widthMul)) : 0;
+
 
         private int UnderlineThickness(bool bold)
         {
@@ -343,7 +345,7 @@ namespace eMRBCS.Platforms.Android
             };
             if (Caps.CancelKanji) cmd.AddRange(new byte[] { 0x1C, 0x2E });   // FS .  cancel Chinese (GBK) mode
             cmd.AddRange(new byte[] { 0x1B, 0x61, 0x00 });                   // left align
-            if (Caps.UseMargins)
+            if (UseMarginsNow)
             {
                 cmd.AddRange(new byte[]
                 {
@@ -813,7 +815,7 @@ namespace eMRBCS.Platforms.Android
             int rowDots = rowBytes * 8;
 
             var setup = new List<byte> { 0x1B, 0x61, 0x00 };
-            if (Caps.UseMargins)
+            if (UseMarginsNow)
                 setup.AddRange(new byte[] { 0x1D, 0x4C, 0x00, 0x00, 0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8) });
             await WriteRawAsync(setup.ToArray());
 
@@ -848,7 +850,7 @@ namespace eMRBCS.Platforms.Android
 
             if (banded) await WriteRawAsync(new byte[] { 0x1B, 0x32 });
 
-            if (Caps.UseMargins)
+            if (UseMarginsNow)
             {
                 int o = Profile.OffsetDots, w = Profile.WidthDots;
                 await WriteRawAsync(new byte[]
@@ -875,14 +877,14 @@ namespace eMRBCS.Platforms.Android
             int x0 = Math.Max(0, baseX) + Profile.OffsetDots + trimLeft;
             x0 = Math.Min(x0, head - 8);
 
-            bool pad = LogoPadWithZeros || !Caps.UseMargins;     // no margin command => pad with empty columns
+            bool pad = LogoPadWithZeros || !UseMarginsNow;     // no margin command => pad with empty columns
             int dataW = Math.Clamp(trimW, 1, Math.Max(1, head - x0));
             int lead = pad ? x0 : 0;
             int marginDots = pad ? 0 : x0;
             int totalW = lead + dataW;
 
             var setup = new List<byte> { 0x1B, 0x61, 0x00 };
-            if (Caps.UseMargins)
+            if (UseMarginsNow)
                 setup.AddRange(new byte[]
                 {
                     0x1D, 0x4C, (byte)(marginDots & 0xFF), (byte)(marginDots >> 8),
@@ -927,7 +929,7 @@ namespace eMRBCS.Platforms.Android
             }
 
             var restore = new List<byte> { 0x1B, 0x32 };
-            if (Caps.UseMargins)
+            if (UseMarginsNow)
             {
                 int o = Profile.OffsetDots, w = Profile.WidthDots;
                 restore.AddRange(new byte[]
