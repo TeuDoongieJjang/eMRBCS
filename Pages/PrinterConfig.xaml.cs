@@ -21,7 +21,9 @@ public partial class PrinterConfig : ContentPage
     string profiles;
 
     private static readonly Regex MacRegex = new Regex("^([0-9A-F]{2}:){5}[0-9A-F]{2}$", RegexOptions.Compiled);
-
+    private static readonly List<string> ProfileNames = new()
+    { "P6824BT", "PB21", "P6824SERIAL", "PR2", "PB31", "PB42", "PB51" };
+    private const string DefaultProfile = "P6824BT";
     private bool _isFormattingMacAddress;
     private string _lastMacDisplay = string.Empty;
 
@@ -54,10 +56,7 @@ public partial class PrinterConfig : ContentPage
     {
         dbService = new DBService();
 
-        pickerProfiles.ItemsSource ??= new List<string>
-        {
-            "PB21", "P6824SERIAL", "P6824BT", "PR2", "PB31", "PB42", "PB51"
-        };
+        pickerProfiles.ItemsSource ??= ProfileNames;
 
         _printerConfigs = (await dbService.GetAllPrinterConfig()) ?? new List<Printerconfig>();
 
@@ -321,10 +320,8 @@ public partial class PrinterConfig : ContentPage
     {
         dbService = new DBService();
 
-        pickerProfiles.ItemsSource = new List<string>
-    {
-        "PB21", "P6824SERIAL", "P6824BT", "PR2", "PB31", "PB42", "PB51"
-    };
+        pickerProfiles.ItemsSource = ProfileNames;
+        pickerProfiles.SelectedItem = DefaultProfile;
 
         await RefreshPrinterConfigPickerAsync(null);
     }
@@ -368,7 +365,8 @@ public partial class PrinterConfig : ContentPage
 
             SetBluetoothAddress(_selectedprinter.bluetooth_address);
             line_spaces.Text = _selectedprinter.linespacing.ToString();
-            pickerProfiles.SelectedItem = _selectedprinter.profileconfig;
+            pickerProfiles.SelectedItem = string.IsNullOrWhiteSpace(_selectedprinter.profileconfig)
+                                          ? DefaultProfile : _selectedprinter.profileconfig;
             chkDefault.IsChecked = _selectedprinter.isdefault == 1;
 
             btnSave.Text = "Update Config";
@@ -381,7 +379,7 @@ public partial class PrinterConfig : ContentPage
             _selectedprinter = null;
             SetBluetoothAddress("");
             line_spaces.Text = "0";
-            pickerProfiles.SelectedIndex = -1;
+            pickerProfiles.SelectedItem = DefaultProfile;
             chkDefault.IsChecked = false;
 
             btnSave.Text = "Save Config";
@@ -435,13 +433,7 @@ public partial class PrinterConfig : ContentPage
             return "Logo load failed: " + ex.GetType().Name + " - " + ex.Message;
         }
 
-        var printer = new EscPOScmdPrint
-        {
-            Profile = paper,
-            RasterSliceRows = 48,        // send barcodes/QR/underline in small bands
-            RasterChunkSize = 256,       // small Bluetooth writes for raster data
-            RasterChunkDelayMs = 5       // short pause so the printer buffer can keep up
-        };
+        var printer = new EscPOScmdPrint { Profile = paper };
         try
         {
             string mac = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);

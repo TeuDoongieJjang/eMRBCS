@@ -1435,57 +1435,21 @@ public partial class Reading : ContentPage
         List<Billing_rates> billrate = await dbService.GetBillrates(consumer.consumer_type, consumer.metersize);
         if (billrate != null)
         {
-            //index 0 is for minimum amount
-            //compute usage per 10 usage
-            int _maxBillrate;
-            int _extraUsage;
-            int _maxCommoditiesto = Math.DivRem((int)_computedUsage, 10, out _extraUsage);
-
-            if (_maxCommoditiesto > 4)
+            if (billrate != null)
             {
-                _extraUsage = ((_maxCommoditiesto - 4) * 10) + _extraUsage;
-                _maxCommoditiesto = 5;
+                // minimum usage was already subtracted from _computedUsage above
+                var lines = RateCalculator.Breakdown(billrate, _computedUsage);
+                _TotalBill = (float)lines.Sum(l => l.Amount);
 
-            }
-            else
-            {
-                _maxCommoditiesto = _extraUsage == 0 ? _maxCommoditiesto : _maxCommoditiesto + 1;
-            }
-
-            _maxBillrate = _maxCommoditiesto - 1;
-
-            if ((_maxCommoditiesto == 0) || (_maxBillrate == 0))
-            {
-                _computedAmountperCommodities[0] = billrate[0].brate;
-            }
-            else
-            {
-                for (int x = 0; x <= _maxBillrate; x++)
+                //Penalty
+                _currentPenalty = (_TotalBill - _currentBillDiscount) * consumer.special_penalty_rate;
+                if (consumer.arrears > 0)
                 {
-                    if (x == _maxBillrate && _extraUsage > 0)
-                    {
-                        _computedAmountperCommodities[x] = _extraUsage * billrate[x].brate;
-                    }
-                    else
-                    {
-                        if (x == 0)
-                        {
-                            _computedAmountperCommodities[x] = billrate[x].brate;
-                        }
-                        else
-                        {
-                            _computedAmountperCommodities[x] = 10 * billrate[x].brate;
-                        }
-
-                    }
-
+                    _currentPenalty = ((_TotalBill + consumer.arrears) - _currentBillDiscount) * consumer.special_penalty_rate;
                 }
-            }
 
-
-            for (int x = 0; x < 5; x++)
-            {
-                _TotalBill = _TotalBill + _computedAmountperCommodities[x];
+                _currentBillAmount = _TotalBill;
+                _TotalBill = _TotalBill + consumer.othercharges + consumer.arrears;
             }
 
 
@@ -1800,10 +1764,10 @@ public partial class Reading : ContentPage
     //      DoPrintBill just prints the pre-computed values.
     // =========================================================================
     private static BillAmounts ComputeBillAmounts(Consumers consumer,
-                                              bool isSJWD,
-                                              bool isMVWD,
-                                              bool isIndangWD,
-                                              bool isCWD, bool isPlaWD)
+                                          bool isSJWD,
+                                          bool isMVWD,
+                                          bool isIndangWD,
+                                          bool isCWD, bool isPlaWD)
     {
         if (consumer == null) throw new ArgumentNullException(nameof(consumer));
 
@@ -1813,109 +1777,75 @@ public partial class Reading : ContentPage
             IsFlatRate = consumer.parameters.Contains("IsFlatRate"),
         };
 
-        // ---------------- current bill (starting amount) ----------------
         decimal currentBill = ApplyRounding(Convert.ToDecimal(consumer.currentbill), isCWD);
 
-        // ---------------- sewerage ----------------
+        // ---------------- sewerage: taken from the consumer record only ----------------
+        decimal sewerageValue = float.IsNaN(consumer.sewerage) ? 0m : Convert.ToDecimal(consumer.sewerage);
         decimal sewerageAmount = 0.00m;
 
         if (isMVWD)
         {
             if (bill.IsSewerage)
             {
-                sewerageAmount = ApplyRounding(Convert.ToDecimal(consumer.sewerage), isCWD);
+                sewerageAmount = ApplyRounding(sewerageValue, isCWD);          // fixed amount
                 if (bill.IsFlatRate) currentBill = 0.00m;
             }
         }
-        else
+        else if (sewerageValue > 0)
         {
-            float sewerageRate = Database.Table<Billing_rates>()
-                .Where(b => b.consumer_type == consumer.consumer_type
-                         && b.metersize == consumer.metersize)
-                .Select(b => b.sewerage)
-                .FirstOrDefault();
-
-            sewerageAmount = Convert.ToDecimal(sewerageRate);
-
-            if (double.IsNaN(Convert.ToDouble(sewerageAmount)) || sewerageAmount == 0)
-            {
-                sewerageAmount = 0.00m;
-                if (isCWD) sewerageAmount = 2.93m;
-                if (isPlaWD) sewerageAmount = 3m;
-            }
-
-            if (sewerageAmount > 0)
-            {
-                decimal usageDec = Convert.ToDecimal(consumer.usage);
-                sewerageAmount = ApplyRounding(sewerageAmount * usageDec, isCWD);
-                decimal esfFtax = ApplyRounding(sewerageAmount * 0.02m, isCWD);
-                sewerageAmount = ApplyRounding(sewerageAmount + esfFtax, isCWD);
-            }
+            decimal usageDec = Convert.ToDecimal(consumer.usage);
+            sewerageAmount = ApplyRounding(sewerageValue * usageDec, isCWD);   // rate per cu.m x usage
+            decimal esfFtax = ApplyRounding(sewerageAmount * 0.02m, isCWD);
+            sewerageAmount = ApplyRounding(sewerageAmount + esfFtax, isCWD);
         }
+        // sewerageAmount stays 0 when the consumer has none -> DoPrintBill does not print the line
 
         bill.CurrentBill = currentBill;
         bill.SewerageAmount = sewerageAmount;
 
-        // ---------------- running total ----------------
         decimal runningTotalBill = 0.00m;
-
         if (bill.CurrentBill > 0) runningTotalBill += bill.CurrentBill;
         if (bill.SewerageAmount > 0) runningTotalBill += bill.SewerageAmount;
 
-        // =====================================================================
-        // FIX: separate base for penalty.
-        //   For CWD      : penalty base = runningTotalBill WITHOUT sewerage,
-        //                  i.e. penalty is charged on the current bill only.
-        //   For everyone : penalty base = runningTotalBill (unchanged behaviour).
-        // =====================================================================
         decimal penaltyBase = runningTotalBill;
-        if (isCWD || isPlaWD && bill.SewerageAmount > 0)
-        {
+        if (isCWD && bill.SewerageAmount > 0)
             penaltyBase -= bill.SewerageAmount;
-        }
 
-        // ---------------- senior discount ----------------
         bill.SeniorDiscount = 0.00m;
         if (!isIndangWD)
         {
             bool isSenior = consumer.parameters.Contains("IsSenior");
             if (isSenior && consumer.usage <= 30)
             {
-                decimal seniorDiscount =
-                    ApplyRounding(bill.CurrentBill * 0.05m, isCWD) * -1m;
-
+                decimal seniorDiscount = ApplyRounding(bill.CurrentBill * 0.05m, isCWD) * -1m;
                 runningTotalBill += seniorDiscount;
-                penaltyBase += seniorDiscount;      // discount also reduces penalty base
+                penaltyBase += seniorDiscount;
                 bill.SeniorDiscount = seniorDiscount;
                 bill.ShowSeniorDiscount = true;
             }
         }
 
-        // ---------------- penalty (initial) ----------------
         decimal penaltyRate = Convert.ToDecimal(consumer.special_penalty_rate);
         decimal penaltyAmount = penaltyBase * penaltyRate;
 
-        // ---------------- arrears / advance ----------------
         bill.Arrears = ApplyRounding(Convert.ToDecimal(consumer.arrears), isCWD);
         runningTotalBill += bill.Arrears;
-        penaltyBase += bill.Arrears;            // advance reduces, arrears reflects
+        penaltyBase += bill.Arrears;
 
         if (consumer.arrears < 0)
             penaltyAmount = penaltyBase * penaltyRate;
 
-        // ---------------- other charges ----------------
         bill.Others = ApplyRounding(Convert.ToDecimal(consumer.othercharges), isCWD);
         if (bill.Others > 0) runningTotalBill += bill.Others;
 
         bill.BeforeDueTotal = ApplyRounding(runningTotalBill, isCWD);
 
-        // ---------------- final penalty ----------------
         if (penaltyAmount < 0 || consumer.isnopenalty == 1)
             penaltyAmount = 0.00m;
         else if (isCWD)
-            penaltyAmount = ApplyRounding(penaltyAmount, isCWD: true);   // truncate
+            penaltyAmount = ApplyRounding(penaltyAmount, isCWD: true);
         else if (isMVWD)
-            penaltyAmount = Math.Round(penaltyAmount, 1);                 // 1-decimal rule
+            penaltyAmount = Math.Round(penaltyAmount, 1);
         else
             penaltyAmount = Math.Round(penaltyAmount, 2);
 
@@ -1924,7 +1854,6 @@ public partial class Reading : ContentPage
 
         return bill;
     }
-
     public async Task<string> DoPrintBill(Consumers consumer)
     {
         string result = "";
@@ -1979,6 +1908,16 @@ public partial class Reading : ContentPage
             // ------------------------------------------------------------------
             BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD, IsPlaWD);
 
+            List<CommodityLine> commodityLines = null;
+            if (IsPlaWD)
+            {
+                var rates = Database.Table<Billing_rates>()
+                    .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
+                    .OrderBy(b => b.bill_id)
+                    .ToList();
+                commodityLines = RateCalculator.Breakdown(rates, consumer.usage, consumer.minusage);
+            }
+
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAndPrepareAsync(macAddress);
             await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves
@@ -2015,33 +1954,33 @@ public partial class Reading : ContentPage
             // ============= COMPANY HEADER =============
             if (IsIndangWD)
             {
-                await printer.PrintTextAsync("San Gregorio St., Indang, Cavite", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("NON VAT Reg.TIN 000-773-614-000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("Mobile#: 0917-825-3813", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("San Gregorio St., Indang, Cavite", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("NON VAT Reg.TIN 000-773-614-000", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("Mobile#: 0917-825-3813", PrintAlign.Center, smallOn32: true);
             }
             else if (IsCWD)
             {
-                await printer.PrintTextAsync("Lakeview Subd.Halang,Calamba City", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("NON VAT Reg.TIN 001-222-423-00000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("Tel#: 545-2863/545-1614/545-9344", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("Lakeview Subd.Halang,Calamba City", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("NON VAT Reg.TIN 001-222-423-00000", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("Tel#: 545-2863/545-1614/545-9344", PrintAlign.Center, smallOn32: true);
             }
             else if (IsSJWD)
             {
-                await printer.PrintTextAsync("HallSt,Poblacion,SanJuan,Batangas", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("NON VAT Reg.TIN 001-774-488-000", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("Mobile#: 09199947756", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("HallSt,Poblacion,SanJuan,Batangas", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("NON VAT Reg.TIN 001-774-488-000", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("Mobile#: 09199947756", PrintAlign.Center, smallOn32: true);
             }
             else if (IsMVWD)
             {
-                await printer.PrintTextAsync("Pantay Daya,Vigan City,IlocosSur", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("TIN 000-566-175-000 Non-VAT", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                await printer.PrintTextAsync("Tel. No. 077-674-0870", PrintAlign.Center, new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
+                await printer.PrintTextAsync("Pantay Daya,Vigan City,IlocosSur", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("TIN 000-566-175-000 Non-VAT", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("Tel. No. 077-674-0870", PrintAlign.Center, smallOn32: true);
             }
             else if (IsPlaWD)
             {
-                await printer.PrintTextAsync("Poblacion,Plaridel,Bulacan", PrintAlign.Center);
-                await printer.PrintTextAsync("NON VAT Reg. TIN 000-547-793-00000 ", PrintAlign.Center);
-                await printer.PrintTextAsync("Tel. No: 795-01-02", PrintAlign.Center);
+                await printer.PrintTextAsync("Poblacion,Plaridel,Bulacan", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("NON VAT Reg. TIN 000-547-793-00000 ", PrintAlign.Center, smallOn32: true);
+                await printer.PrintTextAsync("Tel. No: 795-01-02", PrintAlign.Center, smallOn32: true);
             }
 
             await printer.PrintSeparatorAsync(' ');
@@ -2049,7 +1988,7 @@ public partial class Reading : ContentPage
             // ================= TITLE =================
             if (IsPlaWD)
             {
-                await printer.PrintTextAsync("STATEMENT OF ACCOUNT", PrintAlign.Center, new PrintStyle(Bold: true, Wide: true, High: true));
+                await printer.PrintTextAsync("STATEMENT OF ACCOUNT", PrintAlign.Center, new PrintStyle(Bold: true, Wide: true, High: true), new PrintStyle(Bold: true, High: true));
             }
             else
             {
@@ -2063,6 +2002,17 @@ public partial class Reading : ContentPage
             // ============= CONSUMER INFO =============
             await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(High: true));
             await printer.PrintTextAsync(consumer.address, PrintAlign.Left);
+
+            if (IsPlaWD)
+            {
+                string consumerTypeDescription = Database.Table<Billing_rates>()
+                    .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
+                    .Select(b => b.constype_description)
+                    .FirstOrDefault() ?? "";
+
+                if (!string.IsNullOrWhiteSpace(consumerTypeDescription))
+                    await printer.PrintTextAsync(consumerTypeDescription.Trim(), PrintAlign.Left);
+            }
 
             string accountNoText = (IsMVWD || IsSJWD)
                 ? "AccountNo   : " + consumer.accountNo + "-" + consumer.consumer_type + consumer.metersize
@@ -2098,6 +2048,19 @@ public partial class Reading : ContentPage
                 await printer.PrintRowAsync("Pres Reading", consumer.presreading.ToString());
                 await printer.PrintRowAsync("Prev Reading", consumer.prevreading.ToString());
                 await printer.PrintRowAsync("Consumption", consumer.usage.ToString());
+                await printer.PrintSeparatorAsync('-');
+            }
+
+            if (IsPlaWD && commodityLines != null && commodityLines.Count > 0)
+            {
+                await printer.PrintTextAsync("COMMODITY CHARGES", PrintAlign.Left, new PrintStyle(Bold: true));
+                foreach (var line in commodityLines)
+                {
+                    string left = line.IsMinimum
+                        ? line.Label
+                        : $"{line.Label} x {line.Rate:0.00}";
+                    await printer.PrintRowAsync(left, ApplyRounding(line.Amount, IsCWD).ToString("#,##0.00"));
+                }
                 await printer.PrintSeparatorAsync('-');
             }
 

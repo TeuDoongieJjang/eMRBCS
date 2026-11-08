@@ -59,6 +59,19 @@ namespace MSRBC.Services
             return basePath + "\\" + name;
         }
 
+        private static string AppendFolder(string basePath, string folder)
+        {
+            if (string.IsNullOrEmpty(basePath)) return folder;
+            var parts = basePath.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length > 0 && parts[^1].Equals(folder, StringComparison.OrdinalIgnoreCase))
+                return basePath;                       // configured path already ends with it
+            return basePath + "\\" + folder;
+        }
+
+        private static bool IsFixedFolder(string name) =>
+            string.Equals(name, ImportSubFolder, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name, ExportSubFolder, StringComparison.OrdinalIgnoreCase);
+
         private SmbSession OpenSession(int isImport)
         {
             System.Diagnostics.Debug.WriteLine("Before GetServerConfig");
@@ -102,7 +115,12 @@ namespace MSRBC.Services
                 throw new Exception($"Could not access shared folder '{config.ShareName}'. Status: {status}");
             }
 
-            return new SmbSession { Client = client, Store = store, BasePath = config.SubPath };
+            return new SmbSession
+            {
+                Client = client,
+                Store = store,
+                BasePath = AppendFolder(config.SubPath, isImport == 1 ? ImportSubFolder : ExportSubFolder)   // CHANGED
+            };
         }
 
         public async Task<string> TestConnectionAsync(int isImport)
@@ -134,7 +152,7 @@ namespace MSRBC.Services
                 {
                     System.Diagnostics.Debug.WriteLine("Before OpenSession");
                     using var session = OpenSession(isImport);
-                    string listPath = CombinePath(session.BasePath, subFolder);
+                    string listPath = CombinePath(session.BasePath, IsFixedFolder(subFolder) ? "" : subFolder);
 
                     System.Diagnostics.Debug.WriteLine("Before CreaterFile");
                     object handle;
