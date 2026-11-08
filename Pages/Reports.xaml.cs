@@ -153,7 +153,7 @@ public partial class Reports : ContentPage
         {
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAndPrepareAsync(macAddress);
-            await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves
+            //await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves
 
             // ---- LOGO ----
             await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);
@@ -266,7 +266,7 @@ public partial class Reports : ContentPage
         {
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAndPrepareAsync(macAddress);
-            await printer.AlignAsync(PrintAlign.Left);
+            //await printer.AlignAsync(PrintAlign.Left);
 
             // ---- LOGO ----
             await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);
@@ -377,7 +377,7 @@ public partial class Reports : ContentPage
         {
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAndPrepareAsync(macAddress);
-            await printer.AlignAsync(PrintAlign.Left);
+            //await printer.AlignAsync(PrintAlign.Left);
 
             // ---- LOGO ----
             await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);

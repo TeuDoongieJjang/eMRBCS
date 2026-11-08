@@ -438,7 +438,7 @@ public partial class PrinterConfig : ContentPage
         {
             string mac = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAndPrepareAsync(mac);
-            await printer.AlignAsync(PrintAlign.Left);      // we do alignment ourselves
+            //await printer.AlignAsync(PrintAlign.Left);      // we do alignment ourselves
 
             // ---- LOGO ----
             await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);
@@ -510,10 +510,10 @@ public partial class PrinterConfig : ContentPage
             await printer.WriteBarcodeAsync("67-031112", humanText: false, widthFraction: 1.0);
             await printer.FeedAsync(2);
 
-            await printer.AlignAsync(PrintAlign.Center);
+            //await printer.AlignAsync(PrintAlign.Center);
             await printer.WriteBarcodeAsync("67-031112", BarcodeType.Code39, humanText: false, widthFraction: 1.5);
             await printer.WriteRawAsync(new byte[] { 0x0A, 0x0A });
-            await printer.AlignAsync(PrintAlign.Left);
+            //await printer.AlignAsync(PrintAlign.Left);
 
             // ============================== QR CODES ==============================
             await printer.PrintQrSizedAsync("www.microlinesmanila.com.ph", widthFraction: 0.60);
