@@ -175,7 +175,7 @@ public partial class Reports : ContentPage
             DateTime currentbilldate = DateTime.Parse(consumers[0].billdate);
             await printer.PrintRowAsync("Date:", currentbilldate.ToString("MM/dd/yyyy"));
 
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             // ---- COLUMN HEADERS ----
             // Widths are based on paper.ColsA (32 / 48 …), not the raw linespacing digit.
@@ -189,7 +189,7 @@ public partial class Reports : ContentPage
                           + "Avrge".PadLeft(usage_space)
                           + "Arrears".PadLeft(amount_space);
             await printer.WriteLineAsync(header);
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             // ---- DETAIL ROWS ----
             decimal dTotalAmt = 0.00m;
@@ -205,7 +205,7 @@ public partial class Reports : ContentPage
                 dTotalAmt += (decimal)c.arrears;
             }
 
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             await printer.PrintRowAsync("No of Consumers", lTotalCnt.ToString());
             await printer.PrintRowAsync("Total Arrears", dTotalAmt.ToString("#,##0.00"));
             await printer.FeedAsync(3);
@@ -287,7 +287,7 @@ public partial class Reports : ContentPage
             DateTime currentbilldate = DateTime.Parse(consumer.billdate);
             await printer.PrintRowAsync("Date:", currentbilldate.ToString("MM/dd/yyyy"));
 
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             // ---- COLUMN HEADERS ----
             int cols = paper.ColsA;
@@ -300,7 +300,7 @@ public partial class Reports : ContentPage
                           + "Usage".PadLeft(usage_space)
                           + "Amnt".PadLeft(amount_space);
             await printer.WriteLineAsync(header);
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             // ---- DETAIL ROWS ----
             decimal dTotalAmt = 0.00m;
@@ -316,7 +316,7 @@ public partial class Reports : ContentPage
                 dTotalAmt += (decimal)c.total_bill;
             }
 
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             await printer.PrintRowAsync("No of Consumers", lTotalCnt.ToString());
             await printer.PrintRowAsync("Total Bill Amount", dTotalAmt.ToString("#,##0.00"));
             await printer.FeedAsync(3);
@@ -398,13 +398,13 @@ public partial class Reports : ContentPage
             DateTime currentbilldate = DateTime.Parse(consumers[0].billdate);
             await printer.PrintRowAsync("Date:", currentbilldate.ToString("MM/dd/yyyy"));
 
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             // ---- COLUMN HEADERS ----
             // Remarks column has no max-length, so we just left-pad the acct# and append the remarks.
             string header = "Acct#".PadRight(11) + "Remarks";
             await printer.WriteLineAsync(header);
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             // ---- DETAIL ROWS ----
             foreach (Consumers c in consumers)
@@ -414,7 +414,7 @@ public partial class Reports : ContentPage
             }
 
             // ---- CLOSING + PAPER FEED ----
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             await printer.FeedAsync(3);
 
             await printer.FlushAsync();

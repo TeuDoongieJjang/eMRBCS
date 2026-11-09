@@ -1983,7 +1983,7 @@ public partial class Reading : ContentPage
                 await printer.PrintTextAsync("Tel. No: 795-01-02", PrintAlign.Center, smallOn32: true);
             }
 
-            await printer.PrintSeparatorAsync(' ');
+            await printer.FeedAsync(1);
 
             // ================= TITLE =================
             if (IsPlaWD)
@@ -1997,7 +1997,7 @@ public partial class Reading : ContentPage
 
             await printer.PrintTextAsync("For the month of " + printCurrentMonthYear, PrintAlign.Center);
             await printer.PrintTextAsync("(" + printPrevMonth + " Consumption)", PrintAlign.Center);
-            await printer.PrintSeparatorAsync(' ');
+            await printer.FeedAsync(1);
 
             // ============= CONSUMER INFO =============
             await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(High: true));
@@ -2034,12 +2034,12 @@ public partial class Reading : ContentPage
             if (IsSJWD)
                 await printer.PrintTextAsync("Seq. No.    : " + consumer.seqno, PrintAlign.Left);
 
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             await printer.PrintRowAsync("Period From", printPrevDate);
             await printer.PrintRowAsync("Period To", printCurrentDate);
             await printer.PrintRowAsync("Due Date", printDueDate, new PrintStyle(High: true));
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             // ============= AMOUNT CALCULATION =============
             // All amounts come pre-computed/pre-rounded from ComputeBillAmounts().
@@ -2048,7 +2048,7 @@ public partial class Reading : ContentPage
                 await printer.PrintRowAsync("Pres Reading", consumer.presreading.ToString());
                 await printer.PrintRowAsync("Prev Reading", consumer.prevreading.ToString());
                 await printer.PrintRowAsync("Consumption", consumer.usage.ToString());
-                await printer.PrintSeparatorAsync('-');
+                await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             }
 
             if (IsPlaWD && commodityLines != null && commodityLines.Count > 0)
@@ -2061,7 +2061,7 @@ public partial class Reading : ContentPage
                         : $"{line.Label} x {line.Rate:0.00}";
                     await printer.PrintRowAsync(left, ApplyRounding(line.Amount, IsCWD).ToString("#,##0.00"));
                 }
-                await printer.PrintSeparatorAsync('-');
+                await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             }
 
             if (bill.CurrentBill > 0)
@@ -2091,7 +2091,7 @@ public partial class Reading : ContentPage
             }
 
 
-            await printer.PrintSeparatorAsync('-');
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             if (IsPlaWD)
             {
                 await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left);
@@ -2108,7 +2108,7 @@ public partial class Reading : ContentPage
             {
                 await printer.PrintRowAsync("AFTER DUE DATE", bill.AfterDueTotal.ToString("#,##0.00"),
                                         new PrintStyle(High: true));
-                await printer.PrintSeparatorAsync('=');
+                await printer.PrintSeparatorAsync(SeparatorStyle.DoubleBroken);
                 await printer.PrintTextAsync("DISCONNECTION REMINDER", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
                 await printer.PrintTextAsync("FOR DISCONNECTION FIVE(5) DAYS", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
                 await printer.PrintTextAsync("AFTER DUE DATE", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
@@ -2121,11 +2121,11 @@ public partial class Reading : ContentPage
 
             if (!IsPlaWD)
             {
-                await printer.PrintSeparatorAsync('=');
+                await printer.PrintSeparatorAsync(SeparatorStyle.DoubleSolid);
             }
             if (IsPlaWD)
             {
-                await printer.PrintSeparatorAsync('-');
+                await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             }
 
             if (IsSJWD)
@@ -2134,7 +2134,7 @@ public partial class Reading : ContentPage
                 {
                     await printer.PrintTextAsync("DUE FOR DISCONNECTION ON " + printDiscDate,
                                                  PrintAlign.Center, new PrintStyle(High: true));
-                    await printer.PrintSeparatorAsync('-');
+                    await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
                 }
             }
             else
@@ -2142,7 +2142,7 @@ public partial class Reading : ContentPage
                 if (IsMVWD && bill.Arrears >= 215.5m)
                 {
                     await printer.PrintRowAsync("Discon Date", printDiscDate, new PrintStyle(High: true));
-                    await printer.PrintSeparatorAsync('-');
+                    await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
                 }
                 if (IsCWD)
                 {
@@ -2156,7 +2156,7 @@ public partial class Reading : ContentPage
 
                 if (!IsPlaWD)
                 {
-                    await printer.PrintSeparatorAsync('-');
+                    await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
                 }
 
             }

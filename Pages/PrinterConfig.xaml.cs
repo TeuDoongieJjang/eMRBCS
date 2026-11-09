@@ -4,7 +4,6 @@ using eMRBCS.Services;
 using System.Text.RegularExpressions;
 
 
-
 #if ANDROID
 using eMRBCS.Platforms.Android;
 #endif
@@ -416,8 +415,7 @@ public partial class PrinterConfig : ContentPage
         string strHeaderFileName = "MLS_Header.bmp";
 
         // Line Space (Width) from config = characters per line: 32 = 2-inch, 46/48 = 3-inch
-        int raw = MyDeviceInfo.currentPrintConfig.linespacing;
-        var paper = PaperProfile.FromLineSpace(raw);
+        var paper = PaperProfile.FromLineSpace(MyDeviceInfo.currentPrintConfig.linespacing);
 
 #if ANDROID
         bool hasPermission = await BluetoothPermissionHelper.EnsureBluetoothPermissionsAsync();
@@ -440,8 +438,18 @@ public partial class PrinterConfig : ContentPage
         var printer = new EscPOScmdPrint { Profile = paper };
         try
         {
+            // dilate every glyph
+            PrinterHardware.DensityMethod = DensityMethod.Esc7HeatTime;
+            PrinterHardware.DensityLevel = 4;      // 0..4, 4 = darkest
+
+            // OPTIONAL: If you want standard ASCII characters to use the printer's native font
+            // (which is often darker than 1-bit raster graphics):
+            PrinterHardware.SmallFont = SmallFontMode.Native;
             string mac = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
+            // ESC 7 heat-time method (works on most Epson-compatible printers)
+
             await printer.ConnectAndPrepareAsync(mac);
+
             //await printer.AlignAsync(PrintAlign.Left);      // we do alignment ourselves
 
             // ---- LOGO ----
@@ -454,7 +462,12 @@ public partial class PrinterConfig : ContentPage
             await printer.FeedAsync(1);
 
             // ============================== FONT A ==============================
-            await printer.PrintSeparatorAsync();
+            // ============================== SEPARATOR STYLES ==============================
+            await printer.PrintSeparatorAsync(SeparatorStyle.Solid);        // '-' / '_'  solid single
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);       // '~'        broken single
+            await printer.PrintSeparatorAsync(SeparatorStyle.DoubleSolid);  // '='        solid double
+            await printer.PrintSeparatorAsync(SeparatorStyle.DoubleBroken); // '#'        broken double
+            await printer.PrintSeparatorAsync(SeparatorStyle.Blank);        // ' '        blank line
 
             // 4 named sizes in Font A
             // LARGE, WIDE, HIGH, BOLD  -> FontA 3x3
@@ -484,7 +497,7 @@ public partial class PrinterConfig : ContentPage
             // ============================== FONT B ==============================
             // Small is the only FontB size in the enum, so for the other three
             // FontB sizes use WidthMul / HeightMul together with FontB: true.
-            await printer.PrintSeparatorAsync('-', fontB: true);
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             await printer.PrintTextAsync("FONT B", PrintAlign.Center,
                 new PrintStyle(FontB: true, WidthMul: 4, HeightMul: 1, Bold: true));

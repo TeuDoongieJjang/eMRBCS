@@ -139,7 +139,7 @@
 		<PackageReference Include="Microsoft.Maui.Resizetizer" Version="10.0.120" />
 		<PackageReference Include="Microsoft.Maui.Controls.Build.Tasks" Version="10.0.120" />
 		<PackageReference Include="SharpCifs.Std" Version="0.2.13" />
-		<PackageReference Include="SkiaSharp" Version="4.154.0" />
+		<PackageReference Include="SkiaSharp" Version="4.155.0" />
 		<PackageReference Include="SMBLibrary" Version="1.5.8.1" />
 		<PackageReference Include="sqlite-net-pcl" Version="1.11.285" />
 	</ItemGroup>
@@ -209,6 +209,12 @@
 
 	<ItemGroup>
 	  <Folder Include="Interfaces\" />
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
+	  <PackageReference Include="SkiaSharp.NativeAssets.Android">
+	    <Version>4.155.0</Version>
+	  </PackageReference>
 	</ItemGroup>
 
 
