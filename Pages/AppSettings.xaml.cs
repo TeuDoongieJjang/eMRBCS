@@ -157,7 +157,7 @@ public partial class AppSettings : ContentPage
 
     private async void TapImgBack(object sender, EventArgs e)
     {
-        await Navigation.PushAsync(new Utilities());
+        await Navigation.PopAsync();
     }
 
     private void OnCheckSameDetails(object sender, EventArgs e)

@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="eMRBCS.Pages.Mainmenu"
              NavigationPage.HasNavigationBar="False"
-             Title="Mainmenu">
+             Title="Mainmenu"
+             xmlns:services="clr-namespace:eMRBCS.Services">
      
     
    
@@ -108,6 +109,11 @@ WidthRequest="50" >
                     </Image>
 
                 </Grid>
+                <VerticalStackLayout x:Name="syncBar" Grid.Row="1" Margin="20,5" x:DataType="services:DataSyncService"
+                     IsVisible="{Binding IsBusy}">
+                    <Label Text="{Binding ProgressText, StringFormat='Getting data... {0}'}" FontSize="12" HorizontalOptions="Center" />
+                    <ProgressBar Progress="{Binding Progress}" ProgressColor="#3269cd" />
+                </VerticalStackLayout>
                 <Grid Grid.Row="2"
                  Grid.Column="0">
                     <Grid.RowDefinitions>

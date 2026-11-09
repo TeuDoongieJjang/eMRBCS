@@ -37,6 +37,7 @@ public partial class Mainmenu : ContentPage
     public Mainmenu()
     {
         InitializeComponent();
+        syncBar.BindingContext = DataSyncService.Instance;
         //activityIndicator.IsVisible = false;
         //activityIndicator.IsRunning = false;
 
@@ -103,20 +104,8 @@ public partial class Mainmenu : ContentPage
             await DisplayAlertAsync("Notice", "Please activate your application.", "Ok");
             return;
         }
-
-        stackLoading.IsVisible = true;
-        try
-        {
-            ConsumerRecords.Ubatch_loaded = new List<int>();
-            ConsumerRecords.Bbatch_loaded = new List<int>();
-            await Navigation.PushAsync(new ReadingConsumers());
-        }
-        finally
-        {
-            stackLoading.IsVisible = false;
-        }
+        await Navigation.PushAsync(new ReadingConsumers());   // no overlay: data is already in the store
     }
-
     private async void TapUtilities(object sender, EventArgs e)
     {
         if (LoginUser.role > 1 && !MyDeviceInfo.isActivated)
@@ -124,34 +113,20 @@ public partial class Mainmenu : ContentPage
             await DisplayAlertAsync("Notice", "Please activate your application.", "Ok");
             return;
         }
-
-        stackLoading.IsVisible = true;
-        try
-        {
-            dbService = new DBService();
-            await dbService.SaveUserActivity("Main Menu", "Open Utilities", "Success");
-            await Navigation.PushAsync(new Utilities());
-        }
-        finally
-        {
-            stackLoading.IsVisible = false;
-        }
+        dbService = new DBService();
+        _ = dbService.SaveUserActivity("Main Menu", "Open Utilities", "Success");   // don't wait for it
+        await Navigation.PushAsync(new Utilities());
     }
-
 
     private async void TapLogout(object sender, TappedEventArgs e)
     {
-        bool confirm = await DisplayAlertAsync("Notice", "Are you sure you want to log out?", "Yes", "No");
-        if (confirm)
-        {
-            dbService = new DBService();
-            bool isLog = await dbService.SaveUserActivity("Mainmenu", "logout", "Success");
-            LoginUser.login_user = new Users();
-            await Navigation.PushAsync(new Login());
-        }
-
+        if (!await DisplayAlertAsync("Notice", "Are you sure you want to log out?", "Yes", "No")) return;
+        dbService = new DBService();
+        await dbService.SaveUserActivity("Mainmenu", "logout", "Success");
+        LoginUser.login_user = new Users();
+        // fresh stack: the Android Back button can no longer return to the Main Menu
+        Application.Current!.Windows[0].Page = new NavigationPage(new Login());
     }
-
     private async void TapCollection(object sender, TappedEventArgs e)
     {
         if (LoginUser.role > 1)
@@ -172,20 +147,8 @@ public partial class Mainmenu : ContentPage
             await DisplayAlertAsync("Notice", "Please activate your application.", "Ok");
             return;
         }
-
-        stackLoading.IsVisible = true;
-        try
-        {
-            await Navigation.PushAsync(new Reports());
-        }
-        finally
-        {
-            // PushAsync completes once Reports is shown, so the overlay
-            // is hidden again before the user can ever come back to it.
-            stackLoading.IsVisible = false;
-        }
+        await Navigation.PushAsync(new Reports());
     }
-
     private async void TapProductKey(object sender, TappedEventArgs e)
     {
         await Navigation.PushAsync(new ProductActivation());

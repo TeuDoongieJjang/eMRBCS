@@ -223,7 +223,7 @@ public partial class LoadingScreen : ContentPage
         Serverdetails.ImportServerIPAddress = networkconfig.import_ipaddress;
         Serverdetails.ImportSharedFolder = networkconfig.import_folder;
         Serverdetails.ImportServerUserName = networkconfig.import_user;
-        Serverdetails.ImportServerPassword = networkconfig.export_pass;
+        Serverdetails.ImportServerPassword = networkconfig.import_pass;
 
         Serverdetails.ExportServerIPAddress = networkconfig.export_ipaddress;
         Serverdetails.ExportSharedFolder = networkconfig.export_folder;

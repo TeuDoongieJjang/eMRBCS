@@ -23,7 +23,7 @@ public partial class Login : ContentPage
 
     string encryptedText;
     private bool _isPasswordVisible;
-
+    private static bool s_updateChecked;
     public Login()
     {
         InitializeComponent();
@@ -65,20 +65,28 @@ public partial class Login : ContentPage
     {
         base.OnAppearing();
 
-
-
-        await Task.Delay(2000);
-        isServerValid = Serverdetails.Validnetwork;
-        if (isServerValid == 0)
-        {
-
+        await StartupService.Instance.CoreReady;      // was Task.Delay(2000)
+        if (Serverdetails.Validnetwork == 0)
             await DisplayAlertAsync("Notice", "Network address invalid.\nPlease contact your Administrator", "Ok");
-        }
 
         _isPasswordVisible = false;
         if (passwordEntry != null) passwordEntry.IsPassword = true;
         if (btnTogglePassword != null) btnTogglePassword.Source = "menuicons/eye.png";
 
+        if (!s_updateChecked) { s_updateChecked = true; _ = CheckForUpdateAsync(); }   // non-blocking
+    }
+
+    private async Task CheckForUpdateAsync()
+    {
+        try
+        {
+            var info = await new UpdateService().CheckForUpdateAsync("TeuDoongieJjang", "eMRBCS");
+            if (info == null) return;
+            bool yes = await DisplayAlertAsync("Update Available",
+                $"Version {info.Version} is available. Download and install now?", "Yes", "No");
+            if (yes) await new ApkInstaller().InstallApkAsync(info.DownloadUrl);
+        }
+        catch (Exception ex) { await DisplayAlertAsync("Update Error", ex.Message, "Ok"); }
     }
 
     private void ScreenAdjustment()
@@ -115,7 +123,11 @@ public partial class Login : ContentPage
             return;
         }
 
+        messageLabel.TextColor = Colors.Gray;
+        messageLabel.Text = "Please wait...";
         bool isValid = await ValidateLogin(username, password);
+        messageLabel.Text = "";
+
         if (isValid)
         {
             await Navigation.PushAsync(new Mainmenu());
@@ -130,11 +142,9 @@ public partial class Login : ContentPage
 
     private async Task<bool> ValidateLogin(string username, string password)
     {
-        loginuser = new Users();
+        await StartupService.Instance.CoreReady;          // DB + config must exist
         dbService = new DBService();
-        bool isValidUser = false;
 
-        //Try to get if the user is an admin
         Users_admin adminuser = await dbService.GeAdminUser(username, password);
         if (adminuser != null)
         {
@@ -146,33 +156,33 @@ public partial class Login : ContentPage
                 trx_mode = adminuser.position,
                 password = password,
             };
-
             LoginUser.login_user = loginuser;
             LoginUser.user_position = adminuser.position;
             LoginUser.role = adminuser.role;
-            bool isLog = await dbService.SaveUserActivity("Login", "login", "Success");
-            isValidUser = true;
+            _ = dbService.SaveUserActivity("Login", "login", "Success");
+            return true;
         }
 
-        if (!isValidUser)
+        if (Serverdetails.Validnetwork == 1)
         {
-            if (Serverdetails.Validnetwork == 1)
+            var u = await dbService.GetLoginUser(username, password);   // fast path: saved users
+            if (u == null)
             {
-                loginuser = await dbService.GetLoginUser(username, password);
-                if (loginuser != null)
-                {
-                    LoginUser.login_user = loginuser;
-                    LoginUser.user_position = "Operator";
-                    LoginUser.role = 3;
-                    bool isLog = await dbService.SaveUserActivity("Login", "login", "Success");
-                    return true;
-                }
+                await StartupService.Instance.WaitForUsersAsync();      // users list still refreshing
+                u = await dbService.GetLoginUser(username, password);
+            }
+            if (u != null)
+            {
+                loginuser = u;
+                LoginUser.login_user = u;
+                LoginUser.user_position = "Operator";
+                LoginUser.role = 3;
+                _ = dbService.SaveUserActivity("Login", "login", "Success");
+                return true;
             }
         }
-
-        return isValidUser;
+        return false;
     }
-
     private void DisplayGetScreenInfo(object sender, EventArgs e)
     {
 

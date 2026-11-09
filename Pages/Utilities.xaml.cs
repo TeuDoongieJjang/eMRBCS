@@ -21,6 +21,7 @@ public partial class Utilities : ContentPage
     public Utilities()
     {
         InitializeComponent();
+        syncProgress.BindingContext = DataSyncService.Instance;
         dbService = new DBService();
         ScreenAdjustment();
         AccessCheck();
@@ -57,11 +58,16 @@ public partial class Utilities : ContentPage
 
     private async void TapImgBack(object sender, EventArgs e)
     {
-        await Navigation.PushAsync(new Mainmenu());
+        await Navigation.PopAsync();
     }
 
     private async void TapGetData(object sender, EventArgs e)
     {
+        if (DataSyncService.Instance.IsBusy)
+        {
+            await DisplayAlertAsync("Notice", "Data is already being downloaded.", "Ok");
+            return;
+        }
         //Check the latest import date.
         string latest_importdate;
         string import_message = "This process will import new data for " + DateTime.Now.ToString("yyyy-MM-dd") + " from server.";
@@ -155,123 +161,10 @@ public partial class Utilities : ContentPage
             isValidRequest = false;
         }
 
-        if (isValidRequest)
-        {
-            stackLoading.IsVisible = true;
+        if (!isValidRequest) return;
 
-            FileService fileService = new FileService();
-
-            //Capture all 3 files
-            int loadpercent = 10;
-            for (int x = 0; x < 4; x++)
-            {
-                string ImportFileStatus = await fileService.ImportFileAsync(x);
-                loadpercent = loadpercent + 10;
-                lblpercentload.Text = loadpercent.ToString() + "%";
-                string[] items = ImportFileStatus.Split(';');
-                if (items[0].Trim() == "success")
-                {
-                    //Store it in DB per file
-                    switch (x)
-                    {
-                        case 0:
-                            ImportDBStatus = await dbService.ConsumerReadAndProcessileAsync(fileService.consumerFile);
-                            if (ImportDBStatus)
-                            {
-                                importStatusMsg = "Consumer File: Done | Records: " + ConsumerRecords.noofrecords_import.ToString() + " / " + ConsumerRecords.lstconsumers.Count.ToString();
-                                consumerFile = 1;
-                            }
-                            else
-                            {
-                                withError = true;
-                                importStatusMsg = "Consumer File: Failed";
-                            }
-                            break;
-                        case 1:
-                            ImportDBStatus = await dbService.RemarkReadAndProcessFileAsync(fileService.remarksFile);
-                            if (ImportDBStatus)
-                            {
-                                importStatusMsg = importStatusMsg + "\n" + "Remarks File: Done | Records: " + OtherRecords.noofremarks.ToString() + " / " + OtherRecords.LstRemarks.Count.ToString();
-                                remarkFile = 1;
-                            }
-                            else
-                            {
-                                withError = true;
-                                importStatusMsg = importStatusMsg + "\n" + "Remarks File: Failed";
-                            }
-                            break;
-                        case 2:
-                            ImportDBStatus = await dbService.BillRatesReadAndProcessFileAsync(fileService.billrateFile);
-                            if (ImportDBStatus)
-                            {
-                                importStatusMsg = importStatusMsg + "\n" + "Bill Rates File: Done | Records: " + OtherRecords.noofbillrates.ToString() + " / " + OtherRecords.LstBillrates.Count.ToString();
-                                billrateFile = 1;
-                            }
-                            else
-                            {
-                                withError = true;
-                                importStatusMsg = importStatusMsg + "\n" + "Bill Rates File: Failed";
-                            }
-                            break;
-                        case 3:
-                            ImportDBStatus = await dbService.UserReadAndProcessileAsync(fileService.userfile);
-                            if (ImportDBStatus)
-                            {
-                                importStatusMsg = importStatusMsg + "\n" + "User File: Done | Records: " + OtherRecords.noofusers.ToString() + " / " + OtherRecords.LstUsers.Count.ToString();
-                                billrateFile = 1;
-                            }
-                            else
-                            {
-                                withError = true;
-                                importStatusMsg = importStatusMsg + "\n" + "User File: Failed";
-                            }
-                            break;
-                    }
-                    loadpercent = loadpercent + 5;
-                    lblpercentload.Text = loadpercent.ToString() + "%";
-
-                }
-                else
-                {
-                    warningmsg = items[1].Trim();
-                    withError = true;
-                    if (x == 0)
-                    {
-                        importStatusMsg = "Consumer File: Failed";
-                    }
-                    else if (x == 1)
-                    {
-                        importStatusMsg = importStatusMsg + "\n" + "Remarks File: Failed";
-                    }
-                    else if (x == 2)
-                    {
-                        importStatusMsg = importStatusMsg + "\n" + "Bill Rates File: Failed";
-                    }
-                    else if (x == 3)
-                    {
-                        importStatusMsg = importStatusMsg + "\n" + "Users File: Failed";
-                    }
-                    loadpercent = loadpercent + 5;
-                    lblpercentload.Text = loadpercent.ToString() + "%";
-                }
-
-            }
-
-            bool isSaveImport = await dbService.ServerImportSave(consumerFile, remarkFile, billrateFile, userFile);
-
-            stackLoading.IsVisible = false;
-        }
-        else
-        {
-            return;
-        }
-
-        if (withError)
-        {
-            importStatusMsg = importStatusMsg + "\n\n" + warningmsg;
-        }
-        bool isLog = await dbService.SaveUserActivity("Utilities", "Tap Get Data", withError ? "Success with Error" : "Success");
-        await DisplayAlertAsync("Notice", importStatusMsg, "Ok");
+        // Runs in the background singleton: the UI stays free and the work continues on other pages.
+        _ = DataSyncService.Instance.StartAsync();
     }
 
     private async void TapSendData(object sender, EventArgs e)

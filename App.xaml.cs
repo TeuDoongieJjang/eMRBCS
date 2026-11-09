@@ -1,4 +1,5 @@
 ﻿using eMRBCS.Pages;
+using eMRBCS.Services;
 
 namespace eMRBCS
 {
@@ -7,10 +8,9 @@ namespace eMRBCS
         public App()
         {
             InitializeComponent();
-
-            //MainPage = new AppShell();
-            //MainPage = new NavigationPage(new ActivateProduct());
-            MainPage = new NavigationPage(new LoadingScreen());
+            StartupService.CaptureDeviceInfo();                 // cheap, needed by Login layout
+            MainPage = new NavigationPage(new Login());         // was LoadingScreen
+            StartupService.Instance.Start();                    // parallel background loading
         }
     }
 }

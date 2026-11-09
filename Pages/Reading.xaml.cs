@@ -29,7 +29,7 @@ public partial class Reading : ContentPage
         if (Database == null)
         {
             string dbPath = Path.Combine(FileSystem.AppDataDirectory, dbname);
-            Database = new SQLiteConnection(dbPath);
+            Database = new SQLiteConnection(dbPath) { BusyTimeout = TimeSpan.FromSeconds(15) };
         }
     }
 
@@ -294,7 +294,9 @@ public partial class Reading : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        MessagingCenter.Unsubscribe<object, string>(this, "KeyDown");
+#if ANDROID
+        MessagingCenter.Unsubscribe<object, Android.Views.Keycode>(this, "KeyDown");
+#endif
     }
 
     private async void InitializePickers()
@@ -329,7 +331,7 @@ public partial class Reading : ContentPage
     private async void OnConsumerLoad(string parameter)
     {
         // ConsumerRecords.acctNo = parameter;
-        var result = ConsumerRecords.lstconsumers.Where(c => c.accountNo == parameter).FirstOrDefault();
+        var result = ConsumerStore.Instance.FindByAccountNo(parameter);
         if (result != null)
         {
             OnLoadConsumerDetails(result);
@@ -575,521 +577,521 @@ public partial class Reading : ContentPage
     }
     private async void OnCloseDetails(object sender, EventArgs e)
     {
-        //await Navigation.PopAsync();
-        //restruct list before going back to consumer list
-        ConsumerRecords.AutoID_UIndex = new List<string>();
-        ConsumerRecords.AutoID_BIndex = new List<string>();
+        ////await Navigation.PopAsync();
+        ////restruct list before going back to consumer list
+        //ConsumerRecords.AutoID_UIndex = new List<string>();
+        //ConsumerRecords.AutoID_BIndex = new List<string>();
 
-        int ctrx = 0;
-        if (ConsumerRecords.gridConsumerUnbilledCollection.Count > 0)
-        {
-            foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerUnbilledCollection)
-            {
-                string gridautoID = _gridConsumer.AutomationId;
-                ConsumerRecords.AutoID_UIndex.Add(gridautoID + "," + ctrx);
-                ctrx++;
-
-            }
-        }
-
-        ctrx = 0;
-        if (ConsumerRecords.gridConsumerBilledCollection.Count > 0)
-        {
-            foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerBilledCollection)
-            {
-                string gridautoID = _gridConsumer.AutomationId;
-                ConsumerRecords.AutoID_BIndex.Add(gridautoID + "," + ctrx);
-                ctrx++;
-            }
-        }
-
-        await Navigation.PushAsync(new ReadingConsumers());
-        //await Navigation.PopAsync();
-    }
-
-
-
-    private async void OnSaveDetails_new(object sender, EventArgs e)
-    {
-        if (txtConsumerAcctNo.Text == string.Empty)
-        {
-            return;
-        }
-        bool confirm = await DisplayAlertAsync("Confirm", "Are you sure you want to save?", "Yes", "No");
-        if (!confirm)
-        {
-            return;
-        }
-
-
-        Grid grid_child = new Grid();
-        Grid grid_parent = new Grid();
-        //int selectedindex = pickerRemarks.SelectedIndex;
-        string selectedRemarks = "";
-        //if (selectedindex != -1)
+        //int ctrx = 0;
+        //if (ConsumerRecords.gridConsumerUnbilledCollection.Count > 0)
         //{
-        //    selectedRemarks = pickerRemarks.Items[selectedindex];
+        //    foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerUnbilledCollection)
+        //    {
+        //        string gridautoID = _gridConsumer.AutomationId;
+        //        ConsumerRecords.AutoID_UIndex.Add(gridautoID + "," + ctrx);
+        //        ctrx++;
+
+        //    }
         //}
-        selectedRemarks = txtRemarks.Text;
 
+        //ctrx = 0;
+        //if (ConsumerRecords.gridConsumerBilledCollection.Count > 0)
+        //{
+        //    foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerBilledCollection)
+        //    {
+        //        string gridautoID = _gridConsumer.AutomationId;
+        //        ConsumerRecords.AutoID_BIndex.Add(gridautoID + "," + ctrx);
+        //        ctrx++;
+        //    }
+        //}
 
-        Consumers? consumer = ConsumerRecords.lstconsumers.Where(c => c.accountNo == txtConsumerAcctNo.Text).FirstOrDefault();
-
-        if (consumer == null)
-        {
-            return;
-        }
-
-        float presReading = ParseFloat(txtConsumerPresReading.Text);
-
-        consumer.presreading = presReading;
-        consumer.remarks = selectedRemarks;
-        dbService = new DBService();
-        bool isSaveSuccess = await dbService.ConsumerUpdateItemToDatabase(consumer);
-        if (isSaveSuccess)
-        {
-
-            if (consumer != null)
-            {
-
-                var _gridBoxU = ConsumerRecords.gridConsumerUnbilledCollection;
-
-                int batchctr = consumer.accountID > 10 ? 0 : consumer.accountID / 10;
-                //batchctr = batchctr;
-                string gridAutoID = "UGrid_" + batchctr;
-
-                string gridInnerAutoID = $"UInnerGrid_{selected_seqno}";
-
-
-                //Look for the grid and update
-                foreach (Grid _gridConsumer in _gridBoxU)
-                {
-                    if (_gridConsumer.AutomationId == gridAutoID)
-                    {
-                        grid_parent = _gridConsumer;
-                        foreach (Grid _gridInner in _gridConsumer.Children)
-                        {
-                            if (_gridInner.AutomationId == gridInnerAutoID)
-                            {
-                                //_gridInner.IsVisible = false;
-                                grid_child = _gridInner;
-                                break;
-                            }
-                        }
-                        break;
-                    }
-                }
-
-                //Add it to Billed Collections
-                int maxbatchbilled = ConsumerRecords.gridBilled_rowindex;
-                if (maxbatchbilled > 0)
-                {
-                    maxbatchbilled++;
-                }
-
-                grid_parent.Children.Remove(grid_child);
-
-                List<Grid> _gridBoxB = new List<Grid>();
-
-                if (ConsumerRecords.gridConsumerBilledCollection != null)
-                {
-                    _gridBoxB = ConsumerRecords.gridConsumerBilledCollection;
-                }
-
-
-                if (_gridBoxB == null)
-                {
-                    Grid tmpgridConsumerBilled = new Grid
-                    {
-                        AutomationId = $"BGrid_{maxbatchbilled}",
-                        RowDefinitions =
-                            {
-                                new RowDefinition { Height = GridLength.Auto }
-                            },
-                        ColumnDefinitions =
-                            {
-                                new ColumnDefinition { Width = GridLength.Star }
-                            }
-
-                    };
-                    tmpgridConsumerBilled.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    tmpgridConsumerBilled.Add(grid_child, 0, maxbatchbilled);
-                    _gridBoxB.Add(tmpgridConsumerBilled);
-                    ConsumerRecords.gridConsumerBilledCollection = _gridBoxB;
-                }
-                else
-                {
-                    if (_gridBoxB.Count == 0)
-                    {
-                        Grid tmpgridConsumerBilled = new Grid
-                        {
-                            AutomationId = $"BGrid_{maxbatchbilled}",
-                            RowDefinitions =
-                            {
-                                new RowDefinition { Height = GridLength.Auto }
-                            },
-                            ColumnDefinitions =
-                            {
-                                new ColumnDefinition { Width = GridLength.Star }
-                            }
-
-                        };
-                        tmpgridConsumerBilled.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                        tmpgridConsumerBilled.Add(grid_child, 0, maxbatchbilled);
-                        _gridBoxB.Add(tmpgridConsumerBilled);
-                    }
-                    else
-                    {
-                        foreach (Grid _gridchild in _gridBoxB)
-                        {
-                            if (_gridchild.AutomationId == "BGrid_" + maxbatchbilled)
-                            {
-                                int maxrow = _gridchild.RowDefinitions.Count;
-                                _gridchild.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                                _gridchild.Add(grid_child, 0, maxrow + 1);
-                                break;
-                            }
-                        }
-                    }
-
-                }
-
-
-            }
-            //lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.lstconsumers.Count.ToString();
-            int selectedItem = pickerBillingFilter.SelectedIndex;
-            if (selectedItem == 0)
-            {
-
-                lblSummaryCount.Text = (ConsumerRecords.noofrecords_import - ConsumerRecords.noofrecordsBilled).ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
-            }
-            else if (selectedItem == 1)
-            {
-                lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
-            }
-            else
-            {
-
-                lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
-            }
-            //await DisplayAlertAsync("Notice", "Reading Saved!", "Ok");
-
-            if (MyDeviceInfo.currentPrintConfig != null)
-            {
-                bool toPrint = false;
-                if (isPrintOn)
-                {
-                    toPrint = true;
-                    //string output = await DoPrintv2(consumer);
-                    //await DisplayAlertAsync("Print Notice", output, "Ok");
-                }
-                else
-                {
-                    toPrint = await DisplayAlertAsync("Confirm", "Print Transaction?", "Yes", "No");
-                }
-
-                if (toPrint)
-                {
-                    string output = await DoPrintBill(consumer);
-                    await DisplayAlertAsync("Print Notice", output, "Ok");
-                }
-
-
-            }
-
-            //Move to next seq no
-            OnNextRecord(pickerBillingFilter.SelectedIndex);
-
-        }
-        else
-        {
-            await DisplayAlertAsync("Error", "Failed to saved ", "Ok");
-        }
+        await Navigation.PopAsync();
+        //await Navigation.PopAsync();
     }
 
-    private async void OnSaveDetails(object sender, EventArgs e)
-    {
-        if (txtConsumerAcctNo.Text == string.Empty)
-        {
-            return;
-        }
-        bool confirm = await DisplayAlertAsync("Confirm", "Are you sure you want to save?", "Yes", "No");
-        if (!confirm)
-        {
-            return;
-        }
-
-        AbsoluteLayout absoluteLayout_remove = new AbsoluteLayout();
-        Grid grid_remove = new Grid();
-        var uframe_remove = new Frame();
-        var lframe_remove = new Frame();
-        int selectedindex = pickerRemarks.SelectedIndex;
-        string selectedRemarks = "";
-        if (selectedindex != -1)
-        {
-            selectedRemarks = pickerRemarks.Items[selectedindex];
-        }
-
-        Consumers? consumer = ConsumerRecords.lstconsumers.Where(c => c.accountNo == txtConsumerAcctNo.Text).FirstOrDefault();
-
-        if (consumer == null)
-        {
-            return;
-        }
-
-        float presReading = ParseFloat(txtConsumerPresReading.Text);
-
-        consumer.presreading = presReading;
-        consumer.remarks = selectedRemarks;
-        dbService = new DBService();
-        bool isSaveSuccess = await dbService.ConsumerUpdateItemToDatabase(consumer);
-        if (isSaveSuccess)
-        {
-
-            if (consumer != null)
-            {
-
-                var _gridBoxU = ConsumerRecords.gridConsumerUnbilledCollection;
-
-                //Look for the grid and update
-                foreach (Grid _gridConsumer in _gridBoxU)
-                {
-                    foreach (var child in _gridConsumer.Children)
-                    {
-                        if (child is AbsoluteLayout tmpAbsolutelayout)
-                        {
-                            if (tmpAbsolutelayout.AutomationId == "AbsoluteLayout_" + selected_seqno)
-                            {
-                                foreach (var child_labels in tmpAbsolutelayout.Children)
-                                {
-                                    if (child_labels is Label tmpLabel)
-                                    {
-                                        if (tmpLabel.Text == txtConsumerAcctNo.Text)
-                                        {
-                                            //Check again the grid
-                                            bool isLabelUpdated = false;
-                                            bool isFrameColorUpdated = false;
-                                            foreach (var child_correctGrid in tmpAbsolutelayout.Children)
-                                            {
-
-                                                if (child_correctGrid is Label lblobject_correctGrid)
-                                                {
-                                                    if (lblobject_correctGrid.Text == "U")
-                                                    {
-                                                        lblobject_correctGrid.Text = "B";
-                                                        isLabelUpdated = true;
-                                                    }
-                                                }
-                                                else if (child_correctGrid is Frame frameObject_correctGrid)
-                                                {
-                                                    if (frameObject_correctGrid.BackgroundColor == Colors.Red)
-                                                    {
-                                                        frameObject_correctGrid.BackgroundColor = Colors.Blue;
-                                                        isFrameColorUpdated = true;
-                                                    }
-                                                }
-                                                if (isFrameColorUpdated && isLabelUpdated)
-                                                {
-
-                                                    absoluteLayout_remove = (AbsoluteLayout)child;
-                                                    grid_remove = _gridConsumer;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                //Get the Upper and Lower Frame
-                foreach (var child in grid_remove.Children)
-                {
-                    if (child is Frame sframe)
-                    {
-                        if (sframe.AutomationId == "Lframe_" + selected_seqno)
-                        {
-                            lframe_remove = sframe;
-                        }
-                        if (sframe.AutomationId == "Uframe_" + selected_seqno)
-                        {
-                            uframe_remove = sframe;
-                        }
-                    }
-                }
-                //Add it to Billed Collections
-                int maxbatchbilled = ConsumerRecords.gridBilled_rowindex;
-                if (maxbatchbilled > 0)
-                {
-                    maxbatchbilled++;
-                }
-                //ConsumerRecords.gridConsumerBilledRecords.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                //ConsumerRecords.gridConsumerBilledRecords.Add(lframe_remove, maxbatchbilled);
-                //ConsumerRecords.gridConsumerBilledRecords.Add(uframe_remove, maxbatchbilled);
-                //ConsumerRecords.gridConsumerBilledRecords.Add(absoluteLayout_remove, maxbatchbilled);
-
-                grid_remove.Children.Remove(absoluteLayout_remove);
-                grid_remove.Children.Remove(uframe_remove);
-                grid_remove.Children.Remove(lframe_remove);
-
-                List<Grid> _gridBoxB = new List<Grid>();
-
-                if (ConsumerRecords.gridConsumerBilledCollection != null)
-                {
-                    _gridBoxB = ConsumerRecords.gridConsumerBilledCollection;
-                }
 
 
-                if (_gridBoxB == null)
-                {
-                    Grid tmpgridConsumerBilled = new Grid
-                    {
-                        AutomationId = $"BGrid_{maxbatchbilled}",
-                        RowDefinitions =
-                            {
-                                new RowDefinition { Height = GridLength.Auto }
-                            },
-                        ColumnDefinitions =
-                            {
-                                new ColumnDefinition { Width = GridLength.Star }
-                            }
-
-                    };
-                    tmpgridConsumerBilled.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                    tmpgridConsumerBilled.Add(lframe_remove, 0, maxbatchbilled);
-                    tmpgridConsumerBilled.Add(uframe_remove, 0, maxbatchbilled);
-                    tmpgridConsumerBilled.Add(absoluteLayout_remove, 0, maxbatchbilled);
-                    _gridBoxB.Add(tmpgridConsumerBilled);
-                    ConsumerRecords.gridConsumerBilledCollection = _gridBoxB;
-                }
-                else
-                {
-                    if (_gridBoxB.Count == 0)
-                    {
-                        Grid tmpgridConsumerBilled = new Grid
-                        {
-                            AutomationId = $"BGrid_{maxbatchbilled}",
-                            RowDefinitions =
-                            {
-                                new RowDefinition { Height = GridLength.Auto }
-                            },
-                            ColumnDefinitions =
-                            {
-                                new ColumnDefinition { Width = GridLength.Star }
-                            }
-
-                        };
-                        tmpgridConsumerBilled.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                        tmpgridConsumerBilled.Add(lframe_remove, 0, maxbatchbilled);
-                        tmpgridConsumerBilled.Add(uframe_remove, 0, maxbatchbilled);
-                        tmpgridConsumerBilled.Add(absoluteLayout_remove, 0, maxbatchbilled);
-                        _gridBoxB.Add(tmpgridConsumerBilled);
-                    }
-                    else
-                    {
-                        foreach (Grid _gridchild in _gridBoxB)
-                        {
-                            if (_gridchild.AutomationId == "BGrid_" + maxbatchbilled)
-                            {
-                                int maxrow = _gridchild.RowDefinitions.Count;
-                                _gridchild.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-                                _gridchild.Add(lframe_remove, 0, maxrow + 1);
-                                _gridchild.Add(uframe_remove, 0, maxrow + 1);
-                                _gridchild.Add(absoluteLayout_remove, 0, maxrow + 1);
-                                break;
-                            }
-                        }
-                    }
-
-                }
+    //private async void OnSaveDetails_new(object sender, EventArgs e)
+    //{
+    //    if (txtConsumerAcctNo.Text == string.Empty)
+    //    {
+    //        return;
+    //    }
+    //    bool confirm = await DisplayAlertAsync("Confirm", "Are you sure you want to save?", "Yes", "No");
+    //    if (!confirm)
+    //    {
+    //        return;
+    //    }
 
 
-            }
-            //lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.lstconsumers.Count.ToString();
-            int selectedItem = pickerBillingFilter.SelectedIndex;
-            if (selectedItem == 0)
-            {
-
-                lblSummaryCount.Text = (ConsumerRecords.noofrecords_import - ConsumerRecords.noofrecordsBilled).ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
-            }
-            else if (selectedItem == 1)
-            {
-
-                lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
-            }
-            else
-            {
-
-                lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
-            }
-            await DisplayAlertAsync("Notice", "Reading Saved!", "Ok");
-
-            if (MyDeviceInfo.currentPrintConfig != null)
-            {
-                bool toPrint = false;
-                if (isPrintOn)
-                {
-                    toPrint = true;
-                    //string output = await DoPrintv2(consumer);
-                    //await DisplayAlertAsync("Print Notice", output, "Ok");
-                }
-                else
-                {
-                    toPrint = await DisplayAlertAsync("Confirm", "Print Transaction?", "Yes", "No");
-                }
-
-                if (toPrint)
-                {
-                    string output = await DoPrintBill(consumer);
-                    await DisplayAlertAsync("Print Notice", output, "Ok");
-                }
+    //    Grid grid_child = new Grid();
+    //    Grid grid_parent = new Grid();
+    //    //int selectedindex = pickerRemarks.SelectedIndex;
+    //    string selectedRemarks = "";
+    //    //if (selectedindex != -1)
+    //    //{
+    //    //    selectedRemarks = pickerRemarks.Items[selectedindex];
+    //    //}
+    //    selectedRemarks = txtRemarks.Text;
 
 
-            }
+    //    Consumers? consumer = ConsumerRecords.lstconsumers.Where(c => c.accountNo == txtConsumerAcctNo.Text).FirstOrDefault();
 
-            //Move to next seq no
-            OnNextRecord(pickerBillingFilter.SelectedIndex);
+    //    if (consumer == null)
+    //    {
+    //        return;
+    //    }
 
-        }
-        else
-        {
-            await DisplayAlertAsync("Error", "Failed to saved ", "Ok");
-        }
-    }
+    //    float presReading = ParseFloat(txtConsumerPresReading.Text);
+
+    //    consumer.presreading = presReading;
+    //    consumer.remarks = selectedRemarks;
+    //    dbService = new DBService();
+    //    bool isSaveSuccess = await dbService.ConsumerUpdateItemToDatabase(consumer);
+    //    if (isSaveSuccess)
+    //    {
+
+    //        if (consumer != null)
+    //        {
+
+    //            var _gridBoxU = ConsumerRecords.gridConsumerUnbilledCollection;
+
+    //            int batchctr = consumer.accountID > 10 ? 0 : consumer.accountID / 10;
+    //            //batchctr = batchctr;
+    //            string gridAutoID = "UGrid_" + batchctr;
+
+    //            string gridInnerAutoID = $"UInnerGrid_{selected_seqno}";
+
+
+    //            //Look for the grid and update
+    //            foreach (Grid _gridConsumer in _gridBoxU)
+    //            {
+    //                if (_gridConsumer.AutomationId == gridAutoID)
+    //                {
+    //                    grid_parent = _gridConsumer;
+    //                    foreach (Grid _gridInner in _gridConsumer.Children)
+    //                    {
+    //                        if (_gridInner.AutomationId == gridInnerAutoID)
+    //                        {
+    //                            //_gridInner.IsVisible = false;
+    //                            grid_child = _gridInner;
+    //                            break;
+    //                        }
+    //                    }
+    //                    break;
+    //                }
+    //            }
+
+    //            //Add it to Billed Collections
+    //            int maxbatchbilled = ConsumerRecords.gridBilled_rowindex;
+    //            if (maxbatchbilled > 0)
+    //            {
+    //                maxbatchbilled++;
+    //            }
+
+    //            grid_parent.Children.Remove(grid_child);
+
+    //            List<Grid> _gridBoxB = new List<Grid>();
+
+    //            if (ConsumerRecords.gridConsumerBilledCollection != null)
+    //            {
+    //                _gridBoxB = ConsumerRecords.gridConsumerBilledCollection;
+    //            }
+
+
+    //            if (_gridBoxB == null)
+    //            {
+    //                Grid tmpgridConsumerBilled = new Grid
+    //                {
+    //                    AutomationId = $"BGrid_{maxbatchbilled}",
+    //                    RowDefinitions =
+    //                        {
+    //                            new RowDefinition { Height = GridLength.Auto }
+    //                        },
+    //                    ColumnDefinitions =
+    //                        {
+    //                            new ColumnDefinition { Width = GridLength.Star }
+    //                        }
+
+    //                };
+    //                tmpgridConsumerBilled.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+    //                tmpgridConsumerBilled.Add(grid_child, 0, maxbatchbilled);
+    //                _gridBoxB.Add(tmpgridConsumerBilled);
+    //                ConsumerRecords.gridConsumerBilledCollection = _gridBoxB;
+    //            }
+    //            else
+    //            {
+    //                if (_gridBoxB.Count == 0)
+    //                {
+    //                    Grid tmpgridConsumerBilled = new Grid
+    //                    {
+    //                        AutomationId = $"BGrid_{maxbatchbilled}",
+    //                        RowDefinitions =
+    //                        {
+    //                            new RowDefinition { Height = GridLength.Auto }
+    //                        },
+    //                        ColumnDefinitions =
+    //                        {
+    //                            new ColumnDefinition { Width = GridLength.Star }
+    //                        }
+
+    //                    };
+    //                    tmpgridConsumerBilled.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+    //                    tmpgridConsumerBilled.Add(grid_child, 0, maxbatchbilled);
+    //                    _gridBoxB.Add(tmpgridConsumerBilled);
+    //                }
+    //                else
+    //                {
+    //                    foreach (Grid _gridchild in _gridBoxB)
+    //                    {
+    //                        if (_gridchild.AutomationId == "BGrid_" + maxbatchbilled)
+    //                        {
+    //                            int maxrow = _gridchild.RowDefinitions.Count;
+    //                            _gridchild.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+    //                            _gridchild.Add(grid_child, 0, maxrow + 1);
+    //                            break;
+    //                        }
+    //                    }
+    //                }
+
+    //            }
+
+
+    //        }
+    //        //lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.lstconsumers.Count.ToString();
+    //        int selectedItem = pickerBillingFilter.SelectedIndex;
+    //        if (selectedItem == 0)
+    //        {
+
+    //            lblSummaryCount.Text = (ConsumerRecords.noofrecords_import - ConsumerRecords.noofrecordsBilled).ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
+    //        }
+    //        else if (selectedItem == 1)
+    //        {
+    //            lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
+    //        }
+    //        else
+    //        {
+
+    //            lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
+    //        }
+    //        //await DisplayAlertAsync("Notice", "Reading Saved!", "Ok");
+
+    //        if (MyDeviceInfo.currentPrintConfig != null)
+    //        {
+    //            bool toPrint = false;
+    //            if (isPrintOn)
+    //            {
+    //                toPrint = true;
+    //                //string output = await DoPrintv2(consumer);
+    //                //await DisplayAlertAsync("Print Notice", output, "Ok");
+    //            }
+    //            else
+    //            {
+    //                toPrint = await DisplayAlertAsync("Confirm", "Print Transaction?", "Yes", "No");
+    //            }
+
+    //            if (toPrint)
+    //            {
+    //                string output = await DoPrintBill(consumer);
+    //                await DisplayAlertAsync("Print Notice", output, "Ok");
+    //            }
+
+
+    //        }
+
+    //        //Move to next seq no
+    //        OnNextRecord(pickerBillingFilter.SelectedIndex);
+
+    //    }
+    //    else
+    //    {
+    //        await DisplayAlertAsync("Error", "Failed to saved ", "Ok");
+    //    }
+    //}
+
+    //private async void OnSaveDetails(object sender, EventArgs e)
+    //{
+    //    if (txtConsumerAcctNo.Text == string.Empty)
+    //    {
+    //        return;
+    //    }
+    //    bool confirm = await DisplayAlertAsync("Confirm", "Are you sure you want to save?", "Yes", "No");
+    //    if (!confirm)
+    //    {
+    //        return;
+    //    }
+
+    //    AbsoluteLayout absoluteLayout_remove = new AbsoluteLayout();
+    //    Grid grid_remove = new Grid();
+    //    var uframe_remove = new Frame();
+    //    var lframe_remove = new Frame();
+    //    int selectedindex = pickerRemarks.SelectedIndex;
+    //    string selectedRemarks = "";
+    //    if (selectedindex != -1)
+    //    {
+    //        selectedRemarks = pickerRemarks.Items[selectedindex];
+    //    }
+
+    //    Consumers? consumer = ConsumerRecords.lstconsumers.Where(c => c.accountNo == txtConsumerAcctNo.Text).FirstOrDefault();
+
+    //    if (consumer == null)
+    //    {
+    //        return;
+    //    }
+
+    //    float presReading = ParseFloat(txtConsumerPresReading.Text);
+
+    //    consumer.presreading = presReading;
+    //    consumer.remarks = selectedRemarks;
+    //    dbService = new DBService();
+    //    bool isSaveSuccess = await dbService.ConsumerUpdateItemToDatabase(consumer);
+    //    if (isSaveSuccess)
+    //    {
+
+    //        if (consumer != null)
+    //        {
+
+    //            var _gridBoxU = ConsumerRecords.gridConsumerUnbilledCollection;
+
+    //            //Look for the grid and update
+    //            foreach (Grid _gridConsumer in _gridBoxU)
+    //            {
+    //                foreach (var child in _gridConsumer.Children)
+    //                {
+    //                    if (child is AbsoluteLayout tmpAbsolutelayout)
+    //                    {
+    //                        if (tmpAbsolutelayout.AutomationId == "AbsoluteLayout_" + selected_seqno)
+    //                        {
+    //                            foreach (var child_labels in tmpAbsolutelayout.Children)
+    //                            {
+    //                                if (child_labels is Label tmpLabel)
+    //                                {
+    //                                    if (tmpLabel.Text == txtConsumerAcctNo.Text)
+    //                                    {
+    //                                        //Check again the grid
+    //                                        bool isLabelUpdated = false;
+    //                                        bool isFrameColorUpdated = false;
+    //                                        foreach (var child_correctGrid in tmpAbsolutelayout.Children)
+    //                                        {
+
+    //                                            if (child_correctGrid is Label lblobject_correctGrid)
+    //                                            {
+    //                                                if (lblobject_correctGrid.Text == "U")
+    //                                                {
+    //                                                    lblobject_correctGrid.Text = "B";
+    //                                                    isLabelUpdated = true;
+    //                                                }
+    //                                            }
+    //                                            else if (child_correctGrid is Frame frameObject_correctGrid)
+    //                                            {
+    //                                                if (frameObject_correctGrid.BackgroundColor == Colors.Red)
+    //                                                {
+    //                                                    frameObject_correctGrid.BackgroundColor = Colors.Blue;
+    //                                                    isFrameColorUpdated = true;
+    //                                                }
+    //                                            }
+    //                                            if (isFrameColorUpdated && isLabelUpdated)
+    //                                            {
+
+    //                                                absoluteLayout_remove = (AbsoluteLayout)child;
+    //                                                grid_remove = _gridConsumer;
+    //                                                break;
+    //                                            }
+    //                                        }
+    //                                    }
+    //                                }
+    //                            }
+    //                        }
+    //                    }
+    //                }
+    //            }
+    //            //Get the Upper and Lower Frame
+    //            foreach (var child in grid_remove.Children)
+    //            {
+    //                if (child is Frame sframe)
+    //                {
+    //                    if (sframe.AutomationId == "Lframe_" + selected_seqno)
+    //                    {
+    //                        lframe_remove = sframe;
+    //                    }
+    //                    if (sframe.AutomationId == "Uframe_" + selected_seqno)
+    //                    {
+    //                        uframe_remove = sframe;
+    //                    }
+    //                }
+    //            }
+    //            //Add it to Billed Collections
+    //            int maxbatchbilled = ConsumerRecords.gridBilled_rowindex;
+    //            if (maxbatchbilled > 0)
+    //            {
+    //                maxbatchbilled++;
+    //            }
+    //            //ConsumerRecords.gridConsumerBilledRecords.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+    //            //ConsumerRecords.gridConsumerBilledRecords.Add(lframe_remove, maxbatchbilled);
+    //            //ConsumerRecords.gridConsumerBilledRecords.Add(uframe_remove, maxbatchbilled);
+    //            //ConsumerRecords.gridConsumerBilledRecords.Add(absoluteLayout_remove, maxbatchbilled);
+
+    //            grid_remove.Children.Remove(absoluteLayout_remove);
+    //            grid_remove.Children.Remove(uframe_remove);
+    //            grid_remove.Children.Remove(lframe_remove);
+
+    //            List<Grid> _gridBoxB = new List<Grid>();
+
+    //            if (ConsumerRecords.gridConsumerBilledCollection != null)
+    //            {
+    //                _gridBoxB = ConsumerRecords.gridConsumerBilledCollection;
+    //            }
+
+
+    //            if (_gridBoxB == null)
+    //            {
+    //                Grid tmpgridConsumerBilled = new Grid
+    //                {
+    //                    AutomationId = $"BGrid_{maxbatchbilled}",
+    //                    RowDefinitions =
+    //                        {
+    //                            new RowDefinition { Height = GridLength.Auto }
+    //                        },
+    //                    ColumnDefinitions =
+    //                        {
+    //                            new ColumnDefinition { Width = GridLength.Star }
+    //                        }
+
+    //                };
+    //                tmpgridConsumerBilled.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+    //                tmpgridConsumerBilled.Add(lframe_remove, 0, maxbatchbilled);
+    //                tmpgridConsumerBilled.Add(uframe_remove, 0, maxbatchbilled);
+    //                tmpgridConsumerBilled.Add(absoluteLayout_remove, 0, maxbatchbilled);
+    //                _gridBoxB.Add(tmpgridConsumerBilled);
+    //                ConsumerRecords.gridConsumerBilledCollection = _gridBoxB;
+    //            }
+    //            else
+    //            {
+    //                if (_gridBoxB.Count == 0)
+    //                {
+    //                    Grid tmpgridConsumerBilled = new Grid
+    //                    {
+    //                        AutomationId = $"BGrid_{maxbatchbilled}",
+    //                        RowDefinitions =
+    //                        {
+    //                            new RowDefinition { Height = GridLength.Auto }
+    //                        },
+    //                        ColumnDefinitions =
+    //                        {
+    //                            new ColumnDefinition { Width = GridLength.Star }
+    //                        }
+
+    //                    };
+    //                    tmpgridConsumerBilled.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+    //                    tmpgridConsumerBilled.Add(lframe_remove, 0, maxbatchbilled);
+    //                    tmpgridConsumerBilled.Add(uframe_remove, 0, maxbatchbilled);
+    //                    tmpgridConsumerBilled.Add(absoluteLayout_remove, 0, maxbatchbilled);
+    //                    _gridBoxB.Add(tmpgridConsumerBilled);
+    //                }
+    //                else
+    //                {
+    //                    foreach (Grid _gridchild in _gridBoxB)
+    //                    {
+    //                        if (_gridchild.AutomationId == "BGrid_" + maxbatchbilled)
+    //                        {
+    //                            int maxrow = _gridchild.RowDefinitions.Count;
+    //                            _gridchild.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+    //                            _gridchild.Add(lframe_remove, 0, maxrow + 1);
+    //                            _gridchild.Add(uframe_remove, 0, maxrow + 1);
+    //                            _gridchild.Add(absoluteLayout_remove, 0, maxrow + 1);
+    //                            break;
+    //                        }
+    //                    }
+    //                }
+
+    //            }
+
+
+    //        }
+    //        //lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.lstconsumers.Count.ToString();
+    //        int selectedItem = pickerBillingFilter.SelectedIndex;
+    //        if (selectedItem == 0)
+    //        {
+
+    //            lblSummaryCount.Text = (ConsumerRecords.noofrecords_import - ConsumerRecords.noofrecordsBilled).ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
+    //        }
+    //        else if (selectedItem == 1)
+    //        {
+
+    //            lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
+    //        }
+    //        else
+    //        {
+
+    //            lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
+    //        }
+    //        await DisplayAlertAsync("Notice", "Reading Saved!", "Ok");
+
+    //        if (MyDeviceInfo.currentPrintConfig != null)
+    //        {
+    //            bool toPrint = false;
+    //            if (isPrintOn)
+    //            {
+    //                toPrint = true;
+    //                //string output = await DoPrintv2(consumer);
+    //                //await DisplayAlertAsync("Print Notice", output, "Ok");
+    //            }
+    //            else
+    //            {
+    //                toPrint = await DisplayAlertAsync("Confirm", "Print Transaction?", "Yes", "No");
+    //            }
+
+    //            if (toPrint)
+    //            {
+    //                string output = await DoPrintBill(consumer);
+    //                await DisplayAlertAsync("Print Notice", output, "Ok");
+    //            }
+
+
+    //        }
+
+    //        //Move to next seq no
+    //        OnNextRecord(pickerBillingFilter.SelectedIndex);
+
+    //    }
+    //    else
+    //    {
+    //        await DisplayAlertAsync("Error", "Failed to saved ", "Ok");
+    //    }
+    //}
 
 
     private async void TapImgBack(object sender, EventArgs e)
     {
         //restruct list before going back to consumer list
-        ConsumerRecords.AutoID_UIndex = new List<string>();
-        ConsumerRecords.AutoID_BIndex = new List<string>();
+        //ConsumerRecords.AutoID_UIndex = new List<string>();
+        //ConsumerRecords.AutoID_BIndex = new List<string>();
 
-        int ctrx = 0;
-        if (ConsumerRecords.gridConsumerUnbilledCollection.Count > 0)
-        {
-            foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerUnbilledCollection)
-            {
-                string gridautoID = _gridConsumer.AutomationId;
-                ConsumerRecords.AutoID_UIndex.Add(gridautoID + "," + ctrx);
-                ctrx++;
+        //int ctrx = 0;
+        //if (ConsumerRecords.gridConsumerUnbilledCollection.Count > 0)
+        //{
+        //    foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerUnbilledCollection)
+        //    {
+        //        string gridautoID = _gridConsumer.AutomationId;
+        //        ConsumerRecords.AutoID_UIndex.Add(gridautoID + "," + ctrx);
+        //        ctrx++;
 
-            }
-        }
+        //    }
+        //}
 
-        ctrx = 0;
-        if (ConsumerRecords.gridConsumerBilledCollection.Count > 0)
-        {
-            foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerBilledCollection)
-            {
-                string gridautoID = _gridConsumer.AutomationId;
-                ConsumerRecords.AutoID_BIndex.Add(gridautoID + "," + ctrx);
-                ctrx++;
-            }
-        }
+        //ctrx = 0;
+        //if (ConsumerRecords.gridConsumerBilledCollection.Count > 0)
+        //{
+        //    foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerBilledCollection)
+        //    {
+        //        string gridautoID = _gridConsumer.AutomationId;
+        //        ConsumerRecords.AutoID_BIndex.Add(gridautoID + "," + ctrx);
+        //        ctrx++;
+        //    }
+        //}
 
-        await Navigation.PushAsync(new ReadingConsumers());
-        //await Navigation.PopAsync();
+        //await Navigation.PushAsync(new ReadingConsumers());
+        await Navigation.PopAsync();
     }
 
     private void OnClickB7(object sender, EventArgs e)
@@ -1168,7 +1170,8 @@ public partial class Reading : ContentPage
 
                 txtConsumerPresReading.Text = ParseFloat(txtCustomEntry.Text).ToString();
                 //Compute
-                Consumers? consumer = ConsumerRecords.lstconsumers.Where(c => c.accountNo == txtConsumerAcctNo.Text).FirstOrDefault();
+
+                Consumers? consumer = ConsumerStore.Instance.FindByAccountNo(txtConsumerAcctNo.Text);
                 if (consumer != null)
                 {
                     consumer = await OnInitialComputation(consumer);
@@ -2121,7 +2124,7 @@ public partial class Reading : ContentPage
 
             if (!IsPlaWD)
             {
-                await printer.PrintSeparatorAsync(SeparatorStyle.DoubleSolid);
+                await printer.PrintSeparatorAsync(SeparatorStyle.DoubleBroken);
             }
             if (IsPlaWD)
             {
@@ -2396,8 +2399,7 @@ public partial class Reading : ContentPage
             selectedRemarks = pickerRemarks.Items[selectedindex];
         }
 
-
-        Consumers? consumer = ConsumerRecords.lstconsumers.Where(c => c.accountNo == txtConsumerAcctNo.Text).FirstOrDefault();
+        Consumers? consumer = ConsumerStore.Instance.FindByAccountNo(txtConsumerAcctNo.Text);
 
         if (consumer == null)
         {
@@ -2421,27 +2423,7 @@ public partial class Reading : ContentPage
         if (isSaveSuccess)
         {
 
-            if (consumer != null)
-            {
-
-                string gridInnerAutoID = $"UInnerGrid_{consumer.accountID}";
-
-                //Look for the grid and update
-                foreach (Grid _gridConsumer in ConsumerRecords.gridConsumerUnbilledCollection)
-                {
-                    if (_gridConsumer.AutomationId == gridInnerAutoID)
-                    {
-                        //_gridConsumer.AutomationId = $"BInnerGrid_{consumer.accountID}";
-
-                        //remove the grid to unbilled collection
-                        ConsumerRecords.gridConsumerUnbilledCollection.Remove(_gridConsumer);
-
-                        //add it to billed collection
-                        ConsumerRecords.gridConsumerBilledCollection.Add(_gridConsumer);
-                        break;
-                    }
-                }
-            }
+            ConsumerStore.Instance.MarkBilled(consumer);
             //lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.lstconsumers.Count.ToString();
             int selectedItem = pickerBillingFilter.SelectedIndex;
             if (selectedItem == 0)

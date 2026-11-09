@@ -1,8 +1,8 @@
 ﻿using eMRBCS.Global;
 using eMRBCS.Models;
 using SQLite;
+using System.Collections.Concurrent;
 using System.Windows.Input;
-
 
 
 
@@ -10,6 +10,9 @@ namespace eMRBCS.Services
 {
     internal class DBService
     {
+        private static readonly object _initLock = new();
+        private static readonly object _importLock = new();
+        private static readonly ConcurrentDictionary<(int, int), List<Billing_rates>> RateCache = new();
         private static SQLiteConnection Database;
         string targetfilename = database_info.dbName;
 
@@ -30,12 +33,44 @@ namespace eMRBCS.Services
 
         private void InitializeDatabase()
         {
-            if (Database == null)
+            if (Database != null) return;
+            lock (_initLock)
             {
-                string dbPath = Path.Combine(FileSystem.AppDataDirectory, targetfilename);
-                Database = new SQLiteConnection(dbPath);
+                if (Database != null) return;
+                var db = new SQLiteConnection(Path.Combine(FileSystem.AppDataDirectory, targetfilename));
+                db.BusyTimeout = TimeSpan.FromSeconds(15);
+                try
+                {
+                    db.Execute("CREATE INDEX IF NOT EXISTS ix_consumers_acct   ON Consumers(accountNo)");
+                    db.Execute("CREATE INDEX IF NOT EXISTS ix_consumers_status ON Consumers(status)");
+                    db.Execute("CREATE INDEX IF NOT EXISTS ix_users_login      ON Users(username, password)");
+                    db.Execute("CREATE INDEX IF NOT EXISTS ix_rates_type       ON Billing_rates(consumer_type, metersize)");
+                }
+                catch { }
+                Database = db;
             }
         }
+        /// Bulk replace in ONE transaction on a private connection, so it never interferes
+        /// with other threads using the shared connection.
+        private static Task<bool> ReplaceTableAsync<T>(string table, List<T> items) => Task.Run(() =>
+        {
+            try
+            {
+                lock (_importLock)
+                {
+                    using var db = new SQLiteConnection(Path.Combine(FileSystem.AppDataDirectory, database_info.dbName));
+                    db.BusyTimeout = TimeSpan.FromSeconds(15);
+                    db.RunInTransaction(() =>
+                    {
+                        db.Execute($"DELETE FROM {table}");
+                        db.Execute("DELETE FROM sqlite_sequence WHERE name = ?", table.ToLower());
+                        db.InsertAll(items, false);   // also fills the AutoIncrement PKs (accountID)
+                    });
+                }
+                return true;
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); return false; }
+        });
 
         private static int CheckRecordExists(string recordKey, int tableType)
         {
@@ -138,28 +173,9 @@ namespace eMRBCS.Services
 
         private async Task<bool> UserSaveItemsToDatabase(List<Users> items)
         {
-            noofrecords = 0;
-            bool isSuccess = true;
-            await Task.Run(() =>
-            {
-                DeleteAllRecords("Users");
-                foreach (var item in items)
-                {
-                    try
-                    {
-                        noofrecords++;
-                        Database.Insert(item);
-                    }
-                    catch (Exception ex)
-                    {
-
-                    }
-
-                }
-                OtherRecords.noofusers = noofrecords;
-                OtherRecords.LstUsers = items;
-            });
-            return isSuccess;
+            bool ok = await ReplaceTableAsync("Users", items);
+            if (ok) { OtherRecords.noofusers = items.Count; OtherRecords.LstUsers = items; }
+            return ok;
         }
 
         public async Task<bool> ConsumerReadAndProcessileAsync(string sourcefile)
@@ -250,19 +266,10 @@ namespace eMRBCS.Services
                     }
 
                 }
-                ConsumerRecords.lstconsumers = consumer_items;
             }
 
             bool isDone = await ConsumerSaveItemsToDatabase(consumer_items);
-            gridDataService = new GridService();
-            //Initialize Grid for Bills
-            ConsumerRecords.gridConsumerBilledCollection = new List<Grid>();
-            ConsumerRecords.gridBilled_rowindex = 0;
-
-            ConsumerRecords.AutoID_UIndex = new List<string>();
-            ConsumerRecords.AutoID_BIndex = new List<string>();
-
-            isDone = await gridDataService.ConsumerToGrid(consumer_items);
+            if (isDone) _ = ConsumerStore.Instance.ResetAsync(consumer_items);   // progressive, non-blocking
             return isDone;
 
         }
@@ -279,11 +286,10 @@ namespace eMRBCS.Services
 
         public async Task<bool> RequestForConsumers()
         {
-            bool isDone = true;
-            await LoadConsumersToList();
-            gridDataService = new GridService();
-            isDone = await gridDataService.ConsumerToGrid(ConsumerRecords.lstconsumers);
-            return isDone;
+            InitializeDatabase();
+            var list = await Task.Run(() => Database.Table<Consumers>().OrderBy(c => c.accountID).ToList());
+            _ = ConsumerStore.Instance.ResetAsync(list);
+            return true;
         }
 
         private async Task LoadConsumersToList()
@@ -342,37 +348,10 @@ namespace eMRBCS.Services
 
         private async Task<bool> ConsumerSaveItemsToDatabase(List<Consumers> items)
         {
-            bool isSuccess = true;
-            int noofrecords = 0;
-            await Task.Run(() =>
-            {
-                try
-                {
-                    DeleteAllRecords("Consumers");
-                    //Arrange by seq no before saving to DB
-                    items.OrderBy(c => c.seqno).ToList();
-                    foreach (var item in items)
-                    {
-                        try
-                        {
-                            Database.Insert(item);
-                            noofrecords++;
-                        }
-                        catch (Exception ex1)
-                        {
-
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    isSuccess = false;
-                }
-            });
-            ConsumerRecords.noofrecords_import = noofrecords;
-            return isSuccess;
+            bool ok = await ReplaceTableAsync("Consumers", items);
+            if (ok) ConsumerRecords.noofrecords_import = items.Count;
+            return ok;
         }
-
         public async Task<bool> ConsumerUpdateItemToDatabase(Consumers consumer)
         {
             bool isSuccess = true;
@@ -464,29 +443,9 @@ namespace eMRBCS.Services
 
         private async Task<bool> RemarksSaveItemsToDatabase(List<Remarks> items)
         {
-            bool isSuccess = true;
-            noofrecords = 0;
-            await Task.Run(() =>
-            {
-                DeleteAllRecords("Remarks");
-                foreach (var item in items)
-                {
-                    try
-                    {
-                        Database.Insert(item);
-                        noofrecords++;
-                    }
-                    catch (Exception ex)
-                    {
-
-
-                    }
-
-
-                }
-            });
-            OtherRecords.noofremarks = noofrecords;
-            return isSuccess;
+            bool ok = await ReplaceTableAsync("Remarks", items);
+            if (ok) OtherRecords.noofremarks = items.Count;
+            return ok;
         }
 
         public async Task<bool> BillRatesReadAndProcessFileAsync(string sourcefile)
@@ -545,30 +504,10 @@ namespace eMRBCS.Services
 
         private async Task<bool> BillratesSaveItemsToDatabase(List<Billing_rates> items)
         {
-            bool isSuccess = true;
-            noofrecords = 0;
-            await Task.Run(() =>
-            {
-                DeleteAllRecords("Billing_rates");
-                foreach (var item in items)
-                {
-                    try
-                    {
-                        noofrecords++;
-                        Database.Insert(item);
-                    }
-                    catch (Exception ex)
-                    {
-
-                    }
-
-                }
-            });
-
-            OtherRecords.noofbillrates = noofrecords;
-            return isSuccess;
+            bool ok = await ReplaceTableAsync("Billing_rates", items);
+            if (ok) { OtherRecords.noofbillrates = items.Count; RateCache.Clear(); }
+            return ok;
         }
-
         public async Task<List<Billing_rates>> GetAllBillrates()
         {
             billrates_items = new List<Billing_rates>();
@@ -583,14 +522,18 @@ namespace eMRBCS.Services
 
         public async Task<List<Billing_rates>> GetBillrates(int consumerType, int metersize)
         {
-            List<Billing_rates> billrates = new List<Billing_rates>();
-            await Task.Run(() =>
+            var key = (consumerType, metersize);
+            if (RateCache.TryGetValue(key, out var cached)) return cached;
+
+            var rates = await Task.Run(() =>
             {
-
-                billrates = Database.Table<Billing_rates>().Where(b => b.consumer_type == consumerType && b.metersize == metersize).ToList();
-
+                InitializeDatabase();
+                return Database.Table<Billing_rates>()
+                               .Where(b => b.consumer_type == consumerType && b.metersize == metersize)
+                               .OrderBy(b => b.bill_id).ToList();
             });
-            return billrates;
+            if (rates.Count > 0) RateCache[key] = rates;
+            return rates;
         }
 
 

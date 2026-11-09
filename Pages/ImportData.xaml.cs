@@ -1,18 +1,14 @@
 
 using eMRBCS.Global;
-using SharpCifs.Smb;
-using System.Collections.Generic;
 using eMRBCS.Models;
-
+using SharpCifs.Smb;
 using SQLite;
-using SharpCifs.Util.Sharpen;
-using eMRBCS.Services;
 
 namespace eMRBCS.Pages;
 
 public partial class ImportData : ContentPage
 {
-    
+
     int isConnected = 0;
 
     string config_ipaddress = "";
@@ -33,25 +29,25 @@ public partial class ImportData : ContentPage
     int noofremarks = 0;
 
     public ImportData()
-	{
-		InitializeComponent();
+    {
+        InitializeComponent();
 
         btnCopy.IsVisible = false;
     }
 
     private async void TapImgBack(object sender, EventArgs e)
     {
-        await Navigation.PushAsync(new Utilities());
+        await Navigation.PopAsync();
     }
 
-   
+
     private async void OnClickConnect(object sender, EventArgs e)
     {
         int isError = 1;
         string errormsg = "";
         if (isConnected == 0)
         {
-            
+
             config_ipaddress = Serverdetails.ImportServerIPAddress;
             config_folder = Serverdetails.ImportSharedFolder;
             config_username = Serverdetails.ImportServerUserName;
@@ -77,7 +73,7 @@ public partial class ImportData : ContentPage
                 }
 
                 lblNoData.IsVisible = false;
-                FilesListView.ItemsSource = list;                
+                FilesListView.ItemsSource = list;
                 isConnected = 1;
                 btnConnect.BackgroundColor = Colors.Green;
                 btnConnect.Text = "Disconnect";
@@ -101,14 +97,14 @@ public partial class ImportData : ContentPage
             {
                 errormsg = ioEx.Message;
                 await DisplayAlertAsync("IO Error", ioEx.Message + " " + smbPath, "ok");
-            }            
+            }
             catch (Exception ex)
-            {                
+            {
                 errormsg = ex.Message;
-                await DisplayAlertAsync("General Error", ex.Message + " " + smbPath, "ok");                
+                await DisplayAlertAsync("General Error", ex.Message + " " + smbPath, "ok");
             }
 
-            if (isError==1)
+            if (isError == 1)
             {
                 btnConnect.BackgroundColor = Colors.Red;
                 btnConnect.Text = "Connect";
@@ -129,7 +125,7 @@ public partial class ImportData : ContentPage
             btnConnect.BackgroundColor = Colors.Red;
             btnConnect.Text = "Connect";
             isConnected = 0;
-            FilesListView.ItemsSource = null;            
+            FilesListView.ItemsSource = null;
             lblNotice.Text = "No connection available.";
             btnCopy.IsVisible = false;
         }
@@ -150,7 +146,7 @@ public partial class ImportData : ContentPage
 
             string sourcePath = smbPath + selectedFile;
 
-            await CopyFileAsync(sourcePath, localPath);            
+            await CopyFileAsync(sourcePath, localPath);
 
             lblNotice.Text = "File import success!";
 
@@ -207,9 +203,9 @@ public partial class ImportData : ContentPage
 
                 string sourcePath = smbPath + selectedFile;
 
-                await CopyFileAsync(sourcePath, localPath);           
+                await CopyFileAsync(sourcePath, localPath);
 
-               
+
 
                 await ConsumerReadAndProcessileAsync(newFileName);
 
@@ -223,7 +219,7 @@ public partial class ImportData : ContentPage
                 await DisplayAlertAsync("Failed", "Selected Consumer file not vald!", "OK");
             }
 
-            
+
         }
         else
         {
@@ -248,7 +244,7 @@ public partial class ImportData : ContentPage
                 string sourcePath = smbPath + selectedFile;
 
                 await CopyFileAsync(sourcePath, localPath);
-                
+
 
                 await ReadAndProcessRemarkFileAsync(newFileName);
 
@@ -288,13 +284,13 @@ public partial class ImportData : ContentPage
         remark_items = new List<Remarks>();
 
         string filePath = Path.Combine(FileSystem.AppDataDirectory, remarkfile);
-        
+
         using (StreamReader reader = new StreamReader(filePath))
         {
             string line;
             while ((line = await reader.ReadLineAsync()) != null)
             {
-                string[] items = line.Split('~');                
+                string[] items = line.Split('~');
                 newcodeid = items[0].Trim();
                 newdescription = items[1].Trim();
 
@@ -317,7 +313,7 @@ public partial class ImportData : ContentPage
 
     }
 
-    private static int CheckRecordExists(int codeid) 
+    private static int CheckRecordExists(int codeid)
     {
         var remark = Database.Table<Remarks>().FirstOrDefault(p => p.codeid == codeid);
         return remark == null ? 0 : 1;
@@ -334,29 +330,29 @@ public partial class ImportData : ContentPage
                 noofremarks++;
                 Database.Insert(item);
             }
-                                 
-            
+
+
         }
     }
 
 
     private static float ParseFloat(string value)
     {
-       if (float.TryParse(value, out float result))
-       {
+        if (float.TryParse(value, out float result))
+        {
             return result;
-       }
-       else
+        }
+        else
         {
             return 0f;
         }
-           
-         
+
+
     }
 
     private async Task ConsumerReadAndProcessileAsync(string remarkfile)
     {
-        string accountNo; 
+        string accountNo;
         string consumer_name;
         string address;
         string meterno;
@@ -394,12 +390,12 @@ public partial class ImportData : ContentPage
 
         using (StreamReader reader = new StreamReader(filePath))
         {
-            string line;            
+            string line;
             while ((line = await reader.ReadLineAsync()) != null)
             {
                 string[] items = line.Split('~');
                 accountNo = items[0].Trim();
-                
+
                 if (!string.IsNullOrWhiteSpace(accountNo))
                 {
                     Consumers newItem = new Consumers
@@ -415,7 +411,7 @@ public partial class ImportData : ContentPage
                         average_usage = ParseFloat(items[8]),
                         special_penalty_rate = ParseFloat(items[9]),
                         billdate = items[10].Trim(),
-                        duedate = items[11].Trim(), 
+                        duedate = items[11].Trim(),
                         metersize = int.Parse(items[12].Trim()),
                         othercharges = ParseFloat(items[13].Trim()),
                         consumer_type = int.Parse(items[14].Trim()),
@@ -455,8 +451,9 @@ public partial class ImportData : ContentPage
     private void ConsumerSaveItemsToDatabase(List<Consumers> items)
     {
         noofconsumer = 0;
-        foreach (var item in items)        {
-            
+        foreach (var item in items)
+        {
+
             int isExists = ConsumerCheckRecordExists(item.accountNo);
             if (isExists == 0)
             {
@@ -464,7 +461,7 @@ public partial class ImportData : ContentPage
                 Database.Insert(item);
             }
 
-            
+
         }
     }
 
