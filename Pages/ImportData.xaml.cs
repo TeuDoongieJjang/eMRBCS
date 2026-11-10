@@ -1,6 +1,7 @@
 
 using eMRBCS.Global;
 using eMRBCS.Models;
+using MSRBC.Services;
 using SharpCifs.Smb;
 using SQLite;
 
@@ -8,7 +9,7 @@ namespace eMRBCS.Pages;
 
 public partial class ImportData : ContentPage
 {
-
+    private readonly FileService _fileService = new();
     int isConnected = 0;
 
     string config_ipaddress = "";
@@ -43,149 +44,93 @@ public partial class ImportData : ContentPage
 
     private async void OnClickConnect(object sender, EventArgs e)
     {
-        int isError = 1;
-        string errormsg = "";
-        if (isConnected == 0)
+        // Already connected -> this tap means "Disconnect"
+        if (isConnected == 1)
         {
-
-            config_ipaddress = Serverdetails.ImportServerIPAddress;
-            config_folder = Serverdetails.ImportSharedFolder;
-            config_username = Serverdetails.ImportServerUserName;
-            config_password = Serverdetails.ImportServerPassword;
-
-            //var auth = new NtlmPasswordAuthentication(null, config_username, config_password);
-
-            smbPath = "smb://" + config_username + ":" + config_password + "@" + config_ipaddress + "/" + config_folder + "/";
-
-            //smbPath = "smb://" + config_ipaddress + "/" + config_folder + "/";
-
-            folder = new SmbFile(smbPath);
-
-            try
-            {
-                var files = folder.ListFiles();
-                var list = new List<string>();
-
-
-                foreach (var file in files)
-                {
-                    list.Add(file.GetName());
-                }
-
-                lblNoData.IsVisible = false;
-                FilesListView.ItemsSource = list;
-                isConnected = 1;
-                btnConnect.BackgroundColor = Colors.Green;
-                btnConnect.Text = "Disconnect";
-                lblNotice.Text = "You are connected. Displaying Files.";
-                btnCopy.IsVisible = true;
-                isError = 0;
-
-
-            }
-            catch (SmbAuthException authEx)
-            {
-                errormsg = authEx.Message;
-                await DisplayAlertAsync("SMB Auth Error", authEx.Message + " " + smbPath, "ok");
-            }
-            catch (SmbException smbEx)
-            {
-                errormsg = smbEx.Message;
-                await DisplayAlertAsync("SMB Error", smbEx.Message + " " + smbPath, "ok");
-            }
-            catch (IOException ioEx)
-            {
-                errormsg = ioEx.Message;
-                await DisplayAlertAsync("IO Error", ioEx.Message + " " + smbPath, "ok");
-            }
-            catch (Exception ex)
-            {
-                errormsg = ex.Message;
-                await DisplayAlertAsync("General Error", ex.Message + " " + smbPath, "ok");
-            }
-
-            if (isError == 1)
-            {
-                btnConnect.BackgroundColor = Colors.Red;
-                btnConnect.Text = "Connect";
-                lblNotice.Text = errormsg;
-                lblNoData.IsVisible = true;
-                isConnected = 0;
-                FilesListView.ItemsSource = null;
-                btnCopy.IsVisible = false;
-            }
-        }
-        else
-        {
-            config_ipaddress = "";
-            config_folder = "";
-            config_username = "";
-            config_password = "";
-            lblNoData.IsVisible = true;
+            isConnected = 0;
             btnConnect.BackgroundColor = Colors.Red;
             btnConnect.Text = "Connect";
-            isConnected = 0;
+            lblNoData.IsVisible = true;
             FilesListView.ItemsSource = null;
             lblNotice.Text = "No connection available.";
             btnCopy.IsVisible = false;
+            return;
         }
 
-
-    }
-
-    private async void OnImportFile(object sender, EventArgs e)
-    {
-        if (FilesListView.SelectedItem != null)
+        if (Serverdetails.Validnetwork == 0)
         {
-            string selectedFile = FilesListView.SelectedItem.ToString();
+            await DisplayAlertAsync("Warning", "Invalid Server address. Please contact administrator.", "Ok");
+            return;
+        }
 
-            DateTime today = DateTime.Now;
-            string newFileName = selectedFile;
+        btnConnect.IsEnabled = false;
+        lblNotice.Text = "Connecting...";
 
-            string localPath = Path.Combine(FileSystem.AppDataDirectory, newFileName);
+        (bool Success, string Message, List<string> Files) result;
+        try
+        {
+            // import side (1), lists the SOURCE folder (or whatever the configured path resolves to)
+            result = await _fileService.ListFilesAsync(1, FileService.ImportSubFolder)
+                                       .WaitAsync(TimeSpan.FromSeconds(15));
+        }
+        catch (TimeoutException)
+        {
+            result = (false, "Connection timed out. Check that you are on the server's network.", new List<string>());
+        }
+        finally
+        {
+            btnConnect.IsEnabled = true;
+        }
 
-            string sourcePath = smbPath + selectedFile;
-
-            await CopyFileAsync(sourcePath, localPath);
-
-            lblNotice.Text = "File import success!";
-
-            await DisplayAlertAsync("Success", "File restored successfully! You need to restart the application in order to apply the changes.", "OK");
+        if (result.Success)
+        {
+            FilesListView.ItemsSource = result.Files;
+            lblNoData.IsVisible = result.Files.Count == 0;
+            isConnected = 1;
+            btnConnect.BackgroundColor = Colors.Green;
+            btnConnect.Text = "Disconnect";
+            lblNotice.Text = "You are connected. Displaying Files.";
+            btnCopy.IsVisible = true;
         }
         else
         {
+            isConnected = 0;
+            btnConnect.BackgroundColor = Colors.Red;
+            btnConnect.Text = "Connect";
+            lblNotice.Text = result.Message;
+            lblNoData.IsVisible = true;
+            FilesListView.ItemsSource = null;
+            btnCopy.IsVisible = false;
+            await DisplayAlertAsync("Connection Error", result.Message, "Ok");
+        }
+    }
+    private async void OnImportFile(object sender, EventArgs e)
+    {
+        if (FilesListView.SelectedItem == null)
+        {
             await DisplayAlertAsync("Failed", "No file selected", "OK");
+            return;
         }
 
+        string selectedFile = FilesListView.SelectedItem.ToString()!;
+        if (!await DownloadAsync(selectedFile)) return;
+
+        lblNotice.Text = "File import success!";
+        await DisplayAlertAsync("Success", "File restored successfully! You need to restart the application in order to apply the changes.", "OK");
     }
-
-    private async Task CopyFileAsync(string networkPath, string localPath)
+    /// Downloads one file from the import folder into AppDataDirectory.
+    private async Task<bool> DownloadAsync(string fileName)
     {
-        await Task.Run(() =>
-        {
-            SmbFile smbFile = null;
-            SmbFileInputStream inputStream = null;
-            FileStream fileStream = null;
+        string localPath = Path.Combine(FileSystem.AppDataDirectory, fileName);
+        string r = await _fileService.DownloadFileAsync(1, fileName, localPath);
 
-            try
-            {
-                smbFile = new SmbFile(networkPath);
-                inputStream = new SmbFileInputStream(smbFile);
-                fileStream = new FileStream(localPath, FileMode.Create, FileAccess.Write);
+        var parts = r.Split(';', 2);
+        if (parts[0].Trim() == "success") return true;
 
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = inputStream.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    fileStream.Write(buffer, 0, bytesRead);
-                }
-            }
-            finally
-            {
-                inputStream?.Close();
-                fileStream?.Close();
-            }
-        });
+        string msg = parts.Length > 1 ? parts[1] : "Download failed.";
+        lblNotice.Text = msg;
+        await DisplayAlertAsync("Error", msg, "Ok");
+        return false;
     }
 
     private async void OnGetConsumer(object sender, EventArgs e)
@@ -199,11 +144,7 @@ public partial class ImportData : ContentPage
                 DateTime today = DateTime.Now;
                 string newFileName = selectedFile;
 
-                string localPath = Path.Combine(FileSystem.AppDataDirectory, newFileName);
-
-                string sourcePath = smbPath + selectedFile;
-
-                await CopyFileAsync(sourcePath, localPath);
+                if (!await DownloadAsync(newFileName)) return;
 
 
 
@@ -239,11 +180,7 @@ public partial class ImportData : ContentPage
                 DateTime today = DateTime.Now;
                 string newFileName = selectedFile;
 
-                string localPath = Path.Combine(FileSystem.AppDataDirectory, newFileName);
-
-                string sourcePath = smbPath + selectedFile;
-
-                await CopyFileAsync(sourcePath, localPath);
+                if (!await DownloadAsync(newFileName)) return;
 
 
                 await ReadAndProcessRemarkFileAsync(newFileName);

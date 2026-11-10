@@ -147,9 +147,7 @@ public partial class AppSettings : ContentPage
             Serverdetails.Validnetwork = 1;
             CheckServerStatus();
             await DisplayAlertAsync("Notice",
-                "Server Configuration has been saved!\n\n" +
-                "Get Data: " + FileService.DescribePath(Serverdetails.ImportSharedFolder, true) + "\n" +
-                "Send Data: " + FileService.DescribePath(Serverdetails.ExportSharedFolder, false), "Ok");
+                "Server Configuration has been saved!\n\n", "Ok");
         }
         else
         {

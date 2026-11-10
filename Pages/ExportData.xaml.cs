@@ -1,46 +1,25 @@
-using Microsoft.Maui.Controls;
 using eMRBCS.Global;
-using SharpCifs.Smb;
-using SharpCifs.Util.Sharpen;
+using MSRBC.Services;
 
 namespace eMRBCS.Pages;
 
 public partial class ExportData : ContentPage
 {
     int isConnected = 0;
+    private readonly FileService _fileService = new();
 
-    string config_ipaddress = "";
-    string config_folder = "";
-    string config_username = "";
-    string config_password = "";
-    SmbFile folder = null;
-    string smbPath = "";
-    List<string> localfiles = null;
     public ExportData()
-	{
-		InitializeComponent();
+    {
+        InitializeComponent();
 
-
-        //Load the loca files
         try
         {
-            string localfolder = FileSystem.AppDataDirectory;
-            string[] filePaths = Directory.GetFiles(localfolder);
-            localfiles = filePaths.Select(Path.GetFileName).ToList();
+            var localfiles = Directory.GetFiles(FileSystem.AppDataDirectory)
+                                      .Select(Path.GetFileName)
+                                      .ToList();
 
-            if (localfiles != null)
-            {
-                FilesListView.ItemsSource = localfiles;
-                lblNoData.IsVisible = false;
-            }
-            else
-            {
-                lblNoData.IsVisible = true;    
-            }
-
-            
-
-
+            FilesListView.ItemsSource = localfiles;
+            lblNoData.IsVisible = localfiles.Count == 0;
         }
         catch (Exception ex)
         {
@@ -55,124 +34,92 @@ public partial class ExportData : ContentPage
 
     private async void OnClickConnect(object sender, EventArgs e)
     {
-        if (isConnected == 0)
+        if (isConnected == 1)
         {
+            isConnected = 0;
+            btnConnect.BackgroundColor = Colors.Red;
+            btnConnect.Text = "Connect";
+            lblNotice.Text = "Not connected to server.";
+            return;
+        }
 
-            config_ipaddress = Serverdetails.ExportServerIPAddress;
-            config_folder = Serverdetails.ExportSharedFolder;
-            config_username = Serverdetails.ExportServerUserName;
-            config_password = Serverdetails.ExportServerPassword;
+        if (Serverdetails.Validnetwork == 0)
+        {
+            await DisplayAlertAsync("Warning", "Invalid Server address. Please contact administrator.", "Ok");
+            return;
+        }
 
-            smbPath = "smb://" + config_username + ":" + config_password + "@" + config_ipaddress + "/" + config_folder + "/";
-            folder = new SmbFile(smbPath);
+        btnConnect.IsEnabled = false;
+        lblNotice.Text = "Connecting...";
 
-            try
-            {
-                var files = folder.ListFiles();
-               
+        (bool Success, string Message, List<string> Files) result;
+        try
+        {
+            // export side (0). Listing the folder proves it exists, so a missing OUTPUT folder
+            // is reported here instead of failing later when sending.
+            result = await _fileService.ListFilesAsync(0, FileService.ExportSubFolder)
+                                       .WaitAsync(TimeSpan.FromSeconds(15));
+        }
+        catch (TimeoutException)
+        {
+            result = (false, "Connection timed out. Check that you are on the server's network.", new List<string>());
+        }
+        finally
+        {
+            btnConnect.IsEnabled = true;
+        }
 
-                lblNoData.IsVisible = false;                
-                isConnected = 1;
-                btnConnect.BackgroundColor = Colors.Green;
-                btnConnect.Text = "Disconnect";
-                lblNotice.Text = "You are connected to the server.";
-                btnCopy.IsVisible = true;
-
-
-            }
-            catch (Exception ex)
-            {
-
-                btnConnect.BackgroundColor = Colors.Red;
-                btnConnect.Text = "Connect";
-                lblNotice.Text = ex.Message;
-                lblNoData.IsVisible = true;
-                isConnected = 0;
-                FilesListView.ItemsSource = null;
-                btnCopy.IsVisible = false;
-            }
+        if (result.Success)
+        {
+            isConnected = 1;
+            btnConnect.BackgroundColor = Colors.Green;
+            btnConnect.Text = "Disconnect";
+            lblNotice.Text = "You are connected to the server.";
+            btnCopy.IsVisible = true;
         }
         else
         {
-            config_ipaddress = "";
-            config_folder = "";
-            config_username = "";
-            config_password = "";
-            
+            isConnected = 0;
             btnConnect.BackgroundColor = Colors.Red;
             btnConnect.Text = "Connect";
-            isConnected = 0;
-            
-            lblNotice.Text = "Not connected to server.";
-          
+            lblNotice.Text = result.Message;
+            btnCopy.IsVisible = false;
         }
-
-
     }
 
     private async void OnExportFile(object sender, EventArgs e)
     {
-        if (isConnected == 1)
+        if (isConnected != 1)
         {
+            await DisplayAlertAsync("Failed", "Not connected to server", "OK");
+            return;
+        }
 
-            if (FilesListView.SelectedItem != null)
-            {
-                string selectedFile = FilesListView.SelectedItem.ToString();
+        if (FilesListView.SelectedItem == null)
+        {
+            await DisplayAlertAsync("Failed", "No file selected", "OK");
+            return;
+        }
 
-                DateTime today = DateTime.Now;
-                string newFileName = selectedFile;
+        string selectedFile = FilesListView.SelectedItem.ToString()!;
+        string localPath = Path.Combine(FileSystem.AppDataDirectory, selectedFile);
 
-                await CopyFileAsync2(selectedFile, newFileName);
+        btnCopy.IsEnabled = false;
+        lblNotice.Text = "Sending file...";
+        string r = await _fileService.UploadFileAsync(0, localPath, selectedFile);
+        btnCopy.IsEnabled = true;
 
-                await DisplayAlertAsync("Success", "File exported successfully!", "OK");
-            }
-            else
-            {
-                await DisplayAlertAsync("Failed", "No file selected", "OK");
-            }
+        var parts = r.Split(';', 2);
+        if (parts[0].Trim() == "success")
+        {
+            lblNotice.Text = "File exported successfully!";
+            await DisplayAlertAsync("Success", "File exported successfully!", "OK");
         }
         else
         {
-            await DisplayAlertAsync("Failed", "Not connected to server", "OK");
+            string msg = parts.Length > 1 ? parts[1] : "Upload failed.";
+            lblNotice.Text = msg;
+            await DisplayAlertAsync("Error", msg, "OK");
         }
-
-    }
-
-    private async Task CopyFileAsync2(string sourcefile, string targetfile)
-    {
-        await Task.Run(() =>
-        {
-            SmbFile smbFile = null;
-            FileInputStream inputStream = null;
-            SmbFileOutputStream fileStream = null;
-
-            try
-            {
-                string appDataDirectory = FileSystem.AppDataDirectory;
-                string localFilePath = Path.Combine(appDataDirectory, sourcefile);
-
-                inputStream = new FileInputStream(localFilePath);
-
-                var newSMBFile = smbPath + targetfile;
-
-                fileStream = new SmbFileOutputStream(newSMBFile);
-
-                byte[] buffer = new byte[8192];
-                int bytesRead;
-                while ((bytesRead = inputStream.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    fileStream.Write(buffer, 0, bytesRead);
-                }
-            }
-            catch (Exception ex)
-            {
-                DisplayAlertAsync("Error", $"An error occurred: {ex.Message}", "OK");
-            }
-            finally
-            {
-                inputStream?.Close();
-                fileStream?.Close();
-            }
-        });
     }
 }
