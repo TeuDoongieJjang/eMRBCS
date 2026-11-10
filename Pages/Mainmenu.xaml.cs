@@ -17,60 +17,34 @@ public partial class Mainmenu : ContentPage
     DBService dbService;
     FileService fileService;
 
-    private CancellationTokenSource? _pollCts;
-    private bool _checking;
+
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
         stackLoading.IsVisible = false;
 
-        Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
-        StartStatusPolling();
+        ServerStatusMonitor.Instance.StatusChanged += OnServerStatusChanged;
+        ApplyStatus(ServerStatusMonitor.Instance.IsOnline);   // show last known state immediately
+        ServerStatusMonitor.Instance.Start();
     }
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
-        _pollCts?.Cancel();
+        ServerStatusMonitor.Instance.StatusChanged -= OnServerStatusChanged;
+        ServerStatusMonitor.Instance.Stop();
     }
 
-    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
-        => _ = RefreshServerStatusAsync(delayMs: 1500);     // give Wi-Fi a moment to get its IP
+    private void OnServerStatusChanged(bool ok)
+        => MainThread.BeginInvokeOnMainThread(() => ApplyStatus(ok));
 
-    private void StartStatusPolling()
-    {
-        _pollCts?.Cancel();
-        var cts = _pollCts = new CancellationTokenSource();
+    private void ApplyStatus(bool ok)
+        => frameStatus.BackgroundColor = ok ? Colors.Green : Colors.Red;
 
-        _ = Task.Run(async () =>
-        {
-            while (!cts.IsCancellationRequested)
-            {
-                await RefreshServerStatusAsync();
-                try { await Task.Delay(TimeSpan.FromSeconds(10), cts.Token); }
-                catch (OperationCanceledException) { break; }
-            }
-        });
-    }
 
-    private async Task RefreshServerStatusAsync(int delayMs = 0)
-    {
-        if (delayMs > 0) await Task.Delay(delayMs);
-        if (_checking) return;                              // never overlap checks
-        _checking = true;
-        try
-        {
-            bool ok = false;
-            if (Serverdetails.Validnetwork == 1)
-                ok = await new FileService().CheckSMBStatus();
 
-            MainThread.BeginInvokeOnMainThread(() =>
-                frameStatus.BackgroundColor = ok ? Colors.Green : Colors.Red);
-        }
-        finally { _checking = false; }
-    }
+
 
     private async void CopyDBFile()
     {

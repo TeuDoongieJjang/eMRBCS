@@ -27,7 +27,23 @@ public partial class AppSettings : ContentPage
         // GetExternalStorage();
 
     }
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        ServerStatusMonitor.Instance.StatusChanged += OnServerStatusChanged;
+        ServerStatusMonitor.Instance.Start();
+    }
 
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        ServerStatusMonitor.Instance.StatusChanged -= OnServerStatusChanged;
+        ServerStatusMonitor.Instance.Stop();
+    }
+
+    private void OnServerStatusChanged(bool ok)
+        => MainThread.BeginInvokeOnMainThread(() =>
+            frameStatus.BackgroundColor = ok ? Colors.Green : Colors.Red);
     private static string BuildIpDisplay(string raw, bool isDeleting)
     {
         // 1. Keep only digits and dots
@@ -145,6 +161,7 @@ public partial class AppSettings : ContentPage
         if (isConfigSave)
         {
             Serverdetails.Validnetwork = 1;
+            ServerStatusMonitor.Instance.RequestCheck();
             CheckServerStatus();
             await DisplayAlertAsync("Notice",
                 "Server Configuration has been saved!\n\n", "Ok");

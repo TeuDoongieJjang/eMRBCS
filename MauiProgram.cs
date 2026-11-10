@@ -21,7 +21,11 @@ namespace eMRBCS
             builder.ConfigureLifecycleEvents(events =>
             {
                 events.AddAndroid(android => android
-                    .OnResume(_ => eMRBCS.Services.ApkInstaller.OnActivityResumed()));
+                    .OnResume(_ =>
+                    {
+                        eMRBCS.Services.ApkInstaller.OnActivityResumed();
+                        eMRBCS.Services.ServerStatusMonitor.Instance.RequestCheck();
+                    }));
             });
 #endif
 

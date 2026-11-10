@@ -3,6 +3,7 @@ using eMRBCS.Models;
 using SMBLibrary;
 using SMBLibrary.Client;
 using System.Net;
+using System.Net.Sockets;
 
 namespace MSRBC.Services
 {
@@ -753,27 +754,38 @@ namespace MSRBC.Services
             return isSuccess;
         }
 
-        public async Task<bool> CheckSMBStatus(int timeoutSeconds = 6)
+        public async Task<bool> CheckSMBStatus(int timeoutSeconds = 3)
         {
             if (Connectivity.Current.NetworkAccess == NetworkAccess.None)
                 return false;                                   // no network at all, fail instantly
 
-            var check = Task.Run(() =>
+            try
             {
-                try
-                {
-                    using var session = OpenSession(1);         // Dispose() handles disconnect
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine("=== CHECK SMB STATUS === " + ex.Message);
-                    return false;
-                }
-            });
+                string host = (Serverdetails.ImportServerIPAddress ?? "").Trim();
+                if (host == "") return false;
 
-            var finished = await Task.WhenAny(check, Task.Delay(TimeSpan.FromSeconds(timeoutSeconds)));
-            return finished == check && check.Result;
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, timeoutSeconds)));
+
+                IPAddress? ip;
+                if (!IPAddress.TryParse(host, out ip))
+                {
+                    var addrs = await Dns.GetHostAddressesAsync(host, cts.Token);
+                    ip = addrs.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork)
+                         ?? addrs.FirstOrDefault();
+                    if (ip == null) return false;
+                }
+
+                if (ip.Equals(IPAddress.Any)) return false;     // "0.0.0.0" = not configured
+
+                using var client = new TcpClient(ip.AddressFamily);
+                await client.ConnectAsync(ip, 445, cts.Token);  // hard timeout, nothing is left hanging
+                return client.Connected;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("=== CHECK SMB STATUS === " + ex.Message);
+                return false;
+            }
         }
 
     }
