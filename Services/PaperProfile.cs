@@ -154,6 +154,7 @@
 
         public static PaperProfile FromLineSpace(int raw)
         {
+            if (raw == 32) raw = 321;
             ParseLineSpace(raw, out int cols, out int align);
             return Build(cols, align, raw >= 100);
         }
