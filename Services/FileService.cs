@@ -61,11 +61,38 @@ namespace MSRBC.Services
 
         private static string AppendFolder(string basePath, string folder)
         {
-            if (string.IsNullOrEmpty(basePath)) return folder;
-            var parts = basePath.Split('\\', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length > 0 && parts[^1].Equals(folder, StringComparison.OrdinalIgnoreCase))
-                return basePath;                       // configured path already ends with it
-            return basePath + "\\" + folder;
+            string other = folder.Equals(ImportSubFolder, StringComparison.OrdinalIgnoreCase)
+                ? ExportSubFolder : ImportSubFolder;
+
+            var parts = (basePath ?? "")
+                .Split('\\', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+
+            if (parts.Count > 0)
+            {
+                string last = parts[^1];
+                if (last.Equals(folder, StringComparison.OrdinalIgnoreCase))
+                    return string.Join("\\", parts);                 // already ends with it
+                if (last.Equals(other, StringComparison.OrdinalIgnoreCase))
+                    parts.RemoveAt(parts.Count - 1);                 // SOURCE <-> OUTPUT swap
+            }
+            parts.Add(folder);
+            return string.Join("\\", parts);
+        }
+
+        /// "Share/Sub/SOURCE" (forward slashes, for SharpCifs / display)
+        public static string ResolveFolder(string raw, bool isImport)
+        {
+            var (share, sub) = SplitSharePath(raw);
+            if (share == "") return "";
+            string full = AppendFolder(sub, isImport ? ImportSubFolder : ExportSubFolder);
+            return share + "/" + full.Replace('\\', '/');
+        }
+
+        public static string DescribePath(string raw, bool isImport)
+        {
+            string r = ResolveFolder(raw, isImport);
+            return r == "" ? "" : "\\\\server\\" + r.Replace('/', '\\');
         }
 
         private static bool IsFixedFolder(string name) =>
@@ -726,35 +753,27 @@ namespace MSRBC.Services
             return isSuccess;
         }
 
-        public async Task<bool> CheckSMBStatus()
+        public async Task<bool> CheckSMBStatus(int timeoutSeconds = 6)
         {
-            bool isSuccess = true;
+            if (Connectivity.Current.NetworkAccess == NetworkAccess.None)
+                return false;                                   // no network at all, fail instantly
 
-            await Task.Run(() =>
+            var check = Task.Run(() =>
             {
                 try
                 {
-                    using var session = OpenSession(1);
-                    // 1. Get Configuration (1 = Import server settings)
-
-
-                    // If execution reaches here, the connection and folder access are completely successful.
-
-                    // 6. Clean up Connection
-                    session.Store.Disconnect();
-                    session.Client.Logoff();
-                    session.Client.Disconnect();
+                    using var session = OpenSession(1);         // Dispose() handles disconnect
+                    return true;
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine("=== SMB CONNECTION CHECK SMB STATUS ===");
-                    System.Diagnostics.Debug.WriteLine(ex.ToString());
-                    System.Diagnostics.Debug.WriteLine("==================================");
-                    isSuccess = false;
+                    System.Diagnostics.Debug.WriteLine("=== CHECK SMB STATUS === " + ex.Message);
+                    return false;
                 }
             });
 
-            return isSuccess;
+            var finished = await Task.WhenAny(check, Task.Delay(TimeSpan.FromSeconds(timeoutSeconds)));
+            return finished == check && check.Result;
         }
 
     }

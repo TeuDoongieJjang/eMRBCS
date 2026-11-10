@@ -463,11 +463,8 @@ public partial class PrinterConfig : ContentPage
 
             // ============================== FONT A ==============================
             // ============================== SEPARATOR STYLES ==============================
-            await printer.PrintSeparatorAsync(SeparatorStyle.Solid);        // '-' / '_'  solid single
-            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);       // '~'        broken single
-            await printer.PrintSeparatorAsync(SeparatorStyle.DoubleSolid);  // '='        solid double
-            await printer.PrintSeparatorAsync(SeparatorStyle.DoubleBroken); // '#'        broken double
-            await printer.PrintSeparatorAsync(SeparatorStyle.Blank);        // ' '        blank line
+
+            await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             // 4 named sizes in Font A
             // LARGE, WIDE, HIGH, BOLD  -> FontA 3x3

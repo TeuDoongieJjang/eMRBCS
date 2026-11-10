@@ -17,12 +17,59 @@ public partial class Mainmenu : ContentPage
     DBService dbService;
     FileService fileService;
 
+    private CancellationTokenSource? _pollCts;
+    private bool _checking;
+
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        // Always reset the overlay when this page becomes visible again
-        // (e.g. returning from Reports, Utilities, ReadingConsumers, Login, …)
         stackLoading.IsVisible = false;
+
+        Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
+        StartStatusPolling();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        Connectivity.Current.ConnectivityChanged -= OnConnectivityChanged;
+        _pollCts?.Cancel();
+    }
+
+    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+        => _ = RefreshServerStatusAsync(delayMs: 1500);     // give Wi-Fi a moment to get its IP
+
+    private void StartStatusPolling()
+    {
+        _pollCts?.Cancel();
+        var cts = _pollCts = new CancellationTokenSource();
+
+        _ = Task.Run(async () =>
+        {
+            while (!cts.IsCancellationRequested)
+            {
+                await RefreshServerStatusAsync();
+                try { await Task.Delay(TimeSpan.FromSeconds(10), cts.Token); }
+                catch (OperationCanceledException) { break; }
+            }
+        });
+    }
+
+    private async Task RefreshServerStatusAsync(int delayMs = 0)
+    {
+        if (delayMs > 0) await Task.Delay(delayMs);
+        if (_checking) return;                              // never overlap checks
+        _checking = true;
+        try
+        {
+            bool ok = false;
+            if (Serverdetails.Validnetwork == 1)
+                ok = await new FileService().CheckSMBStatus();
+
+            MainThread.BeginInvokeOnMainThread(() =>
+                frameStatus.BackgroundColor = ok ? Colors.Green : Colors.Red);
+        }
+        finally { _checking = false; }
     }
 
     private async void CopyDBFile()
@@ -47,7 +94,6 @@ public partial class Mainmenu : ContentPage
         lbllogindate.Text = "Login Date/Time: " + DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt");
         stackLoading.IsVisible = false;
         ScreenAdjustment();
-        CheckServerStatus();
     }
 
     private void ScreenAdjustment()
@@ -81,20 +127,6 @@ public partial class Mainmenu : ContentPage
             frmProductKey.IsVisible = false;
         }
 
-    }
-
-    private async void CheckServerStatus()
-    {
-        fileService = new FileService();
-        frameStatus.BackgroundColor = Colors.Red;
-        if (Serverdetails.Validnetwork == 1)
-        {
-            bool isConnected = await fileService.CheckSMBStatus();
-            if (isConnected)
-            {
-                frameStatus.BackgroundColor = Colors.Green;
-            }
-        }
     }
 
     private async void TapMeterReading(object sender, EventArgs e)

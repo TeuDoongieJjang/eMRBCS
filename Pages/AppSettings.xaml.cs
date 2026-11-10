@@ -9,6 +9,7 @@ public partial class AppSettings : ContentPage
     FileService fileService;
     private bool _isFormattingIp = false;
     private string _lastIpDisplay = string.Empty;
+
     public AppSettings()
     {
         InitializeComponent();
@@ -119,12 +120,12 @@ public partial class AppSettings : ContentPage
     public async void OnSaveChanges(object sender, EventArgs e)
     {
         string new_importipaddress = import_ipaddress.Text;
-        string new_importfolder = import_sharedfolder.Text;
+        string new_importfolder = (import_sharedfolder.Text ?? "").Trim();
         string new_importusername = import_username.Text;
         string new_importpassword = import_pass.Text;
 
         string new_exportipaddress = export_ipaddress.Text;
-        string new_exportfolder = export_sharedfolder.Text;
+        string new_exportfolder = (export_sharedfolder.Text ?? "").Trim();
         string new_exportusername = export_username.Text;
         string new_exportpassword = export_pass.Text;
 
@@ -145,7 +146,10 @@ public partial class AppSettings : ContentPage
         {
             Serverdetails.Validnetwork = 1;
             CheckServerStatus();
-            await DisplayAlertAsync("Notice", "Server Configuration has been saved!", "Ok");
+            await DisplayAlertAsync("Notice",
+                "Server Configuration has been saved!\n\n" +
+                "Get Data: " + FileService.DescribePath(Serverdetails.ImportSharedFolder, true) + "\n" +
+                "Send Data: " + FileService.DescribePath(Serverdetails.ExportSharedFolder, false), "Ok");
         }
         else
         {
