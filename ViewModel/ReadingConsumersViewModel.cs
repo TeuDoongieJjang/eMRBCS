@@ -31,9 +31,13 @@ public partial class ReadingConsumersViewModel : ObservableObject
 
     public ReadingConsumersViewModel() { items = Store.Unbilled; }
 
-    public void Attach() { Store.PropertyChanged += OnStoreChanged; Refresh(); }
+    public void Attach()
+    {
+        Store.PropertyChanged -= OnStoreChanged;   // NEW: never subscribe twice
+        Store.PropertyChanged += OnStoreChanged;
+        Refresh();
+    }
     public void Detach() => Store.PropertyChanged -= OnStoreChanged;
-
     private void OnStoreChanged(object? s, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ConsumerStore.Revision) or nameof(ConsumerStore.IsLoading) or nameof(ConsumerStore.TotalCount))
@@ -53,7 +57,8 @@ public partial class ReadingConsumersViewModel : ObservableObject
     }
     partial void OnSearchTextChanged(string value)
     {
-        if (string.IsNullOrWhiteSpace(value) && _isSearching) Refresh();
+        // clear the filter as soon as the text drops below 3 characters
+        if (_isSearching && (value ?? "").Trim().Length < 3) Refresh();
     }
 
     [RelayCommand] private void ToggleOptions() => ShowOptions = !ShowOptions;

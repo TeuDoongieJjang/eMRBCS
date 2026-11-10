@@ -359,33 +359,26 @@ namespace eMRBCS.Services
             {
                 try
                 {
-                    //var consumer = Database.Table<Consumers>().FirstOrDefault(p => p.accountNo == _consumer.accountNo);
-                    //consumer.presreading = _consumer.presreading;
+                    InitializeDatabase();
+
+                    bool wasBilled = consumer.status == 1;      // NEW: check BEFORE changing the status
+
                     consumer.status = 1;
                     consumer.billedby = LoginUser.login_user.fullname;
                     consumer.billdate = DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt");
-                    //consumer.total_bill = _consumer.total_bill;
-                    //consumer.usage = _consumer.usage;
-                    //consumer.currentbill = -consumer.currentbill;
                     Database.Update(consumer);
-                    ConsumerRecords.noofrecordsBilled++;
 
-                    //Update also the one in the list
-                    var consumer_list = ConsumerRecords.lstconsumers.Where(c => c.accountNo == consumer.accountNo).FirstOrDefault();
-                    if (consumer_list != null)
-                    {
-                        consumer_list = consumer;
-                    }
+                    if (!wasBilled) ConsumerRecords.noofrecordsBilled++;   // only count the first time
                 }
                 catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine(ex);
                     isSuccess = false;
                 }
             });
 
             return isSuccess;
         }
-
         public async Task<bool> RemarkReadAndProcessFileAsync(string sourcefile)
         {
 

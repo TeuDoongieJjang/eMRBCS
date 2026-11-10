@@ -16,6 +16,7 @@ namespace eMRBCS.Pages;
 
 public partial class Reading : ContentPage
 {
+    int selected_field = 0; //0 - Pres Reading, 1 - Acct No, 2 - Meter No, 3 - Name
 
     long selected_seqno;
     int selected_idno;
@@ -50,9 +51,6 @@ public partial class Reading : ContentPage
     float billrateSewerage = 0;
     float billrateBrate = 0;
     int billrateCommoditiesTo = 0;
-
-    int selected_field = 0; //0 - Pres Reading, 1 - Acct No, 2 - Meter No
-
     bool isFilterChange = false;
     bool isRecompute = false;
     bool isMinus = false;
@@ -64,7 +62,7 @@ public partial class Reading : ContentPage
     bool isZeoMin = false;
 
     bool isPrintOn = false;
-
+    bool _searchPromptOpen = false;   // blocks hardware-key handling while the name prompt is open
     string profiles;
 
     int prevIndex = 0;
@@ -194,6 +192,7 @@ public partial class Reading : ContentPage
 #if ANDROID
         MessagingCenter.Subscribe<object, Android.Views.Keycode>(this, "KeyDown", (sender, keyCode) =>
         {
+            if (_searchPromptOpen) return;   // <-- ADD THIS LINE
             //DisplayAlertAsync("Print Notice", $"Key Pressed: {keyCode}", "Ok");
             //switch (keyCode.ToString())
             //{
@@ -327,7 +326,38 @@ public partial class Reading : ContentPage
         }
 
     }
+    private async void OnNameTapped(object sender, EventArgs e)
+    {
+        selected_field = 3;
+        _searchPromptOpen = true;
+        string? term;
+        try
+        {
+            term = await DisplayPromptAsync(
+                "Search by Name",
+                "Enter at least 3 characters of the consumer name:",
+                accept: "Search",
+                cancel: "Cancel",
+                placeholder: "e.g. Cruz, Dela",
+                maxLength: 50,
+                keyboard: Keyboard.Text);
+        }
+        finally
+        {
+            _searchPromptOpen = false;
+        }
 
+        if (string.IsNullOrWhiteSpace(term)) return;
+
+        term = term.Trim();
+        if (term.Length < 3)
+        {
+            await DisplayAlertAsync("Notice", "Please enter at least 3 characters.", "Ok");
+            return;
+        }
+
+        OnFilterNameSearch(term);
+    }
     private async void OnConsumerLoad(string parameter)
     {
         // ConsumerRecords.acctNo = parameter;
@@ -344,33 +374,70 @@ public partial class Reading : ContentPage
 
     private async void OnFilterNameSearch(string parameter)
     {
-        //ConsumerRecords.acctNo = parameter;
-        Consumers? result = new Consumers();
         string searchName = "Account No: ";
+        Consumers? result = null;
+
+        var source = ConsumerRecords.lstconsumers
+            .Where(c => c.status == pickerBillingFilter.SelectedIndex);
+
         if (selected_field == 1)
         {
-            result = ConsumerRecords.lstconsumers.Where(c => c.status == pickerBillingFilter.SelectedIndex && c.accountNo.Contains(parameter, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
-
+            result = source.FirstOrDefault(c => c.accountNo != null &&
+                     c.accountNo.Contains(parameter, StringComparison.OrdinalIgnoreCase));
+        }
+        else if (selected_field == 2)
+        {
+            searchName = "Meter No: ";
+            result = source.FirstOrDefault(c => c.meterno != null &&
+                     c.meterno.Contains(parameter, StringComparison.OrdinalIgnoreCase));
         }
         else
         {
-            searchName = "Meter No: ";
-            result = ConsumerRecords.lstconsumers.Where(c => c.status == pickerBillingFilter.SelectedIndex && c.meterno.Contains(parameter, StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
+            searchName = "Name: ";
+
+            // Every word typed must appear in the name, in any order,
+            // so "adelaida armosilla" still finds "ARMOSILLA, ADELAIDA D."
+            var tokens = parameter.Split(new[] { ' ', ',', '.' },
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var matches = source
+                .Where(c => !string.IsNullOrEmpty(c.consumer_name) &&
+                            tokens.All(t => c.consumer_name.Contains(t, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(c => c.accountID)
+                .ToList();
+
+            if (matches.Count == 1)
+            {
+                result = matches[0];
+            }
+            else if (matches.Count > 1)
+            {
+                // Several people share the text: let the user pick one
+                var shown = matches.Take(20).ToList();
+                var labels = shown.Select(c => $"{c.consumer_name.Trim()} ({c.accountNo})").ToArray();
+                string title = matches.Count > 20
+                    ? $"{matches.Count} matches (showing first 20). Type more of the name to narrow down."
+                    : $"{matches.Count} matches found";
+
+                string choice = await DisplayActionSheetAsync(title, "Cancel", null, labels);
+                if (string.IsNullOrEmpty(choice) || choice == "Cancel") return;
+
+                int idx = Array.IndexOf(labels, choice);
+                if (idx >= 0) result = shown[idx];
+                else return;
+            }
         }
 
         if (result != null)
         {
             OnLoadConsumerDetails(result);
-
         }
         else
         {
             await DisplayAlertAsync("Warning!", searchName + "that contains " + parameter + " not found. Please try again.", "Ok");
         }
         gridDetails.IsVisible = true;
-
     }
-
     private async void OnNextRecordTapped(object sender, EventArgs e)
     {
         OnNextRecord(pickerBillingFilter.SelectedIndex);
@@ -409,21 +476,19 @@ public partial class Reading : ContentPage
 
     private async void OnPrevRecord(int isBilled)
     {
-        //ConsumerRecords.acctNo = parameter;
-        var result = ConsumerRecords.lstconsumers.Where(c => c.accountID < selected_idno && c.status == isBilled).OrderBy(c => c.accountID).LastOrDefault();
-        OnLoadConsumerDetails(result);
+        var result = ConsumerRecords.lstconsumers
+            .Where(c => c.accountID < selected_idno && c.status == isBilled)
+            .OrderBy(c => c.accountID)
+            .LastOrDefault();
+
         if (result != null)
         {
             OnLoadConsumerDetails(result);
-
-
         }
         else
         {
             await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
         }
-        //gridDetails.IsVisible = true;
-
     }
 
     private async void OnFirstLastRecord(int isFirst, int isBilled)
@@ -500,34 +565,17 @@ public partial class Reading : ContentPage
                 txtConsumerMeterNo.Text = consumer.meterno;
                 _averageCons = consumer.average_usage;
 
-                //bool IsSJWD = consumer.parameters.Contains("[SJWD]") ? true : false;
-                //bool IsMVWD = consumer.parameters.Contains("[MVWD]") ? true : false;
-                //if (IsMVWD || IsSJWD)
-                //{
-                string strAddress = consumer.address.Trim();
-                //string printAddress = strAddress.Length >= 25 ? strAddress[..25] : strAddress;
-                string printAddress = strAddress; //no need to substring address can grow
-                if (consumer.consumer_status.ToString().Trim().ToUpper() == "A")
-                {
-                    txtConsumerAddress.Text = MOA.Left(printAddress, 42) + "\nSTATUS: Active\nAVERAGE: " + consumer.average_usage.ToString();
-                }
-                else
-                {
-                    txtConsumerAddress.Text = MOA.Left(printAddress, 42) + "\nSTATUS: Inactive\nAVERAGE: " + consumer.average_usage.ToString();
-                }
+                bool isSaved = consumer.status != 0;     // NEW: unsaved consumers must not show leftover values
 
-                //}                    
-                //else
-                //{
-                //    txtConsumerAddress.Text = consumer.address.Trim();
-                //}
+                string printAddress = (consumer.address ?? "").Trim();
+                string statusText = (consumer.consumer_status ?? "").Trim().ToUpper() == "A" ? "Active" : "Inactive";
+                txtConsumerAddress.Text = MOA.Left(printAddress, 42) + "\nSTATUS: " + statusText + "\nAVERAGE: " + consumer.average_usage.ToString();
 
                 txtConsumerPrevReading.Text = consumer.prevreading.ToString();
-                txtConsumerUsage.Text = consumer.usage.ToString();
-                txtConsumerCurrentBill.Text = consumer.currentbill.ToString();
+                txtConsumerUsage.Text = isSaved ? consumer.usage.ToString() : "0";
+                txtConsumerCurrentBill.Text = isSaved ? consumer.currentbill.ToString() : "0";
 
-                float arrears = consumer.arrears;
-                if (arrears < 0)
+                if (consumer.arrears < 0)
                 {
                     lblArrears.Text = "Advance:";
                     lblArrears.Margin = new Thickness(50, 10, 0, 0);
@@ -539,31 +587,27 @@ public partial class Reading : ContentPage
                 }
                 txtConsumerArrears.Text = consumer.arrears.ToString("0.00");
                 txtConsumerOthers.Text = consumer.othercharges.ToString("0.00");
-                float presReading = consumer.presreading;
-                float totalbill = consumer.total_bill;
+
                 txtConsumerPresReading.Text = "0";
                 txtConsumerTotalBill.Text = "0.00";
                 pickerRemarks.SelectedIndex = -1;
-                if (presReading > 0)
-                {
-                    txtConsumerPresReading.Text = presReading.ToString();
-                }
-                if (totalbill > 0)
-                {
-                    txtConsumerTotalBill.Text = totalbill.ToString();
-                }
-                _currentIsLessUsage = consumer.less_usage;
+                txtRemarks.Text = isSaved && !string.IsNullOrWhiteSpace(consumer.remarks)
+                                    ? consumer.remarks
+                                    : "Normal Reading";                       // NEW
 
+                if (isSaved && consumer.presreading > 0)
+                    txtConsumerPresReading.Text = consumer.presreading.ToString();
+                if (isSaved && consumer.total_bill > 0)
+                    txtConsumerTotalBill.Text = consumer.total_bill.ToString();
+
+                _currentIsLessUsage = consumer.less_usage;
             }
         }
         catch (Exception ex)
         {
             await DisplayAlertAsync("Error", "Error loading record.\nError: " + ex.Message, "Ok");
         }
-
-
     }
-
     private static float ParseFloat(string value)
     {
         if (float.TryParse(value, out float result))
@@ -1156,7 +1200,6 @@ public partial class Reading : ContentPage
 
     private async void OnClickOk(object sender, EventArgs e)
     {
-
         gridNumericPad.IsVisible = false;
         gridDetails.IsEnabled = true;
         if (txtCustomEntry.Text == "")
@@ -1167,33 +1210,18 @@ public partial class Reading : ContentPage
         switch (selected_field)
         {
             case 0:
-
                 txtConsumerPresReading.Text = ParseFloat(txtCustomEntry.Text).ToString();
-                //Compute
-
-                Consumers? consumer = ConsumerStore.Instance.FindByAccountNo(txtConsumerAcctNo.Text);
-                if (consumer != null)
-                {
-                    consumer = await OnInitialComputation(consumer);
-                    txtConsumerCurrentBill.Text = consumer.currentbill.ToString("#,##0.00");
-                    txtConsumerTotalBill.Text = consumer.total_bill.ToString("#,##0.00");
-                    txtConsumerUsage.Text = consumer.usage.ToString("0.00");
-                    //consumer.collectiondate = DateTime.Now.AddDays(billrateGracePeriodDue).ToString();
-                }
-                //btnSave.Focus();
+                await RecomputeCurrentAsync(force: true);
                 break;
             case 1:
-                // txtConsumerAcctNo.Text = txtCustomEntry.Text;
                 OnFilterNameSearch(txtCustomEntry.Text);
                 break;
             case 2:
-                //txtConsumerMeterNo.Text = txtCustomEntry.Text;
                 OnFilterNameSearch(txtCustomEntry.Text);
                 break;
         }
         btnSave.Focus();
     }
-
     private void OnClickB0(object sender, EventArgs e)
     {
         txtCustomEntry.Text = txtCustomEntry.Text == "0" && selected_field == 0 ? "0" : txtCustomEntry.Text + "0";
@@ -1273,6 +1301,8 @@ public partial class Reading : ContentPage
     {
         isFilterChange = true;
         int selectedItem = pickerBillingFilter.SelectedIndex;
+        if (selectedItem < 0) return;
+        ConsumerRecords.consumer_selectedtype = selectedItem;
         if (selectedItem == 0)
         {
             btnPrint.IsEnabled = false;
@@ -1291,20 +1321,42 @@ public partial class Reading : ContentPage
 
         OnFirstLastRecord(0, pickerBillingFilter.SelectedIndex);
     }
+    private async Task RecomputeCurrentAsync(bool force = false)
+    {
+        if (string.IsNullOrWhiteSpace(txtConsumerAcctNo.Text)) return;
 
+        var consumer = ConsumerStore.Instance.FindByAccountNo(txtConsumerAcctNo.Text);
+        if (consumer == null) return;
+
+        string remark = pickerRemarks.SelectedIndex != -1 ? (pickerRemarks.SelectedItem?.ToString() ?? "") : "";
+        bool remarkNeedsNoReading = remark == "Zero Reading" || remark.Contains("-AM") || remark.Contains("-ANM");
+
+        // when triggered by a remark change, do nothing until a reading was entered
+        if (!force && ParseFloat(txtConsumerPresReading.Text) <= 0 && !remarkNeedsNoReading) return;
+
+        consumer = await OnInitialComputation(consumer);
+        txtConsumerCurrentBill.Text = consumer.currentbill.ToString("#,##0.00");
+        txtConsumerTotalBill.Text = consumer.total_bill.ToString("#,##0.00");
+        txtConsumerUsage.Text = consumer.usage.ToString("0.00");
+    }
     private async Task<Consumers> OnInitialComputation(Consumers consumer)
     {
         Consumers _tempconsumer = consumer;
-        string? remarks = pickerRemarks.SelectedIndex != -1 ? pickerRemarks.SelectedItem.ToString() : "";
+        string remarks = pickerRemarks.SelectedIndex != -1 ? (pickerRemarks.SelectedItem?.ToString() ?? "") : "";
         float presReading = ParseFloat(txtConsumerPresReading.Text);
+
+        // NEW: these are fields, so reset them or the previous consumer's values leak in
+        _currentBillDiscount = 0;
+        _currentPenalty = 0;
+        _currentBillAmount = 0;
+        usage = 0;
 
         if (presReading == 0 && remarks == "Zero Reading")
         {
             _tempconsumer.usage = 0;
+            _tempconsumer.currentbill = 0;
+            _tempconsumer.penaltyamt = 0;
             _tempconsumer.total_bill = 0;
-
-
-
             return _tempconsumer;
         }
 
@@ -1312,35 +1364,25 @@ public partial class Reading : ContentPage
         {
             usage = ParseFloat(txtConsumerPresReading.Text) - ParseFloat(txtConsumerPrevReading.Text);
         }
-        else if (remarks == "" || remarks == "Abnoral Reading")
+        else if (remarks == "Abnormal Reading" || remarks == "Abnoral Reading")
         {
             usage = ParseFloat(txtConsumerUsage.Text);
         }
         else if (remarks == "Meter Reset")
         {
-            if (txtConsumerPrevReading.Text.Length <= 4)
-            {
-                usage = (10000 - ParseFloat(txtConsumerPrevReading.Text)) + ParseFloat(txtConsumerPresReading.Text);
-            }
-            if (txtConsumerPrevReading.Text.Length == 5)
-            {
-                usage = (100000 - ParseFloat(txtConsumerPrevReading.Text)) + ParseFloat(txtConsumerPresReading.Text);
-            }
-        }
-        else if (remarks == "Meter Reset")
-        {
-            usage = 0;
+            // rollover depends on how many digits the previous reading has (4 digits -> 10000, 5 -> 100000, ...)
+            int digits = (txtConsumerPrevReading.Text ?? "").Split('.')[0].Length;
+            double rollover = Math.Pow(10, Math.Max(4, digits));
+            usage = (float)((rollover - ParseFloat(txtConsumerPrevReading.Text)) + ParseFloat(txtConsumerPresReading.Text));
         }
         else if (remarks.Contains("-AM"))
         {
-            //Put Average Moving
             usage = _tempconsumer.average_usage;
             float fAverageMoving = ParseFloat(txtConsumerPrevReading.Text) + usage;
             txtConsumerPresReading.Text = fAverageMoving.ToString();
         }
         else if (remarks.Contains("-ANM"))
         {
-            //Put Average Not Moving
             usage = _tempconsumer.average_usage;
             txtConsumerPresReading.Text = txtConsumerPrevReading.Text;
         }
@@ -1349,7 +1391,6 @@ public partial class Reading : ContentPage
             usage = ParseFloat(txtConsumerPresReading.Text) - ParseFloat(txtConsumerPrevReading.Text);
         }
 
-        //Add Usage After Change MEter
         if (consumer.change_meter_usage > 0)
         {
             usage = usage + consumer.change_meter_usage;
@@ -1359,7 +1400,6 @@ public partial class Reading : ContentPage
         {
             _tempconsumer.usage = 0;
             usage = 0;
-            //_tempconsumer.total_bill = 0;            
         }
         else
         {
@@ -1368,7 +1408,9 @@ public partial class Reading : ContentPage
 
         if (_tempconsumer.less_usage > 0)
         {
-            _currentBillDiscount = await OnTotalBillCompute(_tempconsumer, _tempconsumer.less_usage);
+            // NEW: the discount is the BILL for the less-usage, not bill + arrears + others
+            await OnTotalBillCompute(_tempconsumer, _tempconsumer.less_usage);
+            _currentBillDiscount = _currentBillAmount;
         }
 
         float _currentTotalBill = await OnTotalBillCompute(_tempconsumer, usage);
@@ -1377,21 +1419,18 @@ public partial class Reading : ContentPage
         _tempconsumer.total_bill = _currentTotalBill;
 
         return _tempconsumer;
-
     }
-
     private async Task<float> OnTotalBillCompute(Consumers consumer, float _paramUsage)
     {
         float _TotalBill = 0;
-        float[] _computedAmountperCommodities = new float[5];
         float _computedUsage = _paramUsage;
 
-        bool IsSewerage = consumer.parameters.Contains("IsSewerage") ? true : false;
-        bool IsFlatRate = consumer.parameters.Contains("IsFlatRate") ? true : false;
+        string prm = consumer.parameters ?? "";
+        bool IsSewerage = prm.Contains("IsSewerage");
+        bool IsFlatRate = prm.Contains("IsFlatRate");
         if (IsSewerage && IsFlatRate)
         {
             _TotalBill = _TotalBill + consumer.sewerage;
-            //Penalty
             _currentPenalty = (_TotalBill - _currentBillDiscount) * consumer.special_penalty_rate;
             if (consumer.arrears > 0)
             {
@@ -1403,75 +1442,35 @@ public partial class Reading : ContentPage
             return _TotalBill;
         }
 
-
-        //initial value
-        for (int x = 0; x < 5; x++)
-        {
-            _computedAmountperCommodities[x] = 0;
-        }
-
-        //change_meter_usage already added on initial computation
-        ////Change Meter Usage
-        //if (consumer.change_meter_usage > 0)
-        //{
-        //    _computedUsage = _computedUsage + consumer.change_meter_usage;
-        //}
-
-        //Minimum Usage
         if (consumer.minusage > 0)
         {
             _computedUsage = _computedUsage - consumer.minusage;
         }
-
         if (_computedUsage < 0)
         {
             _computedUsage = 0;
         }
 
-        //if (_computedUsage == 0)
-        //{
-        //    _TotalBill = 0;
-        //    return _TotalBill;
-        //}
-
         dbService = new DBService();
         List<Billing_rates> billrate = await dbService.GetBillrates(consumer.consumer_type, consumer.metersize);
-        if (billrate != null)
+        if (billrate != null && billrate.Count > 0)
         {
-            if (billrate != null)
-            {
-                // minimum usage was already subtracted from _computedUsage above
-                var lines = RateCalculator.Breakdown(billrate, _computedUsage);
-                _TotalBill = (float)lines.Sum(l => l.Amount);
+            // minimum usage was already subtracted above
+            var lines = RateCalculator.Breakdown(billrate, _computedUsage);
+            _TotalBill = (float)lines.Sum(l => l.Amount);
 
-                //Penalty
-                _currentPenalty = (_TotalBill - _currentBillDiscount) * consumer.special_penalty_rate;
-                if (consumer.arrears > 0)
-                {
-                    _currentPenalty = ((_TotalBill + consumer.arrears) - _currentBillDiscount) * consumer.special_penalty_rate;
-                }
-
-                _currentBillAmount = _TotalBill;
-                _TotalBill = _TotalBill + consumer.othercharges + consumer.arrears;
-            }
-
-
-            //Penalty
             _currentPenalty = (_TotalBill - _currentBillDiscount) * consumer.special_penalty_rate;
             if (consumer.arrears > 0)
             {
                 _currentPenalty = ((_TotalBill + consumer.arrears) - _currentBillDiscount) * consumer.special_penalty_rate;
             }
 
-
             _currentBillAmount = _TotalBill;
-            _TotalBill = _TotalBill + consumer.othercharges + consumer.arrears;
-
+            _TotalBill = _TotalBill + consumer.othercharges + consumer.arrears;   // added ONCE
         }
 
         return _TotalBill;
     }
-
     //////private async Task<float> OnBillComputation(Consumers consumer, float _paramUsage)
     //////{
     //////    float _consumerTotalBill = 0;
@@ -2275,22 +2274,25 @@ public partial class Reading : ContentPage
 
     private async void OnPrintBill(object sender, EventArgs e)
     {
-        if (txtConsumerAcctNo.Text == string.Empty)
+        if (string.IsNullOrEmpty(txtConsumerAcctNo.Text))
         {
             return;
         }
+        if (MyDeviceInfo.currentPrintConfig == null)
+        {
+            await DisplayAlertAsync("Print Notice", "No default printer loaded. Please check under Utilities.", "Ok");
+            return;
+        }
+
         bool toPrint = await DisplayAlertAsync("Confirm", "Print Selected Transaction?", "Ok", "Cancel");
         if (toPrint)
         {
-            var result = ConsumerRecords.lstconsumers.Where(c => c.accountNo == txtConsumerAcctNo.Text).FirstOrDefault();
+            var result = ConsumerStore.Instance.FindByAccountNo(txtConsumerAcctNo.Text);
             if (result != null)
             {
-                //MOA_For_Testing 
-                //string output = await DoPrint(result);
                 string output = await DoPrintBill(result);
                 await DisplayAlertAsync("Print Notice", output, "Ok");
             }
-
         }
     }
 
@@ -2319,164 +2321,87 @@ public partial class Reading : ContentPage
 
     private async void OnSaveReading(object sender, EventArgs e)
     {
-        if (txtConsumerAcctNo.Text == string.Empty)
+        if (string.IsNullOrEmpty(txtConsumerAcctNo.Text))
         {
             return;
         }
-
 
         if (decimal.TryParse(txtConsumerCurrentBill.Text, out decimal bill) && bill == 0)
         {
+            await DisplayAlertAsync("Notice", "Please enter the present reading first.", "Ok");   // NEW
             return;
         }
-
-        //if (decimal.TryParse(txtConsumerTotalBill.Text, out decimal bill) && bill == 0)
-        //{
-        //    return;
-        //}
 
         string strRemarks = "";
-        double present = Convert.ToDouble(txtConsumerPresReading.Text);
-        double previous = Convert.ToDouble(txtConsumerPrevReading.Text);
-        double usage = present - previous;
+        double present = ParseFloat(txtConsumerPresReading.Text);
+        double previous = ParseFloat(txtConsumerPrevReading.Text);
+        double usageNow = present - previous;
 
-        bool isPresentLess = decimal.TryParse(txtConsumerPresReading.Text, out var pres) &&
-                             decimal.TryParse(txtConsumerPrevReading.Text, out var prev) &&
-                             pres < prev;
-        if ((decimal.TryParse(txtConsumerUsage.Text, out decimal Usage) && Usage < 0) || (isPresentLess))
+        bool isPresentLess = present < previous;
+        if ((decimal.TryParse(txtConsumerUsage.Text, out decimal Usage) && Usage < 0) || isPresentLess)
         {
             bool confirmUsage = await DisplayAlertAsync("NEGATIVE CONSUMPTION!", "Present reading is less than the Previous reading!\n\nDo you want to continue?", "Yes", "No");
-            if (!confirmUsage)
-            {
-                return;
-            }
+            if (!confirmUsage) return;
 
-            bool confirmUsage2x = await DisplayAlertAsync("NEGATIVE CONSUMPTION!", $"Present   = {present}\n" +
-                                                                              $"Previous = {previous}\n" +
-                                                                              $"----------------------\n" +
-                                                                              $"Usage     = {usage}\n\n" +
-                                                                              $"Are you sure you want to save NEGATIVE consumption?",
-                                                     "Yes", "No");
-            if (!confirmUsage2x)
-            {
-                return;
-            }
+            bool confirmUsage2x = await DisplayAlertAsync("NEGATIVE CONSUMPTION!",
+                $"Present   = {present}\n" +
+                $"Previous = {previous}\n" +
+                $"----------------------\n" +
+                $"Usage     = {usageNow}\n\n" +
+                $"Are you sure you want to save NEGATIVE consumption?",
+                "Yes", "No");
+            if (!confirmUsage2x) return;
         }
         else
         {
-            strRemarks = UsageAnalysisHelper.GstrUsageAnalysisRemarks(usage, Fld2Dob(_averageCons));
-
+            strRemarks = UsageAnalysisHelper.GstrUsageAnalysisRemarks(usageNow, Fld2Dob(_averageCons));
             if (strRemarks != "")
             {
-                bool continueEntry = await DisplayAlertAsync("VALIDATE CONSUMPTION!", $"Current usage is " + strRemarks + "!\n\n" +
-                                                                                  $"Do you want to continue?",
-                                                         "Yes", "No");
-
-                if (!continueEntry)
-                {
-                    return;
-                }
+                bool continueEntry = await DisplayAlertAsync("VALIDATE CONSUMPTION!",
+                    "Current usage is " + strRemarks + "!\n\nDo you want to continue?", "Yes", "No");
+                if (!continueEntry) return;
             }
         }
 
-
-
-
-        //Confirm Saving of Transactions 
         bool confirm = await DisplayAlertAsync("Confirm Saving", "Save this transaction?", "Yes", "No");
-        if (!confirm)
-        {
-            return;
-        }
+        if (!confirm) return;
 
-
-        Grid grid_child = new Grid();
-        Grid grid_parent = new Grid();
-        int selectedindex = pickerRemarks.SelectedIndex;
-        string selectedRemarks = "";
-        if (selectedindex != -1)
-        {
-            selectedRemarks = pickerRemarks.Items[selectedindex];
-        }
+        string selectedRemarks = pickerRemarks.SelectedIndex != -1 ? (pickerRemarks.SelectedItem?.ToString() ?? "") : "";
 
         Consumers? consumer = ConsumerStore.Instance.FindByAccountNo(txtConsumerAcctNo.Text);
+        if (consumer == null) return;
 
-        if (consumer == null)
-        {
-            return;
-        }
-
-        float presReading = ParseFloat(txtConsumerPresReading.Text);
-
-        consumer.presreading = presReading;
-        if (strRemarks != "" && string.IsNullOrEmpty(selectedRemarks))
-        {
-            consumer.remarks = strRemarks;
-        }
-        else
-        {
-            consumer.remarks = selectedRemarks;
-        }
+        consumer.presreading = ParseFloat(txtConsumerPresReading.Text);
+        consumer.remarks = (strRemarks != "" && string.IsNullOrEmpty(selectedRemarks)) ? strRemarks : selectedRemarks;
 
         dbService = new DBService();
         bool isSaveSuccess = await dbService.ConsumerUpdateItemToDatabase(consumer);
         if (isSaveSuccess)
         {
-
             ConsumerStore.Instance.MarkBilled(consumer);
-            //lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.lstconsumers.Count.ToString();
+
             int selectedItem = pickerBillingFilter.SelectedIndex;
             if (selectedItem == 0)
-            {
-
                 lblSummaryCount.Text = (ConsumerRecords.noofrecords_import - ConsumerRecords.noofrecordsBilled).ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
-            }
             else if (selectedItem == 1)
-            {
-
                 lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
-            }
             else
-            {
-
                 lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
-            }
-            //await DisplayAlertAsync("Notice", "Reading Saved!", "Ok");
-
 
             if (MyDeviceInfo.currentPrintConfig != null)
             {
-                bool toPrint = false;
-                if (isPrintOn)
-                {
-                    toPrint = true;
-                    //string output = await DoPrintv2(consumer);
-                    //await DisplayAlertAsync("Print Notice", output, "Ok");
-                }
-                else
-                {
-                    toPrint = await DisplayAlertAsync("Confirm", "Print Transaction?", "Yes", "No");
-                }
-
-
+                bool toPrint = isPrintOn ? true : await DisplayAlertAsync("Confirm", "Print Transaction?", "Yes", "No");
                 if (toPrint)
                 {
                     string output = await DoPrintBill(consumer);
                     if (output != "Done printing.")
                     {
-                        //Error printer. Remove default printer
-                        MyDeviceInfo.currentPrintConfig = null;
+                        MyDeviceInfo.currentPrintConfig = null;   // error: printing is disabled until reloaded
                     }
-                    //MOA_Removed
-                    //await DisplayAlertAsync("Print Notice", "Printing will be disabled due to error: " + output + "\nTo enable printing again, Check Utilities.", "Ok");
                 }
-
-
             }
 
-            //Move to next seq no
             OnNextRecord(pickerBillingFilter.SelectedIndex);
-
         }
         else
         {
@@ -2513,19 +2438,20 @@ public partial class Reading : ContentPage
         pickerRemarks.Focus();
     }
 
-    private void OnRemarkChanged(object sender, EventArgs e)
+    private async void OnRemarkChanged(object sender, EventArgs e)
     {
         int selectedindex = pickerRemarks.SelectedIndex;
-        string selectedRemarks = "";
         if (selectedindex != -1)
         {
-            selectedRemarks = pickerRemarks.Items[selectedindex];
-            txtRemarks.Text = selectedRemarks;
+            txtRemarks.Text = pickerRemarks.Items[selectedindex];
         }
         prevIndex = selectedindex;
         txtRemarks.IsVisible = true;
         pickerRemarks.IsVisible = false;
         btnSave.Focus();
+
+        if (selectedindex != -1)
+            await RecomputeCurrentAsync();      // NEW
     }
 
     private void OnRemarkFocus(object sender, FocusEventArgs e)

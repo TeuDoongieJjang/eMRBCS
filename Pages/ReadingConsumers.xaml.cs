@@ -13,9 +13,15 @@ public partial class ReadingConsumers : ContentPage
     {
         InitializeComponent();
         BindingContext = _vm;
+        ConsumerRecords.consumer_selectedtype = 0;
     }
 
-    protected override void OnAppearing() { base.OnAppearing(); _vm.Attach(); }
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        _vm.SelectedFilterIndex = ConsumerRecords.consumer_selectedtype;   // NEW
+        _vm.Attach();
+    }
     protected override void OnDisappearing() { base.OnDisappearing(); _vm.Detach(); }
 
     private async void TapImgBack(object? sender, TappedEventArgs e) => await Navigation.PopAsync();

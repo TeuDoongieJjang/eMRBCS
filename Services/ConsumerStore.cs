@@ -93,7 +93,9 @@ public sealed partial class ConsumerStore : ObservableObject
                     {
                         r.Refresh(); // status may have changed while the row was being built
                         _byId[r.Consumer.accountID] = r;
-                        (r.Status == 1 ? Billed : Unbilled).Add(r);
+                        if (r.Status == 0) Unbilled.Add(r);
+                        else if (r.Status == 1) Billed.Add(r);
+                        // other statuses (e.g. 2 = collected) are not shown in these two lists
                     }
                     LoadedCount = done;
                 });
@@ -115,8 +117,15 @@ public sealed partial class ConsumerStore : ObservableObject
         if (_byId.TryGetValue(c.accountID, out var row))
         {
             row.Refresh();
-            if (Unbilled.Remove(row)) Billed.Add(row);
+            if (Unbilled.Remove(row)) InsertSorted(Billed, row);
         }
         Revision++;
     });
+
+    private static void InsertSorted(ObservableCollection<ConsumerRow> list, ConsumerRow row)
+    {
+        int i = 0;
+        while (i < list.Count && list[i].Consumer.accountID < row.Consumer.accountID) i++;
+        list.Insert(i, row);
+    }
 }

@@ -600,31 +600,38 @@ WidthRequest="30" >
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <Label Grid.Row="1" x:Name="lblName"
-                Grid.Column="0"
-                FontAttributes="Bold"
-                Text="Name:"
-                TextColor="Black"
-                FontSize="14"
-                Margin="10,5,10,0"                                
-                HorizontalOptions="End"/>
-                            <Label x:Name="txtConsumerName"
-                                    Grid.Row="1"
-                Grid.Column="1"     
-                Text="Juan dela Cruz"
-                         
-                MaxLines="2"
-                Margin="10,5,10,0"          
-                FontSize="14"                                                                                 
-                HorizontalOptions="Fill"/>
-                            <Label Grid.Row="2"
-                Grid.Column="0"
-                FontAttributes="Bold"
-                Text="Meter No:"
-                TextColor="Black"
-                FontSize="14"
-                Margin="10"                                
-                HorizontalOptions="End"/>
+                        <Label Grid.Row="1" x:Name="lblName"
+    Grid.Column="0"
+    FontAttributes="Bold"
+    Text="Name:"
+    TextColor="Black"
+    FontSize="14"
+    Margin="10,5,10,0"                                
+    HorizontalOptions="End">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnNameTapped" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Label x:Name="txtConsumerName"
+                                Grid.Row="1"
+                                Grid.Column="1"     
+                                Text="Juan dela Cruz"
+                                MaxLines="2"
+                                Margin="10,5,10,0"          
+                                FontSize="14"                                                                                 
+                                HorizontalOptions="Fill">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnNameTapped" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Label Grid.Row="2"
+                                Grid.Column="0"
+                                FontAttributes="Bold"
+                                Text="Meter No:"
+                                TextColor="Black"
+                                FontSize="14"
+                                Margin="10"                                
+                                HorizontalOptions="End"/>
                             <BoxView Color="#3269cd"
                                  Grid.Row="2"
             Grid.Column="1"
