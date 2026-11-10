@@ -1,4 +1,5 @@
 using eMRBCS.Global;
+using eMRBCS.Services;
 using SharpCifs.Smb;
 using SharpCifs.Util.Sharpen;
 
@@ -79,7 +80,7 @@ public partial class ImportCustomers : ContentPage
 
     private async void TapImgBack(object sender, EventArgs e)
     {
-        await Navigation.PushAsync(new MainPage());
+        await Navigation.PushOnceAsync(() => new MainPage());
     }
 
     private async void OnClickWeb(object sender, EventArgs e)

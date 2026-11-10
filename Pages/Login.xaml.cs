@@ -112,13 +112,15 @@ public partial class Login : ContentPage
     }
 
     private async void OnLoginButtonClicked(object sender, EventArgs e)
+    => await UiGuard.RunAsync("login", LoginAsync, sender as VisualElement);
+
+    private async Task LoginAsync()
     {
         string username = usernameEntry.Text;
         string password = passwordEntry.Text;
 
         if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
         {
-
             await DisplayAlertAsync("Notice", "Please enter both username and password.", "Ok");
             return;
         }
@@ -128,17 +130,9 @@ public partial class Login : ContentPage
         bool isValid = await ValidateLogin(username, password);
         messageLabel.Text = "";
 
-        if (isValid)
-        {
-            await Navigation.PushAsync(new Mainmenu());
-        }
-        else
-        {
-            //
-            await DisplayAlertAsync("Notice", "Invalid username or password.", "Ok");
-        }
+        if (isValid) await Navigation.PushOnceAsync(() => new Mainmenu());
+        else await DisplayAlertAsync("Notice", "Invalid username or password.", "Ok");
     }
-
 
     private async Task<bool> ValidateLogin(string username, string password)
     {

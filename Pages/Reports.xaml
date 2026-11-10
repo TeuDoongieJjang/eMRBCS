@@ -82,11 +82,11 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />                    
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <ListView x:Name="lstReports" 
                     Grid.Row="0" Grid.Column="0">
-                    
+
                 </ListView>
                 <Button x:Name="btnPrint"
                     Clicked="OnPrintClick"
@@ -94,7 +94,7 @@
                         BackgroundColor="#3269cd"
                         Text="Print"
                     Grid.Row="1" Grid.Column="0">
-                    
+
                 </Button>
             </Grid>
             <!--End of List-->

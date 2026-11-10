@@ -46,7 +46,7 @@ public partial class UserManagement : ContentPage
 
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
 
     private void OnEditUser(object sender, EventArgs e)

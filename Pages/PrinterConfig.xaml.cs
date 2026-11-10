@@ -116,7 +116,7 @@ public partial class PrinterConfig : ContentPage
 
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
 
     private static string BuildMacDisplay(string hex)
@@ -407,9 +407,9 @@ public partial class PrinterConfig : ContentPage
     }
 
 
+    public Task<string> DoEscPOS_Print() => PrintGate.RunAsync(DoEscPOS_PrintCore);
 
-
-    public async Task<string> DoEscPOS_Print()
+    public async Task<string> DoEscPOS_PrintCore()
     {
         string result = "";
         string strHeaderFileName = "MLS_Header.bmp";
@@ -582,24 +582,18 @@ public partial class PrinterConfig : ContentPage
 
     }
 
+    // PrinterConfig.xaml.cs
     private async void OnTestPrint(object sender, EventArgs e)
-    {
-        string output = "";
-
-        if (MyDeviceInfo.currentPrintConfig != null)
+        => await UiGuard.RunAsync("testprint", async () =>
         {
-            //string outputTest = await DoTestPrint();
-            //await DisplayAlertAsync("Notice", outputTest, "Ok");
-            bool isConfirm = await DisplayAlertAsync("Test Print", "Would you like to perform a test print?", "Yes", "No");
-            if (isConfirm)
+            if (MyDeviceInfo.currentPrintConfig == null)
             {
-                output = await DoEscPOS_Print();
+                await DisplayAlertAsync("Test Print", "Please select a configuration to load.", "Ok");
+                return;
             }
+            string output = "";
+            if (await DisplayAlertAsync("Test Print", "Would you like to perform a test print?", "Yes", "No"))
+                output = await DoEscPOS_Print();
             await DisplayAlertAsync("Test Print", output, "Ok");
-        }
-        else
-        {
-            await DisplayAlertAsync("Test Print", "Please select a configuration to load.", "Ok");
-        }
-    }
+        }, btnTestPrint);
 }

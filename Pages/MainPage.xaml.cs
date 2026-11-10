@@ -66,12 +66,12 @@ public partial class MainPage : ContentPage
 
     private async void TapImgTransferFile(object sender, EventArgs e)
     {
-        await Navigation.PushAsync(new ImportCustomers());
+        await Navigation.PushOnceAsync(() => new ImportCustomers());
     }
 
     private async void TapImgAppConfig(object sender, EventArgs e)
     {
-        await Navigation.PushAsync(new AppSettings());
+        await Navigation.PushOnceAsync(() => new AppSettings());
     }
 
     private async void TapMeterReading(object sender, EventArgs e)

@@ -1,6 +1,7 @@
 
 using eMRBCS.Global;
 using eMRBCS.Models;
+using eMRBCS.Services;
 using MSRBC.Services;
 using SharpCifs.Smb;
 using SQLite;
@@ -38,7 +39,7 @@ public partial class ImportData : ContentPage
 
     private async void TapImgBack(object sender, EventArgs e)
     {
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
 
 

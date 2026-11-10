@@ -1,4 +1,5 @@
 using eMRBCS.Global;
+using eMRBCS.Services;
 using MSRBC.Services;
 
 namespace eMRBCS.Pages;
@@ -29,7 +30,7 @@ public partial class ExportData : ContentPage
 
     private async void TapImgBack(object sender, EventArgs e)
     {
-        await Navigation.PushAsync(new Utilities());
+        await Navigation.PushOnceAsync(() => new Utilities());
     }
 
     private async void OnClickConnect(object sender, EventArgs e)

@@ -50,10 +50,11 @@ public partial class Reports : ContentPage
 
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
-
     private async void OnPrintClick(object sender, EventArgs e)
+    => await UiGuard.RunAsync("report-print", PrintSelectedReportAsync, btnPrint);
+    private async Task PrintSelectedReportAsync()
     {
         if (lstReports.SelectedItem == null)
             return;
@@ -113,8 +114,9 @@ public partial class Reports : ContentPage
         if (!string.IsNullOrWhiteSpace(printStat))
             await DisplayAlertAsync("Notice", printStat, "Ok");
     }
-
-    public async Task<string> DoPrintUnbilled_EscPOS(Consumers consumer, List<Consumers> consumers)
+    public Task<string> DoPrintUnbilled_EscPOS(Consumers c, List<Consumers> l)
+    => PrintGate.RunAsync(() => DoPrintUnbilled_EscPOSCore(c, l));
+    public async Task<string> DoPrintUnbilled_EscPOSCore(Consumers consumer, List<Consumers> consumers)
     {
         if (consumer == null)
             return "No consumer record selected.";
@@ -228,8 +230,10 @@ public partial class Reports : ContentPage
 
         return result;
     }
-
-    public async Task<string> DoPrintBilledSummary_EscPOS(Consumers consumer, List<Consumers> consumers)
+    public Task<string> DoPrintBilledSummary_EscPOS(Consumers c, List<Consumers> l)
+    => PrintGate.RunAsync(() => DoPrintBilledSummary_EscPOSCore(c, l));
+    // likewise DoPrintBilledSummary_EscPOS and DoPrintReportConsumerWithRemarks_EscPOS
+    public async Task<string> DoPrintBilledSummary_EscPOSCore(Consumers consumer, List<Consumers> consumers)
     {
         if (consumer == null)
             return "No consumer record selected.";
@@ -339,8 +343,10 @@ public partial class Reports : ContentPage
 
         return result;
     }
-
-    public async Task<string> DoPrintReportConsumerWithRemarks_EscPOS(Consumers consumer, List<Consumers> consumers)
+    public Task<string> DoPrintReportConsumerWithRemarks_EscPOS(Consumers c, List<Consumers> l)
+    => PrintGate.RunAsync(() => DoPrintReportConsumerWithRemarks_EscPOSCore(c, l));
+    // likewise DoPrintBilledSummary_EscPOS and DoPrintReportConsumerWithRemarks_EscPOS
+    public async Task<string> DoPrintReportConsumerWithRemarks_EscPOSCore(Consumers consumer, List<Consumers> consumers)
     {
         if (consumer == null)
             return "No consumer record selected.";

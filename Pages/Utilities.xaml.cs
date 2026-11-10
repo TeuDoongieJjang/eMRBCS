@@ -58,218 +58,184 @@ public partial class Utilities : ContentPage
 
     private async void TapImgBack(object sender, EventArgs e)
     {
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
 
     private async void TapGetData(object sender, EventArgs e)
-    {
-        if (DataSyncService.Instance.IsBusy)
+        => await UiGuard.RunAsync("get-data", async () =>
         {
-            await DisplayAlertAsync("Notice", "Data is already being downloaded.", "Ok");
-            return;
-        }
-        //Check the latest import date.
-        string latest_importdate;
-        string import_message = "This process will import new data for " + DateTime.Now.ToString("yyyy-MM-dd") + " from server.";
-        bool isConfirmAgain = false;
-        string warningmsg = "";
-        bool withError = false;
-
-        bool confirm_answer;
-        int consumerFile = 0;
-        int remarkFile = 0;
-        int billrateFile = 0;
-        int userFile = 0;
-
-        bool isValidRequest = true;
-        bool isNewTransaction = false;
-
-        //Before anything else, check if IP address is valid
-        if (Serverdetails.Validnetwork == 0)
-        {
-            await DisplayAlertAsync("Warning", "Invalid Server address. Please contact administrator.", "Ok");
-            return;
-        }
-
-
-
-        Serverdetails.Server_Transactions = await dbService.GetLatestImportDate();
-
-        if (Serverdetails.Server_Transactions != null)
-        {
-            latest_importdate = Serverdetails.Server_Transactions.latest_importdate;
-
-            if (DateTime.Parse(latest_importdate).Date != DateTime.Today.Date)
+            if (DataSyncService.Instance.IsBusy)
             {
-                isNewTransaction = true;
-                if (Serverdetails.Server_Transactions.latest_exportdate == null)
+                await DisplayAlertAsync("Notice", "Data is already being downloaded.", "Ok");
+                return;
+            }
+            //Check the latest import date.
+            string latest_importdate;
+            string import_message = "This process will import new data for " + DateTime.Now.ToString("yyyy-MM-dd") + " from server.";
+            bool isConfirmAgain = false;
+            string warningmsg = "";
+            bool withError = false;
+
+            bool confirm_answer;
+            int consumerFile = 0;
+            int remarkFile = 0;
+            int billrateFile = 0;
+            int userFile = 0;
+
+            bool isValidRequest = true;
+            bool isNewTransaction = false;
+
+            //Before anything else, check if IP address is valid
+            if (Serverdetails.Validnetwork == 0)
+            {
+                await DisplayAlertAsync("Warning", "Invalid Server address. Please contact administrator.", "Ok");
+                return;
+            }
+
+
+
+            Serverdetails.Server_Transactions = await dbService.GetLatestImportDate();
+
+            if (Serverdetails.Server_Transactions != null)
+            {
+                latest_importdate = Serverdetails.Server_Transactions.latest_importdate;
+
+                if (DateTime.Parse(latest_importdate).Date != DateTime.Today.Date)
                 {
-                    isConfirmAgain = true;
+                    isNewTransaction = true;
+                    if (Serverdetails.Server_Transactions.latest_exportdate == null)
+                    {
+                        isConfirmAgain = true;
+                        if (ConsumerRecords.noofrecordsBilled > 0)
+                        {
+                            import_message = import_message + " YOU HAVEN'T SUBMITTED YOUR DAILY REPORT. Do you still want to continue without submitting your daily transactions for " + DateTime.Parse(latest_importdate).Date.ToString("yyyy-MM-dd") + " ?";
+
+                        }
+                        else
+                        {
+                            import_message = import_message + " Existing consumer records for " + DateTime.Parse(latest_importdate).Date.ToString("yyyy-MM-dd") + " will be overwritten with " + DateTime.Today.Date.ToString("yyyy-MM-dd") + " consumers? Continue?";
+                        }
+
+                    }
+                    else
+                    {
+                        import_message = import_message + " Do you want to continue?";
+                    }
+                }
+                else
+                {
+
                     if (ConsumerRecords.noofrecordsBilled > 0)
                     {
-                        import_message = import_message + " YOU HAVEN'T SUBMITTED YOUR DAILY REPORT. Do you still want to continue without submitting your daily transactions for " + DateTime.Parse(latest_importdate).Date.ToString("yyyy-MM-dd") + " ?";
-
+                        import_message = import_message + " YOU HAVE " + ConsumerRecords.noofrecordsBilled + " BILLED CONSUMERS. ALL DATA will be LOST!!! Continue?";
+                        isConfirmAgain = true;
                     }
                     else
                     {
-                        import_message = import_message + " Existing consumer records for " + DateTime.Parse(latest_importdate).Date.ToString("yyyy-MM-dd") + " will be overwritten with " + DateTime.Today.Date.ToString("yyyy-MM-dd") + " consumers? Continue?";
+                        import_message = import_message + " Existing consumer records will be overwritten!!! Continue?";
                     }
-
-                }
-                else
-                {
-                    import_message = import_message + " Do you want to continue?";
                 }
             }
             else
             {
-
-                if (ConsumerRecords.noofrecordsBilled > 0)
-                {
-                    import_message = import_message + " YOU HAVE " + ConsumerRecords.noofrecordsBilled + " BILLED CONSUMERS. ALL DATA will be LOST!!! Continue?";
-                    isConfirmAgain = true;
-                }
-                else
-                {
-                    import_message = import_message + " Existing consumer records will be overwritten!!! Continue?";
-                }
+                isNewTransaction = true;
+                import_message = import_message + " Do you want to continue?";
             }
-        }
-        else
-        {
-            isNewTransaction = true;
-            import_message = import_message + " Do you want to continue?";
-        }
 
 
-        confirm_answer = await DisplayAlertAsync("Warning", import_message, "Yes", "No");
-        if (confirm_answer)
-        {
-            if (isConfirmAgain)
+            confirm_answer = await DisplayAlertAsync("Warning", import_message, "Yes", "No");
+            if (confirm_answer)
             {
-                bool confirm_overwrite = await DisplayAlertAsync("Confirmation", "Are you really sure you want to proceed?", "Yes", "No");
-                if (!confirm_overwrite)
+                if (isConfirmAgain)
                 {
-                    isValidRequest = false;
+                    bool confirm_overwrite = await DisplayAlertAsync("Confirmation", "Are you really sure you want to proceed?", "Yes", "No");
+                    if (!confirm_overwrite)
+                    {
+                        isValidRequest = false;
+                    }
                 }
+
+            }
+            else
+            {
+
+                isValidRequest = false;
             }
 
-        }
-        else
-        {
+            if (!isValidRequest) return;
 
-            isValidRequest = false;
-        }
-
-        if (!isValidRequest) return;
-
-        // Runs in the background singleton: the UI stays free and the work continues on other pages.
-        _ = DataSyncService.Instance.StartAsync();
-    }
+            // Runs in the background singleton: the UI stays free and the work continues on other pages.
+            _ = DataSyncService.Instance.StartAsync();
+        });
 
     private async void TapSendData(object sender, EventArgs e)
+    => await UiGuard.RunAsync("send-data", async () =>
     {
-        //await Navigation.PushAsync(new ExportData());
-        bool isConfirm = await DisplayAlertAsync("Confirm", "Are you sure you want to submit your report?", "Yes", "No");
-        if (!isConfirm)
-        {
+        if (!await DisplayAlertAsync("Confirm", "Are you sure you want to submit your report?", "Yes", "No"))
             return;
-        }
+
         stackLoading.IsVisible = true;
-
-        //Dump data to table
         bool isError = false;
-        ConsumerRecords.ErrorSendData = "";
-        dbService = new DBService();
-        bool isSaved = await dbService.PrepareTransaction();
-        if (isSaved)
+        try
         {
-            //Prepare the file
-            FileService fileService = new FileService();
-            bool isWrite = await fileService.WriteDailyTrans();
-            if (isWrite)
-            {
-                bool isSend = await fileService.ExportFileAsync();
-                if (isSend)
-                {
-                    bool isExport = await dbService.ServerExportUpdate();
-                    if (isExport)
-                    {
-                        stackLoading.IsVisible = false;
-                        await DisplayAlertAsync("Notice", "Report file has been submitted", "Ok");
-                    }
-                    else
-                    {
-                        isError = true;
-                    }
-                }
-                else
-                {
-                    isError = true;
-                }
-            }
-            else
-            {
-                isError = true;
+            ConsumerRecords.ErrorSendData = "";
+            dbService = new DBService();
 
-            }
-
+            var fileService = new FileService();
+            isError = !(await dbService.PrepareTransaction()
+                     && await fileService.WriteDailyTrans()
+                     && await fileService.ExportFileAsync()
+                     && await dbService.ServerExportUpdate());
         }
-        else
-        {
-            isError = true;
+        finally { stackLoading.IsVisible = false; }
 
-        }
-        if (isError)
-        {
-            stackLoading.IsVisible = false;
-            await DisplayAlertAsync("Notice", "Failed to submit report file!\nError:\n" + ConsumerRecords.ErrorSendData, "Ok");
-        }
-
-
-    }
+        await DisplayAlertAsync("Notice",
+            isError ? "Failed to submit report file!\nError:\n" + ConsumerRecords.ErrorSendData
+                    : "Report file has been submitted", "Ok");
+    });
     private async void TapSettings(object sender, EventArgs e)
     {
         dbService = new DBService();
         bool isLog = await dbService.SaveUserActivity("Utilities", "Open Settings", "Success");
-        await Navigation.PushAsync(new AppSettings());
+        await Navigation.PushOnceAsync(() => new AppSettings());
 
     }
 
     private async void TapUsers(object sender, TappedEventArgs e)
     {
 
-        await Navigation.PushAsync(new UserAccess());
+        await Navigation.PushOnceAsync(() => new UserAccess());
     }
 
     private async void TapBackup(object sender, TappedEventArgs e)
-    {
-        //await Navigation.PushAsync(new ExportData());
-
-        bool istoBackup = await DisplayAlertAsync("Notice", "Backup data to available external storage. Continue?", "Yes", "No");
-        if (istoBackup)
+        => await UiGuard.RunAsync("backup-data", async () =>
         {
-            stackLoading.IsVisible = true;
-            string copyStatus = await CopyFileToExternalStorageAsync();
-            string[] tmpStatus = copyStatus.Split(':');
-            string alertStatus = "Copy " + tmpStatus[0] + "\nMessage: " + tmpStatus[1] + "\nDestination: " + tmpStatus[2];
-            stackLoading.IsVisible = false;
-            await DisplayAlertAsync("Notice", alertStatus, "Ok");
-        }
+            //await Navigation.PushAsync(new ExportData());
 
-    }
+            bool istoBackup = await DisplayAlertAsync("Notice", "Backup data to available external storage. Continue?", "Yes", "No");
+            if (istoBackup)
+            {
+                stackLoading.IsVisible = true;
+                string copyStatus = await CopyFileToExternalStorageAsync();
+                string[] tmpStatus = copyStatus.Split(':');
+                string alertStatus = "Copy " + tmpStatus[0] + "\nMessage: " + tmpStatus[1] + "\nDestination: " + tmpStatus[2];
+                stackLoading.IsVisible = false;
+                await DisplayAlertAsync("Notice", alertStatus, "Ok");
+            }
+
+        });
 
     private async void TapRestore(object sender, TappedEventArgs e)
     {
         //await Navigation.PushAsync(new ExportData());
-        await Navigation.PushAsync(new ImportData());
+        await Navigation.PushOnceAsync(() => new ImportData());
     }
 
 
 
     private async void TapPrinterConfig(object sender, TappedEventArgs e)
     {
-        await Navigation.PushAsync(new PrinterConfig());
+        await Navigation.PushOnceAsync(() => new PrinterConfig());
     }
 
     public async Task<string> CopyFileToExternalStorageAsync()

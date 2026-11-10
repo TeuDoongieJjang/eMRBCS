@@ -215,7 +215,7 @@ public partial class LoadingScreen : ContentPage
         {
             lblLoadingPercent.Text = "100%";
             lblLoadingDetails.Text = "No network configuration found.";
-            await Navigation.PushAsync(new Login());
+            await Navigation.PushOnceAsync(() => new Login());
             return;
         }
 
@@ -279,7 +279,7 @@ public partial class LoadingScreen : ContentPage
         string product_key = EncryptString(MyDeviceInfo.device_AndroidID.ToUpper(), "manny");
         MyDeviceInfo.isActivated = IsAppActivated(product_key);
 
-        await Navigation.PushAsync(new Login());
+        await Navigation.PushOnceAsync(() => new Login());
     }
 
     public static string EncryptString(string plainText, string passphrase)

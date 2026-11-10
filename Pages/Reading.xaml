@@ -1009,7 +1009,14 @@ Grid.Row="0" Grid.Column="1"
                 
             </Grid>
         </ScrollView>
-
+        <Grid x:Name="busyOverlay" IsVisible="False" BackgroundColor="#99000000" ZIndex="10"
+      AbsoluteLayout.LayoutBounds="0,0,1,1" AbsoluteLayout.LayoutFlags="All">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="12">
+                <ActivityIndicator IsRunning="True" Color="White" WidthRequest="60" HeightRequest="60" />
+                <Label x:Name="lblBusy" Text="Please wait..." TextColor="White"
+               FontSize="16" HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </Grid>
     </AbsoluteLayout>
    
     

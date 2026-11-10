@@ -1,5 +1,6 @@
 
 using eMRBCS.Global;
+using eMRBCS.Services;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -19,7 +20,7 @@ public partial class ProductActivation : ContentPage
 
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
 
     private void OnSaveChanges(object sender, EventArgs e)

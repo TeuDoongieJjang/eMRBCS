@@ -1,14 +1,13 @@
-using Microsoft.Maui.ApplicationModel;
 using eMRBCS.Global;
-using static System.Net.WebRequestMethods;
+using eMRBCS.Services;
 
 namespace eMRBCS.Pages;
 
 public partial class UserAccess : ContentPage
 {
-	public UserAccess()
-	{
-		InitializeComponent();
+    public UserAccess()
+    {
+        InitializeComponent();
         ScreenAdjustment();
 
     }
@@ -17,27 +16,27 @@ public partial class UserAccess : ContentPage
     {
         if (MyDeviceInfo.device_heightpix < 900 && MyDeviceInfo.device_widthpix < 500)
         {
-                    
+
         }
     }
 
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
-		await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
 
     private async void Tapprofile(object sender, TappedEventArgs e)
     {
-        await Navigation.PushAsync(new Profile());
+        await Navigation.PushOnceAsync(() => new Profile());
     }
 
     private async void TapAddUser(object sender, TappedEventArgs e)
     {
-        await Navigation.PushAsync(new UserManagement());
+        await Navigation.PushOnceAsync(() => new UserManagement());
     }
 
     private async void TapUserActivity(object sender, TappedEventArgs e)
     {
-        await Navigation.PushAsync(new UserActivity());
+        await Navigation.PushOnceAsync(() => new UserActivity());
     }
 }

@@ -130,15 +130,17 @@ public partial class Mainmenu : ContentPage
     }
 
     private async void TapMeterReading(object sender, EventArgs e)
+    => await UiGuard.RunAsync("menu", async () =>
     {
         if (LoginUser.role > 1 && !MyDeviceInfo.isActivated)
         {
             await DisplayAlertAsync("Notice", "Please activate your application.", "Ok");
             return;
         }
-        await Navigation.PushAsync(new ReadingConsumers());   // no overlay: data is already in the store
-    }
+        await Navigation.PushOnceAsync(() => new ReadingConsumers());
+    });
     private async void TapUtilities(object sender, EventArgs e)
+    => await UiGuard.RunAsync("menu", async () =>
     {
         if (LoginUser.role > 1 && !MyDeviceInfo.isActivated)
         {
@@ -147,10 +149,11 @@ public partial class Mainmenu : ContentPage
         }
         dbService = new DBService();
         _ = dbService.SaveUserActivity("Main Menu", "Open Utilities", "Success");   // don't wait for it
-        await Navigation.PushAsync(new Utilities());
-    }
+        await Navigation.PushOnceAsync(() => new Utilities());
+    });
 
     private async void TapLogout(object sender, TappedEventArgs e)
+    => await UiGuard.RunAsync("menu", async () =>
     {
         if (!await DisplayAlertAsync("Notice", "Are you sure you want to log out?", "Yes", "No")) return;
         dbService = new DBService();
@@ -158,31 +161,31 @@ public partial class Mainmenu : ContentPage
         LoginUser.login_user = new Users();
         // fresh stack: the Android Back button can no longer return to the Main Menu
         Application.Current!.Windows[0].Page = new NavigationPage(new Login());
-    }
+    });
     private async void TapCollection(object sender, TappedEventArgs e)
-    {
-        if (LoginUser.role > 1)
-        {
-            if (!MyDeviceInfo.isActivated)
-            {
-                await DisplayAlertAsync("Notice", "Please activate your application.", "Ok");
-                return;
-            }
-        }
-        await DisplayAlertAsync("Notice", "This feature is not yet available for this version.", "Ok");
-    }
-
-    private async void TapReports(object sender, TappedEventArgs e)
+    => await UiGuard.RunAsync("menu", async () =>
     {
         if (LoginUser.role > 1 && !MyDeviceInfo.isActivated)
         {
             await DisplayAlertAsync("Notice", "Please activate your application.", "Ok");
             return;
         }
-        await Navigation.PushAsync(new Reports());
-    }
-    private async void TapProductKey(object sender, TappedEventArgs e)
+        await DisplayAlertAsync("Notice", "This feature is not yet available for this version.", "Ok");
+    });
+
+    private async void TapReports(object sender, TappedEventArgs e)
+        => await UiGuard.RunAsync("menu", async () =>
     {
-        await Navigation.PushAsync(new ProductActivation());
-    }
+        if (LoginUser.role > 1 && !MyDeviceInfo.isActivated)
+        {
+            await DisplayAlertAsync("Notice", "Please activate your application.", "Ok");
+            return;
+        }
+        await Navigation.PushOnceAsync(() => new Reports());
+    });
+    private async void TapProductKey(object sender, TappedEventArgs e)
+    => await UiGuard.RunAsync("menu", async () =>
+    {
+        await Navigation.PushOnceAsync(() => new ProductActivation());
+    });
 }

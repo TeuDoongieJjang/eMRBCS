@@ -6,23 +6,23 @@ namespace eMRBCS.Pages;
 public partial class Profile : ContentPage
 {
     DBService dbService;
-	public Profile()
-	{
-		InitializeComponent();
+    public Profile()
+    {
+        InitializeComponent();
 
         txtname.Text = LoginUser.login_user.fullname;
         txtposition.Text = LoginUser.user_position;
         txtusername.Text = LoginUser.login_user.username;
-        dbService = new DBService();    
+        dbService = new DBService();
 
-	}
+    }
 
     private async void OnSaveChanges(object sender, EventArgs e)
     {
         bool isSaved = await dbService.UpdateAdminUser(txtusername.Text, LoginUser.login_user.password, txtname.Text, txtposition.Text);
         if (isSaved)
         {
-            await DisplayAlertAsync("Notice", "Information has been updated!", "Ok");           
+            await DisplayAlertAsync("Notice", "Information has been updated!", "Ok");
         }
         else
         {
@@ -38,17 +38,17 @@ public partial class Profile : ContentPage
         txtconfirmpass.Text = "";
         btnSaveChanges.IsEnabled = false;
         btnUpdatePass.IsEnabled = false;
-       
+
     }
 
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
 
     private async void OnSavePass(object sender, EventArgs e)
     {
-        if (txtnewpass.Text == txtconfirmpass.Text && txtoldpass.Text == LoginUser.login_user.password )
+        if (txtnewpass.Text == txtconfirmpass.Text && txtoldpass.Text == LoginUser.login_user.password)
         {
             bool isSaved = await dbService.UpdateAdminUser(txtusername.Text, txtnewpass.Text, txtname.Text, txtposition.Text);
             if (isSaved)

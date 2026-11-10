@@ -649,7 +649,7 @@ public partial class Reading : ContentPage
         //    }
         //}
 
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
         //await Navigation.PopAsync();
     }
 
@@ -1135,7 +1135,7 @@ public partial class Reading : ContentPage
         //}
 
         //await Navigation.PushAsync(new ReadingConsumers());
-        await Navigation.PopAsync();
+        await Navigation.PopOnceAsync();
     }
 
     private void OnClickB7(object sender, EventArgs e)
@@ -1856,7 +1856,9 @@ public partial class Reading : ContentPage
 
         return bill;
     }
-    public async Task<string> DoPrintBill(Consumers consumer)
+
+    public Task<string> DoPrintBill(Consumers consumer) => PrintGate.RunAsync(() => DoPrintBillCore(consumer));
+    public async Task<string> DoPrintBillCore(Consumers consumer)
     {
         string result = "";
         string strHeaderFileName = MOA.GetClientLogo(consumer.parameters);
@@ -2271,29 +2273,33 @@ public partial class Reading : ContentPage
         logoBase64ImgStr = Convert.ToBase64String(imgByteArray);
 
     }
-
-    private async void OnPrintBill(object sender, EventArgs e)
+    private void SetBusy(bool on, string text = "Please wait...")
     {
-        if (string.IsNullOrEmpty(txtConsumerAcctNo.Text))
-        {
-            return;
-        }
+        lblBusy.Text = text;
+        busyOverlay.IsVisible = on;
+    }
+    private async void OnPrintBill(object sender, EventArgs e)
+    => await UiGuard.RunAsync("reading-action", PrintBillAsync);
+    private async Task PrintBillAsync()
+    {
+        if (string.IsNullOrEmpty(txtConsumerAcctNo.Text)) return;
         if (MyDeviceInfo.currentPrintConfig == null)
         {
             await DisplayAlertAsync("Print Notice", "No default printer loaded. Please check under Utilities.", "Ok");
             return;
         }
 
-        bool toPrint = await DisplayAlertAsync("Confirm", "Print Selected Transaction?", "Ok", "Cancel");
-        if (toPrint)
-        {
-            var result = ConsumerStore.Instance.FindByAccountNo(txtConsumerAcctNo.Text);
-            if (result != null)
-            {
-                string output = await DoPrintBill(result);
-                await DisplayAlertAsync("Print Notice", output, "Ok");
-            }
-        }
+        if (!await DisplayAlertAsync("Confirm", "Print Selected Transaction?", "Ok", "Cancel")) return;
+
+        var result = ConsumerStore.Instance.FindByAccountNo(txtConsumerAcctNo.Text);
+        if (result == null) return;
+
+        string output;
+        SetBusy(true, "Printing, please wait...");
+        try { output = await DoPrintBill(result); }
+        finally { SetBusy(false); }
+
+        await DisplayAlertAsync("Print Notice", output, "Ok");
     }
 
     private async void OnCheckPrint(object sender, CheckedChangedEventArgs e)
@@ -2318,8 +2324,9 @@ public partial class Reading : ContentPage
 
 
     #region newlogic
-
     private async void OnSaveReading(object sender, EventArgs e)
+    => await UiGuard.RunAsync("reading-action", SaveReadingAsync);
+    private async Task SaveReadingAsync()
     {
         if (string.IsNullOrEmpty(txtConsumerAcctNo.Text))
         {
@@ -2375,7 +2382,10 @@ public partial class Reading : ContentPage
         consumer.remarks = (strRemarks != "" && string.IsNullOrEmpty(selectedRemarks)) ? strRemarks : selectedRemarks;
 
         dbService = new DBService();
-        bool isSaveSuccess = await dbService.ConsumerUpdateItemToDatabase(consumer);
+        bool isSaveSuccess;
+        SetBusy(true, "Saving...");
+        try { isSaveSuccess = await dbService.ConsumerUpdateItemToDatabase(consumer); }
+        finally { SetBusy(false); }
         if (isSaveSuccess)
         {
             ConsumerStore.Instance.MarkBilled(consumer);
@@ -2393,14 +2403,15 @@ public partial class Reading : ContentPage
                 bool toPrint = isPrintOn ? true : await DisplayAlertAsync("Confirm", "Print Transaction?", "Yes", "No");
                 if (toPrint)
                 {
-                    string output = await DoPrintBill(consumer);
+                    string output;
+                    SetBusy(true, "Printing, please wait...");
+                    try { output = await DoPrintBill(consumer); }
+                    finally { SetBusy(false); }
+
                     if (output != "Done printing.")
-                    {
-                        MyDeviceInfo.currentPrintConfig = null;   // error: printing is disabled until reloaded
-                    }
+                        MyDeviceInfo.currentPrintConfig = null;
                 }
             }
-
             OnNextRecord(pickerBillingFilter.SelectedIndex);
         }
         else
