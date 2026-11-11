@@ -361,55 +361,36 @@ FontSize="14"
 
                 </Grid>-->
 
-                <BoxView Color="#3269cd"
-                    HorizontalOptions="FillAndExpand"
-                    VerticalOptions="FillAndExpand"
-                    HeightRequest="50" 
-                    Grid.Row="0"
-                    Grid.Column="0"/>
+                <!-- Header bar: background is on the Grid itself, so it can never leave white gaps -->
+                <Grid Grid.Row="0" Grid.Column="0"
+      BackgroundColor="#3269cd"
+      MinimumHeightRequest="50"
+      ColumnDefinitions="*,Auto"
+      Padding="0">
 
-                <Grid  Grid.Row="0" Grid.Column="0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                   
-                    <!--<HorizontalStackLayout Grid.Row="0" Grid.Column="0" HorizontalOptions="Start" >
-                        <CheckBox x:Name="chkPrintOn" 
-                    
-                          CheckedChanged="OnCheckPrint"
-                          Color="White"
-IsChecked="false"    
-/>
-                        <Label  Text="Auto Print"
-                       
-                        TextColor="White"
-VerticalOptions="Center"
-FontSize="14"                        
-/>
-                    </HorizontalStackLayout>-->
-                    <Label x:Name="lblSummaryCount" VerticalOptions="Center"
-                           TextColor="White"
-HorizontalOptions="Start"
-   Text="0 / 0"
-   FontSize="22"
-   FontAttributes="Bold"
-   Margin="10,0,20,0"
-   Grid.Row="0"
-    Grid.Column="0"   
-   />
-                    <Image Source="menuicons/options1.png"  Grid.Row="0" Grid.Column="1" HorizontalOptions="End" x:Name="imgoption"
-Margin="0,5,10,0"
-                           HeightRequest="40" 
-WidthRequest="40" >
+                    <Label x:Name="lblSummaryCount"
+           Grid.Column="0"
+           Text="0 / 0"
+           TextColor="White"
+           FontSize="22"
+           FontAttributes="Bold"
+           FontAutoScalingEnabled="False"
+           VerticalOptions="Center"
+           HorizontalOptions="Start"
+           Margin="10,0,20,0" />
+
+                    <Image x:Name="imgoption"
+           Grid.Column="1"
+           Source="menuicons/options1.png"
+           HeightRequest="40"
+           WidthRequest="40"
+           VerticalOptions="Center"
+           HorizontalOptions="End"
+           Margin="0,5,10,5">
                         <Image.GestureRecognizers>
                             <TapGestureRecognizer Tapped="TapShowOPtions" />
                         </Image.GestureRecognizers>
                     </Image>
-
                 </Grid>
                 <Grid x:Name="gridOptions"  
                     Grid.Row="1" Grid.Column="0" IsVisible="False"  >
