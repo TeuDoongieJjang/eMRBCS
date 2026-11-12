@@ -6,7 +6,7 @@ using AndroidX.Core.Content;
 
 namespace eMRBCS.Platforms.Android
 {
-    
+
     public static class BluetoothPermissionHelper
     {
         private const int RequestCode = 1101;
@@ -31,23 +31,21 @@ namespace eMRBCS.Platforms.Android
         /// Requests Bluetooth permissions if needed and awaits the user's response.
         /// Returns true if granted (or already granted / not required).
         /// </summary>
-        public static Task<bool> EnsureBluetoothPermissionsAsync()
+        public static async Task<bool> EnsureBluetoothPermissionsAsync()
         {
-            if (HasBluetoothPermissions())
-                return Task.FromResult(true);
+            if (HasBluetoothPermissions()) return true;
 
             var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
-            if (activity == null)
-                return Task.FromResult(false);
+            if (activity == null) return false;
 
-            _pendingRequest = new TaskCompletionSource<bool>();
-
+            _pendingRequest = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             ActivityCompat.RequestPermissions(
                 activity,
                 new[] { Manifest.Permission.BluetoothScan, Manifest.Permission.BluetoothConnect },
                 RequestCode);
 
-            return _pendingRequest.Task;
+            try { return await _pendingRequest.Task.WaitAsync(TimeSpan.FromSeconds(60)); }
+            catch (TimeoutException) { _pendingRequest = null; return false; }
         }
 
         /// <summary>
