@@ -89,21 +89,21 @@ namespace eMRBCS.Platforms.Android
 
         private void ApplyAutoLogoMethod()
         {
-            LogoMsPerRow = 0;
-            LogoVerticalDouble = false;          // no more stretching
-            LogoInterStripPauseMs = 0;
+            LogoVerticalDouble = false;          // never stretch
+            LogoMaxWidthDots = 0;                // full paper width
 
             if (IsSmallPaper)                    // 2-inch: unchanged, already clean
             {
                 LogoMode = LogoMode.BitImage;
                 LogoInterStripPauseMs = 40;
-                LogoMaxWidthDots = 0;            // full width
+                LogoMsPerRow = 0;
             }
-            else                                 // 3-inch: proportionally smaller logo, same shape
+            else                                 // 3-inch: full width, small bands, pause after each band
             {
                 LogoMode = LogoMode.RasterBands;
                 LogoSliceRows = 24;
-                LogoMaxWidthDots = 384;          // about 44% of the data, centered, aspect ratio kept
+                LogoInterStripPauseMs = 0;
+                LogoMsPerRow = 3;                // 24 rows x 3 ms = about 72 ms pause after each band
             }
         }
 
