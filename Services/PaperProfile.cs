@@ -90,22 +90,23 @@
     public sealed class PrinterCaps
     {
         // text sending
-        public int SendChunkSize { get; init; } = 256;          // smaller chunk
-        public int SendChunkDelayMs { get; init; } = 25;        // longer delay
-        public int TailDelayMs { get; init; } = 600;
+        public int SendChunkSize { get; init; } = 512;
+        public int SendChunkDelayMs { get; init; } = 4;
+        public int TailDelayMs { get; init; } = 400;
 
         // barcode / QR / text-image / rule raster
-        public int RasterSliceRows { get; init; } = 24;         // smaller slices
-        public int RasterChunkSize { get; init; } = 128;        // smaller chunk
-        public int RasterChunkDelayMs { get; init; } = 20;      // longer delay
+        public int RasterSliceRows { get; init; } = 48;
+        public int RasterChunkSize { get; init; } = 192;
+        public int RasterChunkDelayMs { get; init; } = 8;
 
         // logo
         public bool LogoBitImage { get; init; } = false;
-        public int LogoSliceRows { get; init; } = 16;           // smaller slices
-        public int LogoChunkSize { get; init; } = 128;
-        public int LogoChunkDelayMs { get; init; } = 20;
-        public int LogoStripPauseMs { get; init; } = 15;        // important for logos
+        public int LogoSliceRows { get; init; } = 24;
+        public int LogoChunkSize { get; init; } = 192;
+        public int LogoChunkDelayMs { get; init; } = 8;
+        public int LogoStripPauseMs { get; init; } = 0;
 
+        /// <summary>Safe for every printer (slower).</summary>
         public static PrinterCaps Default => new();
 
         /// <summary>For printers with a fast Bluetooth buffer. Use: printer.Caps = PrinterCaps.Fast;</summary>

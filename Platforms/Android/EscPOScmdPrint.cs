@@ -91,7 +91,7 @@ namespace eMRBCS.Platforms.Android
         public int LogoChunkSize { get; set; } = 192;
         public int LogoChunkDelayMs { get; set; } = 8;
         public int LogoMsPerRow { get; set; } = 0;
-        public int LogoInterStripPauseMs { get; set; } = 15;
+        public int LogoInterStripPauseMs { get; set; } = 0;
         public int LogoStripFeedDots { get; set; } = 22;
         public int LogoMaxWidthDots { get; set; } = 0;
         public bool LogoVerticalDouble { get; set; } = false;
@@ -163,18 +163,10 @@ namespace eMRBCS.Platforms.Android
             {
                 int len = Math.Min(chunk, s.Data.Length - i);
                 stream.Write(s.Data, i, len);
-                stream.Flush();                                         // <-- flush every chunk
-
-                // Adaptive sleep: longer for bigger chunks, still honour the caller's delay
-                int baseSleep = s.DelayMs;
-                if (len >= 256) baseSleep = Math.Max(baseSleep, 100);   // large chunk -> 100 ms
-                else baseSleep = Math.Max(baseSleep, 20);    // small chunk -> 20 ms
-
-                if (baseSleep > 0 && i + len < s.Data.Length)
-                    System.Threading.Thread.Sleep(baseSleep);
+                if (s.DelayMs > 0 && i + len < s.Data.Length)
+                    System.Threading.Thread.Sleep(s.DelayMs);
             }
-            if (s.PauseAfterMs > 0)
-                System.Threading.Thread.Sleep(s.PauseAfterMs);
+            if (s.PauseAfterMs > 0) System.Threading.Thread.Sleep(s.PauseAfterMs);
         }
 
         private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
@@ -1264,11 +1256,6 @@ namespace eMRBCS.Platforms.Android
                 int pause = msPerRow > 0 ? rows * msPerRow : 0;
                 await EnqueueOrSendAsync(cmd, useChunk, useDelay, pause);
                 RasterRows += vDouble ? rows * 2 : rows;
-                if (banded)
-                {
-                    await Task.Delay(Math.Max(10, LogoInterStripPauseMs));
-                }
-
             }
 
             if (banded) await WriteRawAsync(new byte[] { 0x1B, 0x32 });
