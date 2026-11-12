@@ -83,6 +83,27 @@ namespace eMRBCS.Platforms.Android
         public int RasterChunkSize { get; set; } = 192;
         public int RasterChunkDelayMs { get; set; } = 8;
         public int RasterSliceRows { get; set; } = 48;
+        /// true = logo method is chosen from the paper size (tested defaults).
+        /// Set false only to force LogoMode manually (e.g. the logo lab).
+        public bool LogoAuto { get; set; } = true;
+
+        private void ApplyAutoLogoMethod()
+        {
+            LogoMsPerRow = 0;
+            LogoVerticalDouble = false;
+
+            if (IsSmallPaper)                       // 2-inch paper (323, 32...): consistent in tests
+            {
+                LogoMode = LogoMode.BitImage;
+                LogoInterStripPauseMs = 40;
+            }
+            else                                    // 3-inch paper (48...): consistent in tests
+            {
+                LogoMode = LogoMode.RasterBands;
+                LogoSliceRows = 24;
+                LogoInterStripPauseMs = 0;
+            }
+        }
 
         // ---------------- logo settings ----------------
         public LogoMode LogoMode { get; set; } = LogoMode.RasterBands;
@@ -1386,6 +1407,7 @@ namespace eMRBCS.Platforms.Android
 
         public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign align = PrintAlign.Center)
         {
+            if (LogoAuto) ApplyAutoLogoMethod();
             int maxW = Math.Min(Profile.WidthDots, Head - Profile.OffsetDots);
             int w = Math.Max(8, (int)(maxW * widthFraction) / 8 * 8);
             w = Math.Min(w, maxW / 8 * 8);

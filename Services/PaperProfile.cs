@@ -97,10 +97,8 @@
     /// </summary>
     public sealed class PrinterCaps
     {
-
-        // NEW: continuous paced stream
-        public int PaceBytesPerSecond { get; init; } = 28000;   // 0 = no pacing
-        public int PrebufferBytes { get; init; } = 2048;        // sent as a burst to fill the printer buffer
+        public int PaceBytesPerSecond { get; init; } = 0;     // pacing OFF (matches the lab conditions that worked)
+        public int PrebufferBytes { get; init; } = 0;
         public int WriteChunkSize { get; init; } = 512;
         // text sending
         public int SendChunkSize { get; init; } = 512;
@@ -120,39 +118,16 @@
         public int LogoStripPauseMs { get; init; } = 0;
 
         /// <summary>Safe for every printer (slower).</summary>
-        public static PrinterCaps ForProfile(SpeedProfile p) => p switch
-        {
-            SpeedProfile.Safe => new PrinterCaps
-            {
-                PaceBytesPerSecond = 12000,
-                PrebufferBytes = 1024,
-                WriteChunkSize = 256,
-                RasterSliceRows = 48,
-                LogoSliceRows = 48,
-                TailDelayMs = 600
-            },
-            SpeedProfile.Fast => new PrinterCaps
-            {
-                PaceBytesPerSecond = 80000,
-                PrebufferBytes = 4096,
-                WriteChunkSize = 1024,
-                RasterSliceRows = 0,
-                LogoSliceRows = 0,
-                TailDelayMs = 250
-            },
-            _ => new PrinterCaps   // Balanced
-            {
-                PaceBytesPerSecond = 28000,
-                PrebufferBytes = 2048,
-                WriteChunkSize = 512,
-                RasterSliceRows = 0,
-                LogoSliceRows = 128,
-                TailDelayMs = 400
-            }
-        };
 
-        public static PrinterCaps Default => ForProfile(PrinterHardware.SpeedProfile);   // CHANGED
-        public static PrinterCaps Fast => ForProfile(SpeedProfile.Fast);
+
+        // Tuned from the test data: 32-row raster bands, 24-row logo bands, 512-byte chunks.
+        public static PrinterCaps Default => new()
+        {
+            RasterSliceRows = 32,
+            LogoSliceRows = 24,
+            TailDelayMs = 400
+        };
+        public static PrinterCaps Fast => Default;
 
         /// <summary>Use if the logo does not print with GS v 0 raster.</summary>
         public static PrinterCaps BitImageLogo => new() { LogoBitImage = true };

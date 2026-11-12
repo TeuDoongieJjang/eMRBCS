@@ -435,6 +435,7 @@ public partial class PrinterConfig : ContentPage
 
             async Task Section(string label, Action setup)
             {
+                printer.LogoAuto = false;
                 printer.PaceBytesPerSecond = 0;       // defaults for every section
                 printer.LogoMsPerRow = 0;
                 printer.LogoInterStripPauseMs = 0;
@@ -446,12 +447,12 @@ public partial class PrinterConfig : ContentPage
                 await Task.Delay(2500);
             }
 
-            await Section("A: raster, one command", () => printer.LogoMode = LogoMode.Raster);
-            await Section("B: raster bands of 24 rows", () => { printer.LogoMode = LogoMode.RasterBands; printer.LogoSliceRows = 24; });
-            await Section("C: raster bands 24 + pause", () => { printer.LogoMode = LogoMode.RasterBands; printer.LogoSliceRows = 24; printer.LogoMsPerRow = 3; });
-            await Section("D: bit image strips", () => printer.LogoMode = LogoMode.BitImage);
-            await Section("E: bit image strips + pause", () => { printer.LogoMode = LogoMode.BitImage; printer.LogoInterStripPauseMs = 40; });
-
+            //await Section("A: raster, one command", () => printer.LogoMode = LogoMode.Raster);
+            //await Section("B: raster bands of 24 rows", () => { printer.LogoMode = LogoMode.RasterBands; printer.LogoSliceRows = 24; });
+            //await Section("C: raster bands 24 + pause", () => { printer.LogoMode = LogoMode.RasterBands; printer.LogoSliceRows = 24; printer.LogoMsPerRow = 3; });
+            //await Section("D: bit image strips", () => printer.LogoMode = LogoMode.BitImage);
+            //await Section("E: bit image strips + pause", () => { printer.LogoMode = LogoMode.BitImage; printer.LogoInterStripPauseMs = 40; });
+            await Section("F: AUTO (used by bills)", () => printer.LogoAuto = true);
             result = "Done printing.";
         }
         catch (Exception ex) { result = "Print failed: " + ex.GetType().Name + " - " + ex.Message; }
