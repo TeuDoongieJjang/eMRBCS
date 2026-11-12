@@ -1,5 +1,4 @@
 ﻿using Android.Bluetooth;
-using Android.OS;
 using eMRBCS.Services;
 using QRCoder;
 using SkiaSharp;
@@ -50,13 +49,7 @@ namespace eMRBCS.Platforms.Android
 
         public string DeviceName { get; private set; } = "";
 
-        public EscPOScmdPrint()
-        {
-            // Old/low-end Android stacks (< 10) queue SPP writes asynchronously, so pacing
-            // is ignored and cheap printer buffers overflow -> white cuts. Auto-use the
-            // conservative Compat pacing there. Modern phones keep the fast defaults.
-            Caps = Build.VERSION.SdkInt < BuildVersionCodes.Q ? PrinterCaps.Compat : PrinterCaps.Default;
-        }
+        public EscPOScmdPrint() { ApplyCaps(); }
 
         private void ApplyCaps()
         {
@@ -216,6 +209,9 @@ namespace eMRBCS.Platforms.Android
         //  connection
         // ======================================================================
 
+        public bool AutoCaps { get; set; } = true;
+        public string TransportInUse => _link?.TransportName ?? "-";
+
         public async Task ConnectAsync(string macAddress)
         {
             var adapter = BluetoothAdapter.DefaultAdapter
@@ -224,14 +220,16 @@ namespace eMRBCS.Platforms.Android
                 ?? throw new InvalidOperationException($"Could not resolve device: {macAddress}");
             try { adapter.CancelDiscovery(); } catch { }
 
-            bool leOnly = false;
-            try { leOnly = device.Type == BluetoothDeviceType.Le; } catch { }
+            bool bleCapable = false;
+            try { bleCapable = device.Type is BluetoothDeviceType.Le or BluetoothDeviceType.Dual; } catch { }
 
             var order = Transport switch
             {
                 PrinterTransport.SppOnly => new[] { "spp" },
                 PrinterTransport.BleOnly => new[] { "ble" },
-                _ => leOnly ? new[] { "ble" } : new[] { "spp", "ble" }   // Auto: classic first, BLE fallback
+                // BLE first whenever available: acknowledged writes are the only
+                // guarantee against lost bytes on weak phones / cheap BT modules.
+                _ => bleCapable ? new[] { "ble", "spp" } : new[] { "spp", "ble" }
             };
 
             var errors = new List<string>();
@@ -254,13 +252,16 @@ namespace eMRBCS.Platforms.Android
                     DeviceName = _link.DeviceName;
                     ClearBuffer();
                     RasterRows = 0;
+
+                    // Pacing follows the LINK, not the Android version:
+                    // acked BLE -> fast; SPP / no-ack BLE -> lockstep on EVERY phone.
+                    if (AutoCaps) Caps = _link.IsAcked ? PrinterCaps.Default : PrinterCaps.Compat;
                     return;
                 }
                 catch (Exception ex) { errors.Add($"{kind.ToUpperInvariant()}: {ex.Message}"); }
             }
             throw new InvalidOperationException("Could not connect via SPP or BLE. " + string.Join(" | ", errors));
         }
-
 
 
 
@@ -1241,7 +1242,7 @@ namespace eMRBCS.Platforms.Android
                 // Let the print engine catch up before the next band so its RX buffer never
                 // overflows (overflow = dropped bytes = white cuts through the image).
                 int pause = rows * useMsPerRow * (vDouble ? 2 : 1);
-                if (banded) pause = Math.Max(pause, 25);
+                if (banded) pause = Math.Max(pause, 40);   // band must be physically printed before the next arrives
                 await EnqueueOrSendAsync(cmd, useChunk, useDelay, pause);
                 RasterRows += vDouble ? rows * 2 : rows;
             }

@@ -114,21 +114,23 @@
         /// <summary>Old/low-end phones + cheap printers: small chunks, real pacing,
         /// small bands so the printer's RX buffer can never overflow (no white cuts).
         /// Auto-selected on Android &lt; 10; can also be forced manually.</summary>
+        /// <summary>Lockstep pacing for unacknowledged links (SPP / BLE no-ack).
+        /// Used on EVERY phone, not just old Android versions.</summary>
         public static PrinterCaps Compat => new()
         {
-            SendChunkSize = 64,
-            SendChunkDelayMs = 20,
-            TailDelayMs = 600,
+            SendChunkSize = 32,
+            SendChunkDelayMs = 30,
+            TailDelayMs = 800,
             RasterSliceRows = 16,
-            RasterChunkSize = 64,
-            RasterChunkDelayMs = 20,
-            RasterMsPerRow = 2,
+            RasterChunkSize = 32,
+            RasterChunkDelayMs = 30,
+            RasterMsPerRow = 3,
             LogoBitImage = false,
             LogoSliceRows = 16,
-            LogoChunkSize = 64,
-            LogoChunkDelayMs = 20,
-            LogoMsPerRow = 2,
-            LogoStripPauseMs = 30
+            LogoChunkSize = 32,
+            LogoChunkDelayMs = 30,
+            LogoMsPerRow = 3,
+            LogoStripPauseMs = 60
         };
 
         /// <summary>For printers with a fast Bluetooth buffer.</summary>

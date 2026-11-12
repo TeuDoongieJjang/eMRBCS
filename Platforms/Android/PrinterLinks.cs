@@ -9,8 +9,10 @@ namespace eMRBCS.Platforms.Android
     internal interface IPrinterLink : IDisposable
     {
         bool IsConnected { get; }
+        bool IsAcked { get; }            // true = every chunk confirmed by the printer
+        string TransportName { get; }
         string DeviceName { get; }
-        int MaxChunk { get; }                 // 0 = no limit (SPP); BLE = MTU payload
+        int MaxChunk { get; }
         Task WriteChunkAsync(byte[] data, int offset, int count);
         void Close();
     }
@@ -18,6 +20,8 @@ namespace eMRBCS.Platforms.Android
     // ===================== Bluetooth Classic (SPP) =====================
     internal sealed class SppLink : IPrinterLink
     {
+        public bool IsAcked => false;
+        public string TransportName => "SPP";
         private static readonly UUID SppUuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB");
         private BluetoothSocket _socket;
         private Stream _out;
@@ -82,6 +86,8 @@ namespace eMRBCS.Platforms.Android
     // ===================== BLE (GATT) =====================
     internal sealed class BleLink : BluetoothGattCallback, IPrinterLink
     {
+        public bool IsAcked => !_noResponse;
+        public string TransportName => _noResponse ? "BLE (no-ack)" : "BLE (acked)";
         // Service / characteristic UUIDs used by common ESC/POS BLE printers.
         private static readonly string[] KnownServices =
         {
@@ -133,6 +139,7 @@ namespace eMRBCS.Platforms.Android
             await WithTimeout(_ready.Task, timeoutSeconds + 6, "BLE connect/discovery");
             _connected = true;
             PickCharacteristic();
+            try { _gatt.RequestConnectionPriority(GattConnectionPriority.High); } catch { }
 
             // Bigger MTU = fewer packets. Old phones that refuse keep 20-byte chunks.
             try
@@ -179,14 +186,13 @@ namespace eMRBCS.Platforms.Android
                 var buf = new byte[count];
                 Buffer.BlockCopy(data, offset, buf, 0, count);
 
-                if (!_noResponse) _written = NewTcs();
+                _written = NewTcs();
                 if (!_char.SetValue(buf)) throw new IOException("BLE SetValue failed.");
                 if (!_gatt.WriteCharacteristic(_char)) throw new IOException("BLE WriteCharacteristic rejected.");
 
-                // Write-with-response: wait for the printer's ACK before the next chunk.
-                // This is what makes cuts impossible on BLE.
-                if (!_noResponse)
-                    await WithTimeout(_written.Task, 5, "BLE write ack").ConfigureAwait(false);
+                // Acked: printer confirmed receipt (byte loss impossible).
+                // No-ack: Android confirms the controller sent it (local flow control).
+                await WithTimeout(_written.Task, 5, "BLE write confirm").ConfigureAwait(false);
             }
             finally { _gate.Release(); }
         }
