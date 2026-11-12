@@ -116,21 +116,25 @@
         /// Auto-selected on Android &lt; 10; can also be forced manually.</summary>
         /// <summary>Lockstep pacing for unacknowledged links (SPP / BLE no-ack).
         /// Used on EVERY phone, not just old Android versions.</summary>
+        /// <summary>Lockstep pacing for unacknowledged links (SPP / BLE no-ack).
+        /// Used on EVERY phone, not just old Android versions.</summary>
         public static PrinterCaps Compat => new()
         {
-            SendChunkSize = 32,
-            SendChunkDelayMs = 30,
-            TailDelayMs = 800,
-            RasterSliceRows = 16,
-            RasterChunkSize = 32,
-            RasterChunkDelayMs = 30,
-            RasterMsPerRow = 3,
+            SendChunkSize = 128,
+            SendChunkDelayMs = 2,
+            TailDelayMs = 600,
+
+            RasterSliceRows = 0,      // 0 = whole image in ONE GS v 0 (text lines, rules, QR, barcode)
+            RasterChunkSize = 128,
+            RasterChunkDelayMs = 2,
+            RasterMsPerRow = 1,       // drain pause AFTER each complete image
+
             LogoBitImage = false,
-            LogoSliceRows = 16,
-            LogoChunkSize = 32,
-            LogoChunkDelayMs = 30,
-            LogoMsPerRow = 3,
-            LogoStripPauseMs = 60
+            LogoSliceRows = 0,        // 0 = whole logo in ONE GS v 0 -> no seams
+            LogoChunkSize = 128,
+            LogoChunkDelayMs = 2,
+            LogoMsPerRow = 1,
+            LogoStripPauseMs = 0
         };
 
         /// <summary>For printers with a fast Bluetooth buffer.</summary>
