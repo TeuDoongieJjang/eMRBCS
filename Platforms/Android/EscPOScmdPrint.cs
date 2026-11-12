@@ -2,6 +2,7 @@
 using eMRBCS.Services;
 using QRCoder;
 using SkiaSharp;
+using System.Diagnostics;
 using System.Text;
 using UUID = Java.Util.UUID;
 
@@ -39,6 +40,10 @@ namespace eMRBCS.Platforms.Android
     /// </summary>
     public class EscPOScmdPrint : IDisposable
     {
+        private string _pendingMac;
+        private int _pendingPostConnectDelayMs = 500;
+        private int _pendingSettleMs = 400;
+        private const int MaxCatchUpMs = 24;
         private static readonly UUID SppUuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB");
 
         // ---------------- capabilities ----------------
@@ -171,15 +176,16 @@ namespace eMRBCS.Platforms.Android
 
         private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
         {
-            if (_outputStream == null)
-                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+            if (_outputStream == null && _pendingMac == null)
+                throw new InvalidOperationException("Not connected. Call ConnectAndPrepareAsync first.");
             if (payload == null || payload.Length == 0) return;
 
             if (BufferOutput) { Enqueue(payload, chunk, delayMs, pauseAfterMs); return; }
 
+            await EnsureConnectedAsync();
             var stream = _outputStream;
             var seg = new SendSegment(payload, chunk, delayMs, pauseAfterMs);
-            await Task.Run(() => { WriteSegmentSync(stream, seg); stream.Flush(); });
+            await RunSenderAsync(() => { WriteSegmentPaced(stream, seg); stream.Flush(); });
         }
 
         public async Task FlushAsync(bool sendTailDelay = true)
@@ -187,20 +193,62 @@ namespace eMRBCS.Platforms.Android
             CloseCurrentSegment();
             if (_queue.Count == 0) return;
 
+            // The job is completely built at this point -> NOW connect and stream it without gaps.
+            await EnsureConnectedAsync();
+
             var stream = _outputStream
-                ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+                ?? throw new InvalidOperationException("Not connected. Call ConnectAndPrepareAsync first.");
 
             var segments = _queue.ToArray();
             _queue.Clear();
 
-            await Task.Run(() =>
+            await RunSenderAsync(() =>
             {
-                foreach (var s in segments) WriteSegmentSync(stream, s);
+                foreach (var s in segments) WriteSegmentPaced(stream, s);
                 stream.Flush();
             });
 
             if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
         }
+        private static void WriteSegmentPaced(Stream stream, SendSegment s)
+        {
+            int chunk = s.Chunk > 0 ? s.Chunk : s.Data.Length;
+            var clock = Stopwatch.StartNew();
+            long due = 0;
+
+            for (int i = 0; i < s.Data.Length; i += chunk)
+            {
+                int len = Math.Min(chunk, s.Data.Length - i);
+                stream.Write(s.Data, i, len);
+
+                if (s.DelayMs > 0 && i + len < s.Data.Length)
+                {
+                    due += s.DelayMs;
+                    long now = clock.ElapsedMilliseconds;
+                    long wait = due - now;
+
+                    if (wait > 0)
+                        System.Threading.Thread.Sleep((int)wait);
+                    else if (-wait > MaxCatchUpMs)
+                        due = now;      // too far behind (e.g. a stall): re-sync, do not burst
+                }
+            }
+
+            if (s.PauseAfterMs > 0) System.Threading.Thread.Sleep(s.PauseAfterMs);
+        }
+        private Task WriteDirectAsync(byte[] data)
+        {
+            var stream = _outputStream
+                ?? throw new InvalidOperationException("Not connected.");
+            return RunSenderAsync(() => { stream.Write(data, 0, data.Length); stream.Flush(); });
+        }
+        private static Task RunSenderAsync(Action work) =>
+            Task.Factory.StartNew(() =>
+            {
+                try { System.Threading.Thread.CurrentThread.Priority = System.Threading.ThreadPriority.AboveNormal; }
+                catch { }
+                work();
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
         public void ClearBuffer() { _queue.Clear(); _cur.Clear(); }
 
@@ -299,7 +347,15 @@ namespace eMRBCS.Platforms.Android
             if (b.Length > 0) await WriteRawAsync(b);
         }
 
-        public async Task InitializeAsync()
+
+
+        public async Task WarmUpAsync(int settleMs = 400)
+        {
+            await EnsureConnectedAsync();
+            await WriteDirectAsync(new byte[] { 0x1B, 0x40 });
+            if (settleMs > 0) await Task.Delay(settleMs);
+        }
+        private byte[] BuildInitBytes()
         {
             int w = Profile.WidthDots;
             int o = Profile.OffsetDots;
@@ -327,32 +383,59 @@ namespace eMRBCS.Platforms.Android
                     0x1D, 0x57, (byte)(area & 0xFF), (byte)(area >> 8)       // GS W print area width
                 });
             }
-            await WriteRawAsync(cmd.ToArray());
+
             _gsSizeDirty = false;
+            return cmd.ToArray();
         }
-
-        public async Task WarmUpAsync(int settleMs = 400)
-        {
-            if (_outputStream == null)
-                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
-
-            ClearBuffer();
-            await WriteRawAsync(new byte[] { 0x1B, 0x40 });
-            await FlushAsync(sendTailDelay: false);
-            if (settleMs > 0) await Task.Delay(settleMs);
-        }
+        public async Task InitializeAsync() => await WriteRawAsync(BuildInitBytes());
 
         public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 500, int settleMs = 400)
         {
-            await ConnectAsync(macAddress);
-            if (postConnectDelayMs > 0) await Task.Delay(postConnectDelayMs);
+            // Fail fast (before the expensive build) if Bluetooth is unusable.
+            var adapter = BluetoothAdapter.DefaultAdapter
+                ?? throw new InvalidOperationException("No Bluetooth adapter available on this device.");
+            if (!adapter.IsEnabled)
+                throw new InvalidOperationException("Bluetooth is turned off.");
 
-            await WarmUpAsync(settleMs);
-            await InitializeAsync();
-            await FlushAsync();
-            if (settleMs > 0) await Task.Delay(settleMs / 2);
+            ClearBuffer();
+            _pendingMac = macAddress;
+            _pendingPostConnectDelayMs = postConnectDelayMs;
+            _pendingSettleMs = settleMs;
+
+            // The init sequence is always the first thing in the job; it gets a short pause after it
+            // so the printer has finished applying margins/density before the first raster arrives.
+            byte[] init = BuildInitBytes();
+            int pause = Math.Max(0, settleMs / 2);
+
+            if (BufferOutput)
+            {
+                Enqueue(init, SendChunkSize, SendChunkDelayMs, pause);
+            }
+            else
+            {
+                await EnsureConnectedAsync();
+                await EnqueueOrSendAsync(init, SendChunkSize, SendChunkDelayMs, pause);
+            }
         }
+        private async Task EnsureConnectedAsync()
+        {
+            if (_outputStream != null) return;
 
+            if (_pendingMac == null)
+                throw new InvalidOperationException("Not connected. Call ConnectAndPrepareAsync first.");
+
+            string mac = _pendingMac;
+            _pendingMac = null;
+
+            await ConnectAsync(mac);
+
+            // let the RFCOMM link and the printer's UART settle
+            if (_pendingPostConnectDelayMs > 0) await Task.Delay(_pendingPostConnectDelayMs);
+
+            // wake / reset the printer, then wait until it is really ready for data
+            await WriteDirectAsync(new byte[] { 0x1B, 0x40 });
+            if (_pendingSettleMs > 0) await Task.Delay(_pendingSettleMs);
+        }
         public void Disconnect()
         {
             try
@@ -362,8 +445,11 @@ namespace eMRBCS.Platforms.Android
             }
             catch { }
 
-            try { if (TailDelayMs > 0) System.Threading.Thread.Sleep(TailDelayMs); } catch { }
+            // give the printer time to drain its buffer before the socket is closed,
+            // otherwise the last lines / barcode can be cut off
+            try { if (_outputStream != null && TailDelayMs > 0) System.Threading.Thread.Sleep(TailDelayMs); } catch { }
 
+            _pendingMac = null;
             ClearBuffer();
             try { _outputStream?.Close(); } catch { }
             try { _socket?.Close(); } catch { }
