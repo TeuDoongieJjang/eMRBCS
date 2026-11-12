@@ -406,7 +406,61 @@ public partial class PrinterConfig : ContentPage
         await DisplayAlertAsync("Notice", "Selected Config Profile has been loaded.", "Ok");
     }
 
+    public Task<string> DoLogoLab() => PrintGate.RunAsync(DoLogoLabCore);
 
+    private async Task<string> DoLogoLabCore()
+    {
+        string result = "";
+#if ANDROID
+        if (!await BluetoothPermissionHelper.EnsureBluetoothPermissionsAsync())
+            return "Bluetooth permission was not granted.";
+
+        byte[] logoBytes;
+        try
+        {
+            using var stream = await FileSystem.OpenAppPackageFileAsync("MLS_Header.bmp");
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            logoBytes = ms.ToArray();
+        }
+        catch (Exception ex) { return "Logo load failed: " + ex.Message; }
+
+        PrinterHardware.DensityMethod = DensityMethod.Off;     // darkness commands OFF for this test
+        var paper = PaperProfile.FromLineSpace(MyDeviceInfo.currentPrintConfig.linespacing);
+        var printer = new EscPOScmdPrint { Profile = paper };
+        try
+        {
+            string mac = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
+            await printer.ConnectAndPrepareAsync(mac);
+
+            async Task Section(string label, Action setup)
+            {
+                printer.PaceBytesPerSecond = 0;       // defaults for every section
+                printer.LogoMsPerRow = 0;
+                printer.LogoInterStripPauseMs = 0;
+                setup();
+                await printer.PrintTextAsync(label, PrintAlign.Left);
+                await printer.WriteLogoAsync(logoBytes, 1.0);
+                await printer.FeedAsync(2);
+                await printer.FlushAsync();
+                await Task.Delay(2500);
+            }
+
+            await Section("A: raster, one command", () => printer.LogoMode = LogoMode.Raster);
+            await Section("B: raster bands of 24 rows", () => { printer.LogoMode = LogoMode.RasterBands; printer.LogoSliceRows = 24; });
+            await Section("C: raster bands 24 + pause", () => { printer.LogoMode = LogoMode.RasterBands; printer.LogoSliceRows = 24; printer.LogoMsPerRow = 3; });
+            await Section("D: bit image strips", () => printer.LogoMode = LogoMode.BitImage);
+            await Section("E: bit image strips + pause", () => { printer.LogoMode = LogoMode.BitImage; printer.LogoInterStripPauseMs = 40; });
+
+            result = "Done printing.";
+        }
+        catch (Exception ex) { result = "Print failed: " + ex.GetType().Name + " - " + ex.Message; }
+        finally { await Task.Delay(1500); printer.Disconnect(); }
+#else
+    result = "Printing is only implemented for Android.";
+#endif
+        return result;
+    }
     public Task<string> DoEscPOS_Print() => PrintGate.RunAsync(DoEscPOS_PrintCore);
 
     public async Task<string> DoEscPOS_PrintCore()
@@ -438,13 +492,6 @@ public partial class PrinterConfig : ContentPage
         var printer = new EscPOScmdPrint { Profile = paper };
         try
         {
-            // dilate every glyph
-            PrinterHardware.DensityMethod = DensityMethod.Esc7HeatTime;
-            PrinterHardware.DensityLevel = 4;      // 0..4, 4 = darkest
-
-            // OPTIONAL: If you want standard ASCII characters to use the printer's native font
-            // (which is often darker than 1-bit raster graphics):
-            PrinterHardware.SmallFont = SmallFontMode.Native;
             string mac = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             // ESC 7 heat-time method (works on most Epson-compatible printers)
 
@@ -598,7 +645,7 @@ public partial class PrinterConfig : ContentPage
             PrinterHardware.SpeedProfile = pick.StartsWith("Safe") ? SpeedProfile.Safe
                                          : pick == "Fast" ? SpeedProfile.Fast : SpeedProfile.Balanced;
             if (await DisplayAlertAsync("Test Print", "Would you like to perform a test print?", "Yes", "No"))
-                output = await DoEscPOS_Print();
+                output = await DoLogoLab();
             await DisplayAlertAsync("Test Print", output, "Ok");
         }, btnTestPrint);
 }

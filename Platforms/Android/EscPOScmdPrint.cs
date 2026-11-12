@@ -152,6 +152,8 @@ namespace eMRBCS.Platforms.Android
 
         // chunk / delayMs / pauseAfterMs are kept only so the callers still compile;
         // pacing is now done once, over the whole stream, in FlushAsync.
+        private readonly List<(int Pos, int Ms)> _pauses = new();
+
         private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
         {
             if (_outputStream == null)
@@ -159,6 +161,7 @@ namespace eMRBCS.Platforms.Android
             if (payload == null || payload.Length == 0) return;
 
             _buf.Write(payload, 0, payload.Length);
+            if (pauseAfterMs > 0) _pauses.Add(((int)_buf.Length, pauseAfterMs));   // NEW
             if (!BufferOutput) await FlushAsync(sendTailDelay: false);
         }
 
@@ -170,17 +173,19 @@ namespace eMRBCS.Platforms.Android
                 ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
 
             byte[] all = _buf.ToArray();
+            var pauses = _pauses.ToList();           // NEW
             _buf.SetLength(0);
+            _pauses.Clear();
             int rate = PaceBytesPerSecond, pre = PrebufferBytes, chunk = WriteChunkSize;
 
             await Task.Factory.StartNew(
-                () => PacedWriter.Write(stream, all, chunk, rate, pre),
+                () => PacedWriter.Write(stream, all, chunk, rate, pre, pauses),
                 CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
             if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
         }
 
-        public void ClearBuffer() => _buf.SetLength(0);
+        public void ClearBuffer() { _buf.SetLength(0); _pauses.Clear(); }
 
         // ======================================================================
         //  connection
