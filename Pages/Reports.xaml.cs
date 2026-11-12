@@ -221,8 +221,7 @@ public partial class Reports : ContentPage
         }
         finally
         {
-            await Task.Delay(1000 + printer.RasterRows);
-            printer.Disconnect();
+            await printer.CloseAsync();   // flush + drain + close (replaces Task.Delay + Disconnect)
         }
 #else
     result = "Printing is only implemented for Android.";
@@ -334,8 +333,7 @@ public partial class Reports : ContentPage
         }
         finally
         {
-            await Task.Delay(1000 + printer.RasterRows);
-            printer.Disconnect();
+            await printer.CloseAsync();   // flush + drain + close (replaces Task.Delay + Disconnect)
         }
 #else
     result = "Printing is only implemented for Android.";
@@ -432,8 +430,7 @@ public partial class Reports : ContentPage
         }
         finally
         {
-            await Task.Delay(1000 + printer.RasterRows);
-            printer.Disconnect();
+            await printer.CloseAsync();   // flush + drain + close (replaces Task.Delay + Disconnect)
         }
 #else
     result = "Printing is only implemented for Android.";
