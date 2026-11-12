@@ -2074,6 +2074,10 @@ public partial class Reading : ContentPage
             if (bill.SewerageAmount > 0)
                 await printer.PrintRowAsync(IsMVWD ? "Sewerage" : IsCWD ? "ESF" : IsPlaWD ? "Environmental/Septage Fee" : "Septage Mgmt. Fee",
                                             bill.SewerageAmount.ToString("#,##0.00"));
+            if (IsPlaWD && bill.Others > 0)
+            {
+                await printer.PrintRowAsync("Maintenance Fee", bill.Others.ToString("#,##0.00"));
+            }
 
             if (bill.ShowSeniorDiscount)
                 await printer.PrintRowAsync("Senior Discount", bill.SeniorDiscount.ToString("#,##0.00"));
@@ -2081,8 +2085,12 @@ public partial class Reading : ContentPage
             await printer.PrintRowAsync(consumer.arrears < 0 ? "Advance" : "Arrears",
                                         bill.Arrears.ToString("#,##0.00"));
 
-            if (bill.Others > 0)
-                await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
+            if (!IsPlaWD)
+            {
+                if (bill.Others > 0)
+                    await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
+            }
+
             if (IsPlaWD)
             {
                 await printer.PrintRowAsync("TOTAL DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
