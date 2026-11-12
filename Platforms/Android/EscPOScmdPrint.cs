@@ -1,12 +1,13 @@
 ﻿using Android.Bluetooth;
+using Android.OS;
 using eMRBCS.Services;
 using QRCoder;
 using SkiaSharp;
 using System.Text;
-using UUID = Java.Util.UUID;
 
 namespace eMRBCS.Platforms.Android
 {
+    public enum PrinterTransport { Auto, SppOnly, BleOnly }
     public enum PrintAlign { Left, Center, Right }
     public enum TextSize { Default, Small, Normal, Big, Large }
     /// <summary>Visual style of a separator/rule line.</summary>
@@ -39,8 +40,6 @@ namespace eMRBCS.Platforms.Android
     /// </summary>
     public class EscPOScmdPrint : IDisposable
     {
-        private static readonly UUID SppUuid = UUID.FromString("00001101-0000-1000-8000-00805F9B34FB");
-
         // ---------------- capabilities ----------------
         private PrinterCaps _caps = PrinterCaps.Default;
         public PrinterCaps Caps
@@ -51,7 +50,13 @@ namespace eMRBCS.Platforms.Android
 
         public string DeviceName { get; private set; } = "";
 
-        public EscPOScmdPrint() { ApplyCaps(); }
+        public EscPOScmdPrint()
+        {
+            // Old/low-end Android stacks (< 10) queue SPP writes asynchronously, so pacing
+            // is ignored and cheap printer buffers overflow -> white cuts. Auto-use the
+            // conservative Compat pacing there. Modern phones keep the fast defaults.
+            Caps = Build.VERSION.SdkInt < BuildVersionCodes.Q ? PrinterCaps.Compat : PrinterCaps.Default;
+        }
 
         private void ApplyCaps()
         {
@@ -61,10 +66,12 @@ namespace eMRBCS.Platforms.Android
             RasterSliceRows = _caps.RasterSliceRows;
             RasterChunkSize = _caps.RasterChunkSize;
             RasterChunkDelayMs = _caps.RasterChunkDelayMs;
+            RasterMsPerRow = _caps.RasterMsPerRow;
             LogoMode = _caps.LogoBitImage ? LogoMode.BitImage : LogoMode.RasterBands;
             LogoSliceRows = _caps.LogoSliceRows;
             LogoChunkSize = _caps.LogoChunkSize;
             LogoChunkDelayMs = _caps.LogoChunkDelayMs;
+            LogoMsPerRow = _caps.LogoMsPerRow;
             LogoInterStripPauseMs = _caps.LogoStripPauseMs;
         }
 
@@ -92,7 +99,7 @@ namespace eMRBCS.Platforms.Android
         public int LogoChunkDelayMs { get; set; } = 8;
         public int LogoMsPerRow { get; set; } = 0;
         public int LogoInterStripPauseMs { get; set; } = 0;
-        public int LogoStripFeedDots { get; set; } = 22;
+        public int LogoStripFeedDots { get; set; } = 24;
         public int LogoMaxWidthDots { get; set; } = 0;
         public bool LogoVerticalDouble { get; set; } = false;
         public bool LogoPadWithZeros { get; set; } = false;
@@ -126,13 +133,59 @@ namespace eMRBCS.Platforms.Android
 
         private static byte[] FeedDots(int n) => new byte[] { 0x1B, 0x4A, (byte)Math.Clamp(n, 0, 255) };
 
-        private BluetoothSocket _socket;
-        private Stream _outputStream;
-        public bool IsConnected => _socket?.IsConnected == true;
+        public PrinterTransport Transport { get; set; } = PrinterTransport.Auto;
+        public int RasterMsPerRow { get; set; } = 1;      // catch-up pause per printed dot-row
+
+        private IPrinterLink _link;
+        public bool IsConnected => _link?.IsConnected == true;
+
+
 
         // ======================================================================
         //  output queue
         // ======================================================================
+
+        private async Task WriteSegmentAsync(SendSegment s)
+        {
+            var link = _link ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+            int chunk = s.Chunk > 0 ? s.Chunk : s.Data.Length;
+            if (link.MaxChunk > 0) chunk = Math.Min(chunk, link.MaxChunk);   // BLE MTU limit
+            chunk = Math.Max(1, chunk);
+
+            for (int i = 0; i < s.Data.Length; i += chunk)
+            {
+                int len = Math.Min(chunk, s.Data.Length - i);
+                await link.WriteChunkAsync(s.Data, i, len).ConfigureAwait(false);
+                if (s.DelayMs > 0 && i + len < s.Data.Length)
+                    await Task.Delay(s.DelayMs).ConfigureAwait(false);
+            }
+            if (s.PauseAfterMs > 0) await Task.Delay(s.PauseAfterMs).ConfigureAwait(false);
+        }
+
+        private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
+        {
+            if (_link == null)
+                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+            if (payload == null || payload.Length == 0) return;
+
+            if (BufferOutput) { Enqueue(payload, chunk, delayMs, pauseAfterMs); return; }
+            await WriteSegmentAsync(new SendSegment(payload, chunk, delayMs, pauseAfterMs));
+        }
+
+        public async Task FlushAsync(bool sendTailDelay = true)
+        {
+            CloseCurrentSegment();
+            if (_queue.Count == 0) return;
+            if (_link == null)
+                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+
+            var segments = _queue.ToArray();
+            _queue.Clear();
+            foreach (var s in segments) await WriteSegmentAsync(s).ConfigureAwait(false);
+
+            if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
+        }
+
         private readonly record struct SendSegment(byte[] Data, int Chunk, int DelayMs, int PauseAfterMs);
         private readonly List<SendSegment> _queue = new();
         private readonly List<byte> _cur = new();
@@ -156,118 +209,62 @@ namespace eMRBCS.Platforms.Android
             _queue.Add(new SendSegment(data, chunk, delayMs, pauseAfterMs));
         }
 
-        private static void WriteSegmentSync(Stream stream, SendSegment s)
-        {
-            int chunk = s.Chunk > 0 ? s.Chunk : s.Data.Length;
-            for (int i = 0; i < s.Data.Length; i += chunk)
-            {
-                int len = Math.Min(chunk, s.Data.Length - i);
-                stream.Write(s.Data, i, len);
-                if (s.DelayMs > 0 && i + len < s.Data.Length)
-                    System.Threading.Thread.Sleep(s.DelayMs);
-            }
-            if (s.PauseAfterMs > 0) System.Threading.Thread.Sleep(s.PauseAfterMs);
-        }
-
-        private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
-        {
-            if (_outputStream == null)
-                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
-            if (payload == null || payload.Length == 0) return;
-
-            if (BufferOutput) { Enqueue(payload, chunk, delayMs, pauseAfterMs); return; }
-
-            var stream = _outputStream;
-            var seg = new SendSegment(payload, chunk, delayMs, pauseAfterMs);
-            await Task.Run(() => { WriteSegmentSync(stream, seg); stream.Flush(); });
-        }
-
-        public async Task FlushAsync(bool sendTailDelay = true)
-        {
-            CloseCurrentSegment();
-            if (_queue.Count == 0) return;
-
-            var stream = _outputStream
-                ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
-
-            var segments = _queue.ToArray();
-            _queue.Clear();
-
-            await Task.Run(() =>
-            {
-                foreach (var s in segments) WriteSegmentSync(stream, s);
-                stream.Flush();
-            });
-
-            if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
-        }
 
         public void ClearBuffer() { _queue.Clear(); _cur.Clear(); }
 
         // ======================================================================
         //  connection
         // ======================================================================
+
         public async Task ConnectAsync(string macAddress)
         {
             var adapter = BluetoothAdapter.DefaultAdapter
                 ?? throw new InvalidOperationException("No Bluetooth adapter available on this device.");
-
             BluetoothDevice device = adapter.GetRemoteDevice(macAddress)
                 ?? throw new InvalidOperationException($"Could not resolve device: {macAddress}");
+            try { adapter.CancelDiscovery(); } catch { }
 
-            adapter.CancelDiscovery();
+            bool leOnly = false;
+            try { leOnly = device.Type == BluetoothDeviceType.Le; } catch { }
 
-            try { DeviceName = device.Name ?? ""; } catch { }
+            var order = Transport switch
+            {
+                PrinterTransport.SppOnly => new[] { "spp" },
+                PrinterTransport.BleOnly => new[] { "ble" },
+                _ => leOnly ? new[] { "ble" } : new[] { "spp", "ble" }   // Auto: classic first, BLE fallback
+            };
 
             var errors = new List<string>();
-
-            if (await TryConnectAsync(() => device.CreateInsecureRfcommSocketToServiceRecord(SppUuid), errors, "insecure")) return;
-            if (await TryConnectAsync(() => device.CreateRfcommSocketToServiceRecord(SppUuid), errors, "secure")) return;
-            if (await TryConnectAsync(() => CreateFallbackChannelSocket(device), errors, "reflection channel 1")) return;
-
-            throw new InvalidOperationException(
-                "Could not connect using any known method (insecure, secure, reflection). Details: " + string.Join(" | ", errors));
-        }
-
-        private async Task<bool> TryConnectAsync(Func<BluetoothSocket> createSocket, List<string> errors, string label)
-        {
-            BluetoothSocket socket;
-            try { socket = createSocket() ?? throw new InvalidOperationException("Socket creation returned null."); }
-            catch (Exception ex) { errors.Add($"{label}: create failed - {ex.Message}"); return false; }
-
-            try
+            foreach (var kind in order)
             {
-                var connectTask = Task.Run(() => socket.Connect());
-                var timeoutTask = Task.Delay(TimeSpan.FromSeconds(Math.Max(1, ConnectTimeoutSeconds)));
-                var finished = await Task.WhenAny(connectTask, timeoutTask);
-
-                if (finished == timeoutTask)
+                try
                 {
-                    errors.Add($"{label}: timed out after {ConnectTimeoutSeconds} seconds");
-                    try { socket.Close(); } catch { }
-                    return false;
+                    if (kind == "spp")
+                    {
+                        var spp = new SppLink();
+                        await spp.ConnectAsync(device, ConnectTimeoutSeconds);
+                        _link = spp;
+                    }
+                    else
+                    {
+                        var ble = new BleLink();
+                        await ble.ConnectAsync(device, ConnectTimeoutSeconds);
+                        _link = ble;
+                    }
+                    DeviceName = _link.DeviceName;
+                    ClearBuffer();
+                    RasterRows = 0;
+                    return;
                 }
-
-                await connectTask;
-
-                _socket = socket;
-                _outputStream = socket.OutputStream;
-                ClearBuffer();
-                return true;
+                catch (Exception ex) { errors.Add($"{kind.ToUpperInvariant()}: {ex.Message}"); }
             }
-            catch (Exception ex)
-            {
-                errors.Add($"{label}: {ex.GetType().Name} - {ex.Message}");
-                try { socket.Close(); } catch { }
-                return false;
-            }
+            throw new InvalidOperationException("Could not connect via SPP or BLE. " + string.Join(" | ", errors));
         }
 
-        private static BluetoothSocket CreateFallbackChannelSocket(BluetoothDevice device)
-        {
-            var method = device.Class.GetMethod("createRfcommSocket", Java.Lang.Integer.Type);
-            return (BluetoothSocket)method.Invoke(device, 1);
-        }
+
+
+
+
 
         // ---------------- print density (optional, see PrinterHardware.DensityMethod) ----------------
         private static byte[] DensityBytes()
@@ -333,7 +330,7 @@ namespace eMRBCS.Platforms.Android
 
         public async Task WarmUpAsync(int settleMs = 400)
         {
-            if (_outputStream == null)
+            if (_link == null)
                 throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
 
             ClearBuffer();
@@ -355,31 +352,18 @@ namespace eMRBCS.Platforms.Android
 
         public void Disconnect()
         {
-            try
-            {
-                if (_outputStream != null && (_queue.Count > 0 || _cur.Count > 0))
-                    Task.Run(async () => await FlushAsync()).GetAwaiter().GetResult();
-            }
-            catch { }
-
-            try { if (TailDelayMs > 0) System.Threading.Thread.Sleep(TailDelayMs); } catch { }
-
+            // IMPORTANT: always await CloseAsync() first — Disconnect no longer flushes.
             ClearBuffer();
-            try { _outputStream?.Close(); } catch { }
-            try { _socket?.Close(); } catch { }
-            _outputStream = null;
-            _socket = null;
+            try { _link?.Close(); } catch { }
+            _link = null;
         }
 
-        /// <summary>
-        /// Flush, give the printer time to finish what is in its buffer, then close.
-        /// Use in the finally block instead of Task.Delay(...) + Disconnect().
-        /// </summary>
+        /// <summary>Flush, let the printer drain its buffer, then close. Use in finally.</summary>
         public async Task CloseAsync(int extraDelayMs = 0)
         {
-            if (_outputStream == null) { Disconnect(); return; }
+            if (_link == null) { Disconnect(); return; }
             try { await FlushAsync(); } catch { }
-            int wait = Math.Min(20000, 1000 + RasterRows * 2 + extraDelayMs);
+            int wait = Math.Min(30000, 800 + RasterRows * 2 + extraDelayMs);
             await Task.Delay(wait);
             Disconnect();
         }
@@ -1199,13 +1183,14 @@ namespace eMRBCS.Platforms.Android
         //  raster (GS v 0)
         // ======================================================================
         private async Task PrintRasterAsync(int contentW, int h, Func<int, int, bool> isBlack,
-                            PrintAlign align = PrintAlign.Center,
-                            int sliceRows = -1, int chunk = -1, int chunkDelay = -1, int msPerRow = 0,
-                            int sendW = -1, bool vDouble = false, bool absoluteX = false)
+                    PrintAlign align = PrintAlign.Center,
+                    int sliceRows = -1, int chunk = -1, int chunkDelay = -1, int msPerRow = -1,
+                    int sendW = -1, bool vDouble = false, bool absoluteX = false)
         {
             if (sliceRows < 0) sliceRows = RasterSliceRows;
             int useChunk = ResolveChunk(chunk > 0 ? chunk : RasterChunkSize);
             int useDelay = ResolveDelay(chunkDelay >= 0 ? chunkDelay : RasterChunkDelayMs);
+            int useMsPerRow = msPerRow >= 0 ? msPerRow : RasterMsPerRow;
             if (sendW < 0 || sendW > contentW) sendW = contentW;
 
             int head = Head;
@@ -1234,7 +1219,7 @@ namespace eMRBCS.Platforms.Android
             bool banded = sliceRows < h;
             byte mode = (byte)(vDouble ? 2 : 0);
 
-            if (banded) await WriteRawAsync(new byte[] { 0x1B, 0x33, 0x00 });
+            if (banded) await WriteRawAsync(new byte[] { 0x1B, 0x33, 0x00 });   // zero spacing: no seam between bands
 
             for (int y0 = 0; y0 < h; y0 += sliceRows)
             {
@@ -1253,7 +1238,10 @@ namespace eMRBCS.Platforms.Android
                         cmd[8 + r * rowBytes + px / 8] |= (byte)(0x80 >> (px % 8));
                     }
 
-                int pause = msPerRow > 0 ? rows * msPerRow : 0;
+                // Let the print engine catch up before the next band so its RX buffer never
+                // overflows (overflow = dropped bytes = white cuts through the image).
+                int pause = rows * useMsPerRow * (vDouble ? 2 : 1);
+                if (banded) pause = Math.Max(pause, 25);
                 await EnqueueOrSendAsync(cmd, useChunk, useDelay, pause);
                 RasterRows += vDouble ? rows * 2 : rows;
             }
@@ -1265,15 +1253,14 @@ namespace eMRBCS.Platforms.Android
                 int o = Profile.OffsetDots, w = Profile.WidthDots;
                 await WriteRawAsync(new byte[]
                 {
-                    0x1D, 0x4C, (byte)(o & 0xFF), (byte)(o >> 8),
-                    0x1D, 0x57, (byte)(w & 0xFF), (byte)(w >> 8)
+            0x1D, 0x4C, (byte)(o & 0xFF), (byte)(o >> 8),
+            0x1D, 0x57, (byte)(w & 0xFF), (byte)(w >> 8)
                 });
             }
         }
-
         // ---------------- bit image (ESC * 33) ----------------
         private async Task PrintBitImageAsync(int fullW, int trimLeft, int trimW, int h,
-                                              Func<int, int, bool> isBlack, PrintAlign align)
+                                      Func<int, int, bool> isBlack, PrintAlign align)
         {
             int head = Head;
             int paperW = Profile.WidthDots;
@@ -1297,16 +1284,14 @@ namespace eMRBCS.Platforms.Android
             if (UseMarginsNow)
                 setup.AddRange(new byte[]
                 {
-                    0x1D, 0x4C, (byte)(marginDots & 0xFF), (byte)(marginDots >> 8),
-                    0x1D, 0x57, (byte)((head - marginDots) & 0xFF), (byte)((head - marginDots) >> 8)
+            0x1D, 0x4C, (byte)(marginDots & 0xFF), (byte)(marginDots >> 8),
+            0x1D, 0x57, (byte)((head - marginDots) & 0xFF), (byte)((head - marginDots) >> 8)
                 });
             setup.AddRange(new byte[] { 0x1B, 0x33, 0x00 });
             await WriteRawAsync(setup.ToArray());
 
             const int StripHeight = 24;
-            int step = Math.Clamp(LogoStripFeedDots, 1, StripHeight);
-
-            await Task.Delay(50);
+            int step = Math.Clamp(LogoStripFeedDots, 1, StripHeight);   // 24 = seamless
 
             for (int y0 = 0; y0 < h; y0 += step)
             {
@@ -1333,8 +1318,8 @@ namespace eMRBCS.Platforms.Android
                 int tail = 5 + totalW * 3;
                 buf[tail] = 0x1B; buf[tail + 1] = 0x4A; buf[tail + 2] = (byte)advance;
 
-                await EnqueueOrSendAsync(buf, ResolveChunk(LogoChunkSize), ResolveDelay(LogoChunkDelayMs),
-                                         LogoInterStripPauseMs);
+                int pause = Math.Max(LogoInterStripPauseMs, advance * Math.Max(1, LogoMsPerRow));
+                await EnqueueOrSendAsync(buf, ResolveChunk(LogoChunkSize), ResolveDelay(LogoChunkDelayMs), pause);
                 RasterRows += advance;
             }
 
@@ -1344,13 +1329,12 @@ namespace eMRBCS.Platforms.Android
                 int o = Profile.OffsetDots, w = Profile.WidthDots;
                 restore.AddRange(new byte[]
                 {
-                    0x1D, 0x4C, (byte)(o & 0xFF), (byte)(o >> 8),
-                    0x1D, 0x57, (byte)(w & 0xFF), (byte)(w >> 8)
+            0x1D, 0x4C, (byte)(o & 0xFF), (byte)(o >> 8),
+            0x1D, 0x57, (byte)(w & 0xFF), (byte)(w >> 8)
                 });
             }
             await WriteRawAsync(restore.ToArray());
         }
-
         // ---------- logo preparation (decoded and thresholded once, then cached) ----------
         private static readonly object LogoCacheLock = new();
         private static byte[] _logoCacheSrc;

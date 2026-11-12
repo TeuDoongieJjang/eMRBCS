@@ -98,18 +98,40 @@
         public int RasterSliceRows { get; init; } = 48;
         public int RasterChunkSize { get; init; } = 192;
         public int RasterChunkDelayMs { get; init; } = 8;
+        public int RasterMsPerRow { get; init; } = 1;      // band catch-up pause
 
         // logo
         public bool LogoBitImage { get; init; } = false;
         public int LogoSliceRows { get; init; } = 24;
         public int LogoChunkSize { get; init; } = 192;
         public int LogoChunkDelayMs { get; init; } = 8;
+        public int LogoMsPerRow { get; init; } = 1;
         public int LogoStripPauseMs { get; init; } = 0;
 
-        /// <summary>Safe for every printer (slower).</summary>
+        /// <summary>Safe for every printer.</summary>
         public static PrinterCaps Default => new();
 
-        /// <summary>For printers with a fast Bluetooth buffer. Use: printer.Caps = PrinterCaps.Fast;</summary>
+        /// <summary>Old/low-end phones + cheap printers: small chunks, real pacing,
+        /// small bands so the printer's RX buffer can never overflow (no white cuts).
+        /// Auto-selected on Android &lt; 10; can also be forced manually.</summary>
+        public static PrinterCaps Compat => new()
+        {
+            SendChunkSize = 64,
+            SendChunkDelayMs = 20,
+            TailDelayMs = 600,
+            RasterSliceRows = 16,
+            RasterChunkSize = 64,
+            RasterChunkDelayMs = 20,
+            RasterMsPerRow = 2,
+            LogoBitImage = false,
+            LogoSliceRows = 16,
+            LogoChunkSize = 64,
+            LogoChunkDelayMs = 20,
+            LogoMsPerRow = 2,
+            LogoStripPauseMs = 30
+        };
+
+        /// <summary>For printers with a fast Bluetooth buffer.</summary>
         public static PrinterCaps Fast => new()
         {
             SendChunkSize = 2048,
@@ -118,9 +140,11 @@
             RasterSliceRows = 0,
             RasterChunkSize = 0,
             RasterChunkDelayMs = -1,
+            RasterMsPerRow = 0,
             LogoBitImage = true,
             LogoChunkSize = 256,
             LogoChunkDelayMs = 10,
+            LogoMsPerRow = 0,
             LogoStripPauseMs = 3
         };
 

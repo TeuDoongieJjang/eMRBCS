@@ -547,8 +547,7 @@ public partial class PrinterConfig : ContentPage
         }
         finally
         {
-            await Task.Delay(1500 + printer.RasterRows * 2);
-            printer.Disconnect();
+            await printer.CloseAsync();   // flush + drain + close (replaces Task.Delay + Disconnect)
         }
 #else
     result = "Printing is only implemented for Android.";
