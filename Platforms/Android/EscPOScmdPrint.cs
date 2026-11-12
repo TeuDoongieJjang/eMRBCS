@@ -90,18 +90,19 @@ namespace eMRBCS.Platforms.Android
         private void ApplyAutoLogoMethod()
         {
             LogoMsPerRow = 0;
-            LogoVerticalDouble = false;
+            LogoInterStripPauseMs = 0;
 
-            if (IsSmallPaper)                       // 2-inch paper (323, 32...): consistent in tests
+            if (IsSmallPaper)                       // 2-inch: bit-image strips, each strip is received whole before printing
             {
                 LogoMode = LogoMode.BitImage;
                 LogoInterStripPauseMs = 40;
+                LogoVerticalDouble = false;
             }
-            else                                    // 3-inch paper (48...): consistent in tests
+            else                                    // 3-inch: raster bands, HALF the data
             {
                 LogoMode = LogoMode.RasterBands;
                 LogoSliceRows = 24;
-                LogoInterStripPauseMs = 0;
+                LogoVerticalDouble = true;          // prints each row twice tall: half the rows, half the bytes, half the speed demand
             }
         }
 
@@ -1408,6 +1409,7 @@ namespace eMRBCS.Platforms.Android
         public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign align = PrintAlign.Center)
         {
             if (LogoAuto) ApplyAutoLogoMethod();
+            await EnqueueOrSendAsync(new byte[] { 0x1B, 0x4A, 0x00 }, 0, 0, 300);   // ESC J 0 = feed 0 dots, then wait 300 ms
             int maxW = Math.Min(Profile.WidthDots, Head - Profile.OffsetDots);
             int w = Math.Max(8, (int)(maxW * widthFraction) / 8 * 8);
             w = Math.Min(w, maxW / 8 * 8);
