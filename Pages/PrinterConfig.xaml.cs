@@ -592,6 +592,11 @@ public partial class PrinterConfig : ContentPage
                 return;
             }
             string output = "";
+            string pick = await DisplayActionSheetAsync("Print speed", "Cancel", null,
+                                            "Safe (slowest)", "Balanced", "Fast");
+            if (pick == null || pick == "Cancel") return;
+            PrinterHardware.SpeedProfile = pick.StartsWith("Safe") ? SpeedProfile.Safe
+                                         : pick == "Fast" ? SpeedProfile.Fast : SpeedProfile.Balanced;
             if (await DisplayAlertAsync("Test Print", "Would you like to perform a test print?", "Yes", "No"))
                 output = await DoEscPOS_Print();
             await DisplayAlertAsync("Test Print", output, "Ok");
