@@ -340,14 +340,14 @@ namespace eMRBCS.Platforms.Android
             if (settleMs > 0) await Task.Delay(settleMs);
         }
 
-        public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 500, int settleMs = 400)
+        public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 0, int settleMs = 0)
         {
             await ConnectAsync(macAddress);
             if (postConnectDelayMs > 0) await Task.Delay(postConnectDelayMs);
 
             await WarmUpAsync(settleMs);
             await InitializeAsync();
-            await FlushAsync();
+            await FlushAsync(sendTailDelay: false);   // don't sit on TailDelayMs before the first content
             if (settleMs > 0) await Task.Delay(settleMs / 2);
         }
 
