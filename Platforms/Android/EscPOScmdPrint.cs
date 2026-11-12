@@ -1242,7 +1242,6 @@ namespace eMRBCS.Platforms.Android
                 // Let the print engine catch up before the next band so its RX buffer never
                 // overflows (overflow = dropped bytes = white cuts through the image).
                 int pause = rows * useMsPerRow * (vDouble ? 2 : 1);
-                if (pause < 30) pause = 30;   // let the printer finish this image before the next command
                 await EnqueueOrSendAsync(cmd, useChunk, useDelay, pause);
                 RasterRows += vDouble ? rows * 2 : rows;
             }

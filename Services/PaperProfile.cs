@@ -127,13 +127,13 @@
             RasterSliceRows = 0,      // 0 = whole image in ONE GS v 0 (text lines, rules, QR, barcode)
             RasterChunkSize = 128,
             RasterChunkDelayMs = 2,
-            RasterMsPerRow = 1,       // drain pause AFTER each complete image
+            RasterMsPerRow = 0,       // drain pause AFTER each complete image
 
             LogoBitImage = false,
             LogoSliceRows = 0,        // 0 = whole logo in ONE GS v 0 -> no seams
             LogoChunkSize = 128,
             LogoChunkDelayMs = 2,
-            LogoMsPerRow = 1,
+            LogoMsPerRow = 0,
             LogoStripPauseMs = 0
         };
 
