@@ -255,7 +255,7 @@ namespace eMRBCS.Platforms.Android
 
                     // Pacing follows the LINK, not the Android version:
                     // acked BLE -> fast; SPP / no-ack BLE -> lockstep on EVERY phone.
-                    if (AutoCaps) Caps = _link.IsAcked ? PrinterCaps.Default : PrinterCaps.Compat;
+                    if (AutoCaps) Caps = PrinterCaps.Compat;
                     return;
                 }
                 catch (Exception ex) { errors.Add($"{kind.ToUpperInvariant()}: {ex.Message}"); }
@@ -1242,7 +1242,7 @@ namespace eMRBCS.Platforms.Android
                 // Let the print engine catch up before the next band so its RX buffer never
                 // overflows (overflow = dropped bytes = white cuts through the image).
                 int pause = rows * useMsPerRow * (vDouble ? 2 : 1);
-                if (banded) pause = Math.Max(pause, 40);   // band must be physically printed before the next arrives
+                if (banded) pause = Math.Max(pause, 100);   // was 40; give the mechanism time to finish the band
                 await EnqueueOrSendAsync(cmd, useChunk, useDelay, pause);
                 RasterRows += vDouble ? rows * 2 : rows;
             }

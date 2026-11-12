@@ -539,7 +539,7 @@ public partial class PrinterConfig : ContentPage
             await printer.FeedAsync(5);
             await printer.WriteRawAsync(new byte[] { 0x1B, 0x40 });
             await printer.FlushAsync();
-            result = $"Done printing via {printer.TransportInUse}.";
+            result = $"Done printing";
         }
         catch (Exception ex)
         {
