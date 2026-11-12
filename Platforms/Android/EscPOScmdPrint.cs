@@ -55,13 +55,17 @@ namespace eMRBCS.Platforms.Android
 
         private void ApplyCaps()
         {
+            PaceBytesPerSecond = _caps.PaceBytesPerSecond;   // NEW
+            PrebufferBytes = _caps.PrebufferBytes;           // NEW
+            WriteChunkSize = _caps.WriteChunkSize;           // NEW
             SendChunkSize = _caps.SendChunkSize;
             SendChunkDelayMs = _caps.SendChunkDelayMs;
             TailDelayMs = _caps.TailDelayMs;
             RasterSliceRows = _caps.RasterSliceRows;
             RasterChunkSize = _caps.RasterChunkSize;
             RasterChunkDelayMs = _caps.RasterChunkDelayMs;
-            LogoMode = _caps.LogoBitImage ? LogoMode.BitImage : LogoMode.RasterBands;
+            LogoMode = _caps.LogoBitImage ? LogoMode.BitImage
+         : (_caps.LogoSliceRows <= 0 ? LogoMode.Raster : LogoMode.RasterBands);   // CHANGED
             LogoSliceRows = _caps.LogoSliceRows;
             LogoChunkSize = _caps.LogoChunkSize;
             LogoChunkDelayMs = _caps.LogoChunkDelayMs;
@@ -133,76 +137,50 @@ namespace eMRBCS.Platforms.Android
         // ======================================================================
         //  output queue
         // ======================================================================
-        private readonly record struct SendSegment(byte[] Data, int Chunk, int DelayMs, int PauseAfterMs);
-        private readonly List<SendSegment> _queue = new();
-        private readonly List<byte> _cur = new();
+        // ======================================================================
+        //  output buffer  (CHANGED: ONE continuous, clock-paced stream)
+        // ======================================================================
+        public int PaceBytesPerSecond { get; set; } = 28000;
+        public int PrebufferBytes { get; set; } = 2048;
+        public int WriteChunkSize { get; set; } = 512;
+
+        private readonly MemoryStream _buf = new();
+        private bool HasPending => _buf.Length > 0;
 
         private int ResolveChunk(int v) => v > 0 ? v : SendChunkSize;
         private int ResolveDelay(int v) => v >= 0 ? v : SendChunkDelayMs;
 
-        private void CloseCurrentSegment()
-        {
-            if (_cur.Count == 0) return;
-            _queue.Add(new SendSegment(_cur.ToArray(), SendChunkSize, SendChunkDelayMs, 0));
-            _cur.Clear();
-        }
-
-        private void Enqueue(byte[] data, int chunk, int delayMs, int pauseAfterMs)
-        {
-            if (chunk <= 0) chunk = data.Length;
-            bool isDefault = chunk == SendChunkSize && delayMs == SendChunkDelayMs && pauseAfterMs == 0;
-            if (isDefault) { _cur.AddRange(data); return; }
-            CloseCurrentSegment();
-            _queue.Add(new SendSegment(data, chunk, delayMs, pauseAfterMs));
-        }
-
-        private static void WriteSegmentSync(Stream stream, SendSegment s)
-        {
-            int chunk = s.Chunk > 0 ? s.Chunk : s.Data.Length;
-            for (int i = 0; i < s.Data.Length; i += chunk)
-            {
-                int len = Math.Min(chunk, s.Data.Length - i);
-                stream.Write(s.Data, i, len);
-                if (s.DelayMs > 0 && i + len < s.Data.Length)
-                    System.Threading.Thread.Sleep(s.DelayMs);
-            }
-            if (s.PauseAfterMs > 0) System.Threading.Thread.Sleep(s.PauseAfterMs);
-        }
-
+        // chunk / delayMs / pauseAfterMs are kept only so the callers still compile;
+        // pacing is now done once, over the whole stream, in FlushAsync.
         private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
         {
             if (_outputStream == null)
                 throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
             if (payload == null || payload.Length == 0) return;
 
-            if (BufferOutput) { Enqueue(payload, chunk, delayMs, pauseAfterMs); return; }
-
-            var stream = _outputStream;
-            var seg = new SendSegment(payload, chunk, delayMs, pauseAfterMs);
-            await Task.Run(() => { WriteSegmentSync(stream, seg); stream.Flush(); });
+            _buf.Write(payload, 0, payload.Length);
+            if (!BufferOutput) await FlushAsync(sendTailDelay: false);
         }
 
         public async Task FlushAsync(bool sendTailDelay = true)
         {
-            CloseCurrentSegment();
-            if (_queue.Count == 0) return;
+            if (_buf.Length == 0) return;
 
             var stream = _outputStream
                 ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
 
-            var segments = _queue.ToArray();
-            _queue.Clear();
+            byte[] all = _buf.ToArray();
+            _buf.SetLength(0);
+            int rate = PaceBytesPerSecond, pre = PrebufferBytes, chunk = WriteChunkSize;
 
-            await Task.Run(() =>
-            {
-                foreach (var s in segments) WriteSegmentSync(stream, s);
-                stream.Flush();
-            });
+            await Task.Factory.StartNew(
+                () => PacedWriter.Write(stream, all, chunk, rate, pre),
+                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
             if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
         }
 
-        public void ClearBuffer() { _queue.Clear(); _cur.Clear(); }
+        public void ClearBuffer() => _buf.SetLength(0);
 
         // ======================================================================
         //  connection
@@ -357,7 +335,7 @@ namespace eMRBCS.Platforms.Android
         {
             try
             {
-                if (_outputStream != null && (_queue.Count > 0 || _cur.Count > 0))
+                if (_outputStream != null && HasPending)     // was: (_queue.Count > 0 || _cur.Count > 0)
                     Task.Run(async () => await FlushAsync()).GetAwaiter().GetResult();
             }
             catch { }
