@@ -1,7 +1,5 @@
 ﻿namespace eMRBCS.Services
 {
-    /// <summary>Sending speed. Safe = slowest/most compatible, Fast = for printers with a big buffer.</summary>
-    public enum SpeedProfile { Safe = 0, Balanced = 1, Fast = 2 }
     public enum AlignMethod { Hardware, Software }
 
     /// <summary>Hybrid = text for plain ASCII, raster image for everything else (default).</summary>
@@ -83,12 +81,6 @@
             get => Preferences.Get("print_density_level", 3);
             set => Preferences.Set("print_density_level", Math.Clamp(value, 0, 4));
         }
-        // ---------------- send speed (persisted, set from Test Print) ----------------   // NEW
-        public static SpeedProfile SpeedProfile
-        {
-            get => (SpeedProfile)Preferences.Get("print_speed_profile", (int)SpeedProfile.Balanced);
-            set => Preferences.Set("print_speed_profile", (int)value);
-        }
     }
 
     /// <summary>
@@ -97,9 +89,6 @@
     /// </summary>
     public sealed class PrinterCaps
     {
-        public int PaceBytesPerSecond { get; init; } = 0;     // pacing OFF (matches the lab conditions that worked)
-        public int PrebufferBytes { get; init; } = 0;
-        public int WriteChunkSize { get; init; } = 512;
         // text sending
         public int SendChunkSize { get; init; } = 512;
         public int SendChunkDelayMs { get; init; } = 4;
@@ -118,16 +107,22 @@
         public int LogoStripPauseMs { get; init; } = 0;
 
         /// <summary>Safe for every printer (slower).</summary>
+        public static PrinterCaps Default => new();
 
-
-        // Tuned from the test data: 32-row raster bands, 24-row logo bands, 512-byte chunks.
-        public static PrinterCaps Default => new()
+        /// <summary>For printers with a fast Bluetooth buffer. Use: printer.Caps = PrinterCaps.Fast;</summary>
+        public static PrinterCaps Fast => new()
         {
-            RasterSliceRows = 32,
-            LogoSliceRows = 24,
-            TailDelayMs = 400
+            SendChunkSize = 2048,
+            SendChunkDelayMs = 0,
+            TailDelayMs = 150,
+            RasterSliceRows = 0,
+            RasterChunkSize = 0,
+            RasterChunkDelayMs = -1,
+            LogoBitImage = true,
+            LogoChunkSize = 256,
+            LogoChunkDelayMs = 10,
+            LogoStripPauseMs = 3
         };
-        public static PrinterCaps Fast => Default;
 
         /// <summary>Use if the logo does not print with GS v 0 raster.</summary>
         public static PrinterCaps BitImageLogo => new() { LogoBitImage = true };

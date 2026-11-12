@@ -55,17 +55,13 @@ namespace eMRBCS.Platforms.Android
 
         private void ApplyCaps()
         {
-            PaceBytesPerSecond = _caps.PaceBytesPerSecond;   // NEW
-            PrebufferBytes = _caps.PrebufferBytes;           // NEW
-            WriteChunkSize = _caps.WriteChunkSize;           // NEW
             SendChunkSize = _caps.SendChunkSize;
             SendChunkDelayMs = _caps.SendChunkDelayMs;
             TailDelayMs = _caps.TailDelayMs;
             RasterSliceRows = _caps.RasterSliceRows;
             RasterChunkSize = _caps.RasterChunkSize;
             RasterChunkDelayMs = _caps.RasterChunkDelayMs;
-            LogoMode = _caps.LogoBitImage ? LogoMode.BitImage
-         : (_caps.LogoSliceRows <= 0 ? LogoMode.Raster : LogoMode.RasterBands);   // CHANGED
+            LogoMode = _caps.LogoBitImage ? LogoMode.BitImage : LogoMode.RasterBands;
             LogoSliceRows = _caps.LogoSliceRows;
             LogoChunkSize = _caps.LogoChunkSize;
             LogoChunkDelayMs = _caps.LogoChunkDelayMs;
@@ -83,29 +79,6 @@ namespace eMRBCS.Platforms.Android
         public int RasterChunkSize { get; set; } = 192;
         public int RasterChunkDelayMs { get; set; } = 8;
         public int RasterSliceRows { get; set; } = 48;
-        /// true = logo method is chosen from the paper size (tested defaults).
-        /// Set false only to force LogoMode manually (e.g. the logo lab).
-        public bool LogoAuto { get; set; } = true;
-
-        private void ApplyAutoLogoMethod()
-        {
-            LogoVerticalDouble = false;          // never stretch
-            LogoMaxWidthDots = 0;                // full paper width
-
-            if (IsSmallPaper)                    // 2-inch: unchanged, already clean
-            {
-                LogoMode = LogoMode.BitImage;
-                LogoInterStripPauseMs = 40;
-                LogoMsPerRow = 0;
-            }
-            else                                 // 3-inch: full width, small bands, pause after each band
-            {
-                LogoMode = LogoMode.RasterBands;
-                LogoSliceRows = 24;
-                LogoInterStripPauseMs = 0;
-                LogoMsPerRow = 3;                // 24 rows x 3 ms = about 72 ms pause after each band
-            }
-        }
 
         // ---------------- logo settings ----------------
         public LogoMode LogoMode { get; set; } = LogoMode.RasterBands;
@@ -160,22 +133,41 @@ namespace eMRBCS.Platforms.Android
         // ======================================================================
         //  output queue
         // ======================================================================
-        // ======================================================================
-        //  output buffer  (CHANGED: ONE continuous, clock-paced stream)
-        // ======================================================================
-        public int PaceBytesPerSecond { get; set; } = 28000;
-        public int PrebufferBytes { get; set; } = 2048;
-        public int WriteChunkSize { get; set; } = 512;
-
-        private readonly MemoryStream _buf = new();
-        private bool HasPending => _buf.Length > 0;
+        private readonly record struct SendSegment(byte[] Data, int Chunk, int DelayMs, int PauseAfterMs);
+        private readonly List<SendSegment> _queue = new();
+        private readonly List<byte> _cur = new();
 
         private int ResolveChunk(int v) => v > 0 ? v : SendChunkSize;
         private int ResolveDelay(int v) => v >= 0 ? v : SendChunkDelayMs;
 
-        // chunk / delayMs / pauseAfterMs are kept only so the callers still compile;
-        // pacing is now done once, over the whole stream, in FlushAsync.
-        private readonly List<(int Pos, int Ms)> _pauses = new();
+        private void CloseCurrentSegment()
+        {
+            if (_cur.Count == 0) return;
+            _queue.Add(new SendSegment(_cur.ToArray(), SendChunkSize, SendChunkDelayMs, 0));
+            _cur.Clear();
+        }
+
+        private void Enqueue(byte[] data, int chunk, int delayMs, int pauseAfterMs)
+        {
+            if (chunk <= 0) chunk = data.Length;
+            bool isDefault = chunk == SendChunkSize && delayMs == SendChunkDelayMs && pauseAfterMs == 0;
+            if (isDefault) { _cur.AddRange(data); return; }
+            CloseCurrentSegment();
+            _queue.Add(new SendSegment(data, chunk, delayMs, pauseAfterMs));
+        }
+
+        private static void WriteSegmentSync(Stream stream, SendSegment s)
+        {
+            int chunk = s.Chunk > 0 ? s.Chunk : s.Data.Length;
+            for (int i = 0; i < s.Data.Length; i += chunk)
+            {
+                int len = Math.Min(chunk, s.Data.Length - i);
+                stream.Write(s.Data, i, len);
+                if (s.DelayMs > 0 && i + len < s.Data.Length)
+                    System.Threading.Thread.Sleep(s.DelayMs);
+            }
+            if (s.PauseAfterMs > 0) System.Threading.Thread.Sleep(s.PauseAfterMs);
+        }
 
         private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
         {
@@ -183,32 +175,34 @@ namespace eMRBCS.Platforms.Android
                 throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
             if (payload == null || payload.Length == 0) return;
 
-            _buf.Write(payload, 0, payload.Length);
-            if (pauseAfterMs > 0) _pauses.Add(((int)_buf.Length, pauseAfterMs));   // NEW
-            if (!BufferOutput) await FlushAsync(sendTailDelay: false);
+            if (BufferOutput) { Enqueue(payload, chunk, delayMs, pauseAfterMs); return; }
+
+            var stream = _outputStream;
+            var seg = new SendSegment(payload, chunk, delayMs, pauseAfterMs);
+            await Task.Run(() => { WriteSegmentSync(stream, seg); stream.Flush(); });
         }
 
         public async Task FlushAsync(bool sendTailDelay = true)
         {
-            if (_buf.Length == 0) return;
+            CloseCurrentSegment();
+            if (_queue.Count == 0) return;
 
             var stream = _outputStream
                 ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
 
-            byte[] all = _buf.ToArray();
-            var pauses = _pauses.ToList();           // NEW
-            _buf.SetLength(0);
-            _pauses.Clear();
-            int rate = PaceBytesPerSecond, pre = PrebufferBytes, chunk = WriteChunkSize;
+            var segments = _queue.ToArray();
+            _queue.Clear();
 
-            await Task.Factory.StartNew(
-                () => PacedWriter.Write(stream, all, chunk, rate, pre, pauses),
-                CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            await Task.Run(() =>
+            {
+                foreach (var s in segments) WriteSegmentSync(stream, s);
+                stream.Flush();
+            });
 
             if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
         }
 
-        public void ClearBuffer() { _buf.SetLength(0); _pauses.Clear(); }
+        public void ClearBuffer() { _queue.Clear(); _cur.Clear(); }
 
         // ======================================================================
         //  connection
@@ -363,7 +357,7 @@ namespace eMRBCS.Platforms.Android
         {
             try
             {
-                if (_outputStream != null && HasPending)     // was: (_queue.Count > 0 || _cur.Count > 0)
+                if (_outputStream != null && (_queue.Count > 0 || _cur.Count > 0))
                     Task.Run(async () => await FlushAsync()).GetAwaiter().GetResult();
             }
             catch { }
@@ -1409,8 +1403,6 @@ namespace eMRBCS.Platforms.Android
 
         public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign align = PrintAlign.Center)
         {
-            if (LogoAuto) ApplyAutoLogoMethod();
-            await EnqueueOrSendAsync(new byte[] { 0x1B, 0x4A, 0x00 }, 0, 0, 300);   // ESC J 0 = feed 0 dots, then wait 300 ms
             int maxW = Math.Min(Profile.WidthDots, Head - Profile.OffsetDots);
             int w = Math.Max(8, (int)(maxW * widthFraction) / 8 * 8);
             w = Math.Min(w, maxW / 8 * 8);
