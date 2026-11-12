@@ -90,19 +90,20 @@ namespace eMRBCS.Platforms.Android
         private void ApplyAutoLogoMethod()
         {
             LogoMsPerRow = 0;
+            LogoVerticalDouble = false;          // no more stretching
             LogoInterStripPauseMs = 0;
 
-            if (IsSmallPaper)                       // 2-inch: bit-image strips, each strip is received whole before printing
+            if (IsSmallPaper)                    // 2-inch: unchanged, already clean
             {
                 LogoMode = LogoMode.BitImage;
                 LogoInterStripPauseMs = 40;
-                LogoVerticalDouble = false;
+                LogoMaxWidthDots = 0;            // full width
             }
-            else                                    // 3-inch: raster bands, HALF the data
+            else                                 // 3-inch: proportionally smaller logo, same shape
             {
                 LogoMode = LogoMode.RasterBands;
                 LogoSliceRows = 24;
-                LogoVerticalDouble = true;          // prints each row twice tall: half the rows, half the bytes, half the speed demand
+                LogoMaxWidthDots = 384;          // about 44% of the data, centered, aspect ratio kept
             }
         }
 
