@@ -2,6 +2,7 @@
 using eMRBCS.Services;
 using QRCoder;
 using SkiaSharp;
+using System.Diagnostics;
 using System.Text;
 using UUID = Java.Util.UUID;
 
@@ -126,6 +127,11 @@ namespace eMRBCS.Platforms.Android
 
         private static byte[] FeedDots(int n) => new byte[] { 0x1B, 0x4A, (byte)Math.Clamp(n, 0, 255) };
 
+        /// true = the Bluetooth socket is opened at FlushAsync, after the whole job is rendered.
+        public bool DeferConnection { get; set; } = true;
+        private string _pendingMac;
+        private int _postConnectDelayMs = 500;
+        private int _settleMs = 400;
         private BluetoothSocket _socket;
         private Stream _outputStream;
         public bool IsConnected => _socket?.IsConnected == true;
@@ -159,23 +165,35 @@ namespace eMRBCS.Platforms.Android
         private static void WriteSegmentSync(Stream stream, SendSegment s)
         {
             int chunk = s.Chunk > 0 ? s.Chunk : s.Data.Length;
+            var sw = Stopwatch.StartNew();
+            long next = 0;                                   // when the next chunk may be sent (ms)
+
             for (int i = 0; i < s.Data.Length; i += chunk)
             {
                 int len = Math.Min(chunk, s.Data.Length - i);
                 stream.Write(s.Data, i, len);
+
                 if (s.DelayMs > 0 && i + len < s.Data.Length)
-                    System.Threading.Thread.Sleep(s.DelayMs);
+                {
+                    next += s.DelayMs;
+                    long now = sw.ElapsedMilliseconds;
+                    if (next > now)
+                        System.Threading.Thread.Sleep((int)(next - now));
+                    else if (now - next > s.DelayMs * 3)     // limit the catch-up burst
+                        next = now - s.DelayMs * 3;
+                }
             }
             if (s.PauseAfterMs > 0) System.Threading.Thread.Sleep(s.PauseAfterMs);
         }
 
         private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
         {
-            if (_outputStream == null)
+            bool deferred = _outputStream == null && _pendingMac != null;
+            if (_outputStream == null && !deferred)
                 throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
             if (payload == null || payload.Length == 0) return;
 
-            if (BufferOutput) { Enqueue(payload, chunk, delayMs, pauseAfterMs); return; }
+            if (BufferOutput || deferred) { Enqueue(payload, chunk, delayMs, pauseAfterMs); return; }
 
             var stream = _outputStream;
             var seg = new SendSegment(payload, chunk, delayMs, pauseAfterMs);
@@ -184,6 +202,10 @@ namespace eMRBCS.Platforms.Android
 
         public async Task FlushAsync(bool sendTailDelay = true)
         {
+            // Job is fully rendered by now: open the socket only at this point.
+            if (_outputStream == null && _pendingMac != null)
+                await ConnectDeferredAsync();
+
             CloseCurrentSegment();
             if (_queue.Count == 0) return;
 
@@ -193,13 +215,32 @@ namespace eMRBCS.Platforms.Android
             var segments = _queue.ToArray();
             _queue.Clear();
 
-            await Task.Run(() =>
+            if (sendTailDelay) GC.Collect();   // avoid a GC pause in the middle of the image
+
+            await Task.Factory.StartNew(() =>
             {
+                try { Thread.CurrentThread.Priority = ThreadPriority.AboveNormal; } catch { }
                 foreach (var s in segments) WriteSegmentSync(stream, s);
                 stream.Flush();
-            });
+            }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
             if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
+        }
+
+        private async Task ConnectDeferredAsync()
+        {
+            string mac = _pendingMac;
+            _pendingMac = null;
+
+            CloseCurrentSegment();
+            var job = _queue.ToArray();      // keep the rendered job: connect/warm-up clear the buffer
+            _queue.Clear();
+
+            await ConnectAsync(mac);
+            if (_postConnectDelayMs > 0) await Task.Delay(_postConnectDelayMs);
+            await WarmUpAsync(_settleMs);
+
+            _queue.AddRange(job);
         }
 
         public void ClearBuffer() { _queue.Clear(); _cur.Clear(); }
@@ -344,9 +385,18 @@ namespace eMRBCS.Platforms.Android
 
         public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 500, int settleMs = 400)
         {
+            if (DeferConnection)
+            {
+                _pendingMac = macAddress;
+                _postConnectDelayMs = postConnectDelayMs;
+                _settleMs = settleMs;
+                ClearBuffer();
+                await InitializeAsync();     // only queued, nothing is sent yet
+                return;
+            }
+
             await ConnectAsync(macAddress);
             if (postConnectDelayMs > 0) await Task.Delay(postConnectDelayMs);
-
             await WarmUpAsync(settleMs);
             await InitializeAsync();
             await FlushAsync();
@@ -355,6 +405,7 @@ namespace eMRBCS.Platforms.Android
 
         public void Disconnect()
         {
+            _pendingMac = null;   // a failed job must never connect and print half a receipt later
             try
             {
                 if (_outputStream != null && (_queue.Count > 0 || _cur.Count > 0))
