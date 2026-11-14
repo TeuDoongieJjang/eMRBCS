@@ -48,21 +48,23 @@ public partial class Profile : ContentPage
 
     private async void OnSavePass(object sender, EventArgs e)
     {
-        if (txtnewpass.Text == txtconfirmpass.Text && txtoldpass.Text == LoginUser.login_user.password)
+        if (string.IsNullOrWhiteSpace(txtnewpass.Text))
+        { await DisplayAlertAsync("Notice", "New password is required.", "Ok"); return; }
+        if (txtoldpass.Text != LoginUser.login_user.password)
+        { await DisplayAlertAsync("Notice", "Old password is incorrect.", "Ok"); return; }
+        if (txtnewpass.Text != txtconfirmpass.Text)
+        { await DisplayAlertAsync("Notice", "New password and confirmation do not match.", "Ok"); return; }
+
+        bool isSaved = await dbService.UpdateAdminUser(txtusername.Text, txtnewpass.Text, txtname.Text, txtposition.Text);
+        if (isSaved)
         {
-            bool isSaved = await dbService.UpdateAdminUser(txtusername.Text, txtnewpass.Text, txtname.Text, txtposition.Text);
-            if (isSaved)
-            {
-                await DisplayAlertAsync("Notice", "Password Updated!", "Ok");
-                btnSaveChanges.IsEnabled = true;
-                btnUpdatePass.IsEnabled = true;
-                gridChangePass.IsVisible = false;
-            }
-            else
-            {
-                await DisplayAlertAsync("Notice", "Something went wrong. Failed to Update Password.", "Ok");
-            }
+            await DisplayAlertAsync("Notice", "Password Updated!", "Ok");
+            btnSaveChanges.IsEnabled = true;
+            btnUpdatePass.IsEnabled = true;
+            gridChangePass.IsVisible = false;
         }
+        else
+            await DisplayAlertAsync("Notice", "Something went wrong. Failed to Update Password.", "Ok");
     }
 
     private void OnCancel(object sender, EventArgs e)

@@ -602,8 +602,10 @@ namespace MSRBC.Services
                             {
                                 status = session.Store.ReadFile(out data, fileHandle, bytesReadOffset, (int)session.Client.MaxReadSize);
 
-                                if (status != NTStatus.STATUS_SUCCESS || data == null || data.Length == 0)
-                                    break;
+                                if (status == NTStatus.STATUS_END_OF_FILE) break;
+                                if (status != NTStatus.STATUS_SUCCESS)
+                                    throw new Exception($"Error reading '{targetfile}'. Status: {status}");
+                                if (data == null || data.Length == 0) break;
 
                                 fs.Write(data, 0, data.Length);
                                 bytesReadOffset += data.Length;

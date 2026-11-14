@@ -47,7 +47,13 @@ public partial class Reports : ContentPage
             "Unbilled Consumers"
         };
     }
-
+    private static (string MeterReader, DateTime ReportDate) GetReportHeader(List<Consumers> list)
+    {
+        string reader = list.Select(c => c.billedby).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))
+                        ?? LoginUser.login_user?.fullname ?? "";
+        DateTime date = MOA.ParseBillDate(list[0].billdate);
+        return (reader, date);
+    }
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
         await Navigation.PopOnceAsync();
@@ -57,55 +63,46 @@ public partial class Reports : ContentPage
     private async Task PrintSelectedReportAsync()
     {
         if (lstReports.SelectedItem == null)
+        {
+            await DisplayAlertAsync("Notice", "Please select a report to print.", "Ok");
             return;
+        }
+        if (MyDeviceInfo.currentPrintConfig == null)
+        {
+            await DisplayAlertAsync("Notice", "No Printer Configuration loaded.", "Ok");
+            return;
+        }
 
-        string printStat = "";
-        List<Consumers> consumers = new List<Consumers>();
+        string printStat;
         dbService = new DBService();
-        string printItem = lstReports.SelectedItem.ToString();
-        var selectedConsumer = ConsumerRecords.lstconsumers?.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c.accountNo));
+        string printItem = lstReports.SelectedItem.ToString()!;
 
         switch (printItem)
         {
             case "Consumer List with Remarks":
-                consumers = await dbService.LoadReportConsumerswithRemarks(1);
-                if (consumers != null && consumers.Count > 0)
                 {
-                    //printStat = await DoPrintReportConsumerWithRemarks_HoneyWell(consumers);
-                    printStat = await DoPrintReportConsumerWithRemarks_EscPOS(selectedConsumer, consumers);
+                    var list = await dbService.LoadReportConsumerswithRemarks(1);
+                    printStat = list is { Count: > 0 }
+                        ? await DoPrintReportConsumerWithRemarks_EscPOS(list[0], list)
+                        : "No consumer records with remarks found. Nothing to print.";
+                    break;
                 }
-                else
-                {
-                    printStat = "No consumer records with remarks found. Nothing to print.";
-                }
-                break;
-
             case "Billed Consumers":
-                consumers = await dbService.LoadReportConsumersToList(1);
-                if (consumers != null && consumers.Count > 0)
                 {
-                    //printStat = await DoPrintBilledSummary_Honeywell(consumers);
-                    printStat = await DoPrintBilledSummary_EscPOS(selectedConsumer, consumers);
+                    var list = await dbService.LoadReportConsumersToList(1);
+                    printStat = list is { Count: > 0 }
+                        ? await DoPrintBilledSummary_EscPOS(list[0], list)
+                        : "No billed consumers found. Nothing to print.";
+                    break;
                 }
-                else
-                {
-                    printStat = "No billed consumers found. Nothing to print.";
-                }
-                break;
-
             case "Unbilled Consumers":
-                consumers = await dbService.LoadReportUnbilledConsumers(1);
-                if (consumers != null && consumers.Count > 0)
                 {
-                    //printStat = await DoPrintUnbilled_Honeywell(consumers);
-                    printStat = await DoPrintUnbilled_EscPOS(selectedConsumer, consumers);
+                    var list = await dbService.LoadReportUnbilledConsumers(1);
+                    printStat = list is { Count: > 0 }
+                        ? await DoPrintUnbilled_EscPOS(list[0], list)
+                        : "No unbilled consumers found. Nothing to print.";
+                    break;
                 }
-                else
-                {
-                    printStat = "No unbilled consumers found. Nothing to print.";
-                }
-                break;
-
             default:
                 printStat = "Unknown report selection.";
                 break;
@@ -124,7 +121,7 @@ public partial class Reports : ContentPage
             return "No unbilled consumers found. Nothing to print.";
 
         string result = "";
-
+        var (meterReader, reportDate) = GetReportHeader(consumers);
         string strHeaderFileName = MOA.GetClientLogo(consumer.parameters);
 
         // ===== GLOBAL ALIGNMENT =====
@@ -172,10 +169,8 @@ public partial class Reports : ContentPage
             await printer.FeedAsync(1);
 
             // ---- METER READER / DATE ----
-            await printer.PrintRowAsync("Meter Reader:", consumer.billedby);
-
-            DateTime currentbilldate = DateTime.Parse(consumers[0].billdate);
-            await printer.PrintRowAsync("Date:", currentbilldate.ToString("MM/dd/yyyy"));
+            await printer.PrintRowAsync("Meter Reader:", meterReader);
+            await printer.PrintRowAsync("Date:", reportDate.ToString("MM/dd/yyyy"));
 
             await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
@@ -240,7 +235,7 @@ public partial class Reports : ContentPage
             return "No billed consumers found. Nothing to print.";
 
         string result = "";
-
+        var (meterReader, reportDate) = GetReportHeader(consumers);
         string strHeaderFileName = MOA.GetClientLogo(consumer.parameters);
 
         // ===== GLOBAL ALIGNMENT =====
@@ -285,10 +280,8 @@ public partial class Reports : ContentPage
             await printer.FeedAsync(1);
 
             // ---- METER READER / DATE ----
-            await printer.PrintRowAsync("Meter Reader:", consumer.billedby);
-
-            DateTime currentbilldate = DateTime.Parse(consumer.billdate);
-            await printer.PrintRowAsync("Date:", currentbilldate.ToString("MM/dd/yyyy"));
+            await printer.PrintRowAsync("Meter Reader:", meterReader);
+            await printer.PrintRowAsync("Date:", reportDate.ToString("MM/dd/yyyy"));
 
             await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
@@ -352,7 +345,7 @@ public partial class Reports : ContentPage
             return "No consumer records with remarks found. Nothing to print.";
 
         string result = "";
-
+        var (meterReader, reportDate) = GetReportHeader(consumers);
         string strHeaderFileName = MOA.GetClientLogo(consumer.parameters);
 
         // ===== GLOBAL ALIGNMENT =====
@@ -397,10 +390,8 @@ public partial class Reports : ContentPage
             await printer.FeedAsync(1);
 
             // ---- METER READER / DATE ----
-            await printer.PrintRowAsync("Meter Reader:", consumer.billedby);
-
-            DateTime currentbilldate = DateTime.Parse(consumers[0].billdate);
-            await printer.PrintRowAsync("Date:", currentbilldate.ToString("MM/dd/yyyy"));
+            await printer.PrintRowAsync("Meter Reader:", meterReader);
+            await printer.PrintRowAsync("Date:", reportDate.ToString("MM/dd/yyyy"));
 
             await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 

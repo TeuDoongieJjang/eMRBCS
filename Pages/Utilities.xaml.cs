@@ -240,66 +240,30 @@ public partial class Utilities : ContentPage
 
     public async Task<string> CopyFileToExternalStorageAsync()
     {
-        bool isSuccess = true;
-        string copyStatus = "";
-        string copyError = "Unknown Error";
         string destinationFilePath = "";
         try
         {
-
-            string sourceFilePath = Path.Combine(FileSystem.AppDataDirectory, database_info.dbName);
-
-
-            if (!File.Exists(sourceFilePath))
-            {
-                copyStatus = "Failed:Database file doesn't exists:" + destinationFilePath;
-                return copyStatus;
-            }
-
-
-            if (DeviceInfo.Platform == DevicePlatform.Android)
-            {
-                var status = await Permissions.RequestAsync<Permissions.StorageWrite>();
-                if (status != PermissionStatus.Granted)
-                {
-                    copyStatus = "Failed:Permission not granted:" + destinationFilePath;
-                    //return copyStatus;
-                }
+            string source = Path.Combine(FileSystem.AppDataDirectory, database_info.dbName);
+            if (!File.Exists(source)) return "Failed:Database file doesn't exist:";
 
 #if ANDROID
+            string? dir = null;
+            foreach (var f in Android.App.Application.Context.GetExternalFilesDirs(null))
+                if (f != null && !f.AbsolutePath.Contains("emulated")) { dir = f.AbsolutePath; break; }
 
+            if (dir == null) return "Failed:No external storage (SD card) found:";
 
-                foreach (var file in Android.App.Application.Context.GetExternalFilesDirs(null))
-                {
-                    if (file != null && !file.AbsolutePath.Contains("emulated"))
-                    {
-                        destinationFilePath = file.AbsolutePath;
-                        break;
-                    }
-                }
-                destinationFilePath = Path.Combine(destinationFilePath, database_info.dbName);
-                isSuccess = true; // Copy successful
-
+            destinationFilePath = Path.Combine(dir, database_info.dbName);
+            await Task.Run(() => File.Copy(source, destinationFilePath, true));
+            return "Success:No error:" + destinationFilePath;
+#else
+        await Task.CompletedTask;
+        return "Failed:Backup is only implemented for Android:";
 #endif
-            }
-
-            File.Copy(sourceFilePath, destinationFilePath, overwrite: true);
-
-
         }
         catch (Exception ex)
         {
-
-            copyError = ex.Message;
+            return "Failed:" + ex.Message.Replace(':', ' ') + ":" + destinationFilePath;   // ':' is the separator used by TapBackup
         }
-        if (isSuccess)
-        {
-            copyStatus = "Success:No error:" + destinationFilePath;
-        }
-        else
-        {
-            copyStatus = "Failed:" + copyError + ":" + destinationFilePath;
-        }
-        return copyStatus;
     }
 }

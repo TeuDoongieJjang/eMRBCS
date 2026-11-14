@@ -2,7 +2,6 @@
 using eMRBCS.Services;
 using QRCoder;
 using SkiaSharp;
-using System.Diagnostics;
 using System.Text;
 
 namespace eMRBCS.Platforms.Android
@@ -54,27 +53,28 @@ namespace eMRBCS.Platforms.Android
         // ======================================================================
         //  settings
         // ======================================================================
+        private static bool _logoCacheTrim;
+
+        /// <summary>Global alignment from the Line Space digit: 321=Left, 322=Center, 323=Right.</summary>
+        public PrintAlign PaperAlign => Profile.Alignment switch
+        {
+            1 => PrintAlign.Left,
+            3 => PrintAlign.Right,
+            _ => PrintAlign.Center
+        };
+        public int LogoMaxWidthDots { get; set; } = 0;   // 0 = full paper width
+
         public PrinterTransport Transport { get; set; } = PrinterTransport.Auto;
         public int ConnectTimeoutSeconds { get; set; } = 6;
 
         /// <summary>Bytes per Bluetooth write. No delay between writes.</summary>
-        public int SendChunkSize { get; set; } = 4096;
-
-        /// <summary>
-        /// 0 = send as fast as the link accepts (default).
-        /// If a printer loses data because it receives too fast, set a steady rate, e.g. 20000.
-        /// This is a constant rate, not a pause between chunks, so printing stays continuous.
-        /// </summary>
-        public int ThrottleBytesPerSecond { get; set; } = 0;
+        public int SendChunkSize { get; set; } = PrinterHardware.SendChunkBytes;
 
         /// <summary>Minimum wait in CloseAsync so closing the socket cannot cut the end of the receipt.</summary>
         public int TailDelayMs { get; set; } = 600;
 
         public int LogoThreshold { get; set; } = PrinterHardware.LogoThreshold;
         public bool LogoBolden { get; set; } = PrinterHardware.LogoBolden;
-
-        /// <summary>Hard cap for the logo width in dots (0 = no cap).</summary>
-        public int LogoMaxWidthDots { get; set; } = 0;
 
         public PaperProfile Profile { get; set; } = PaperProfile.FromColumns(32);
 
@@ -101,10 +101,51 @@ namespace eMRBCS.Platforms.Android
         // ======================================================================
         private readonly List<byte> _buf = new(16384);
         private int _lines;
+        private readonly List<(int End, double Cost)> _marks = new();   // print-time cost of the bytes in _buf
+        private DateTime _printDoneUtc = DateTime.MinValue;             // when the printer should be finished
         private IPrinterLink _link;
 
-        public void ClearBuffer() { _buf.Clear(); _lines = 0; }
+        public void ClearBuffer() { _buf.Clear(); _marks.Clear(); _lines = 0; BytesSent = 0; }
+        private static double RowMs => 1000.0 / Math.Max(50, PrinterHardware.PrintRowsPerSecond);
+        private void MarkMs(double ms)
+        {
+            if (ms <= 0 || !PrinterHardware.PacingEnabled) return;
+            if (_marks.Count > 0 && _marks[^1].End == _buf.Count)
+                _marks[^1] = (_buf.Count, _marks[^1].Cost + ms);
+            else
+                _marks.Add((_buf.Count, ms));
+        }
 
+        private void Mark(double dots) => MarkMs(dots * RowMs);
+
+        /// <summary>Records that everything added to _buf since the last mark takes about 'dots' dot-rows to print.</summary>
+
+        private static double LineDots(Rs r) => Math.Max(30, (r.FontB ? 17 : 24) * r.H + 6);
+
+        private static double[] BuildChunkCosts(int total, int chunk, (int End, double Cost)[] marks)
+        {
+            var costs = new double[(total + chunk - 1) / chunk];
+            int start = 0;
+            foreach (var (end0, cost) in marks)
+            {
+                int end = Math.Min(end0, total);
+                int span = end - start;
+                if (span > 0 && cost > 0)
+                {
+                    double perByte = cost / span;
+                    int pos = start;
+                    while (pos < end)
+                    {
+                        int ci = pos / chunk;
+                        int chunkEnd = Math.Min((ci + 1) * chunk, end);
+                        costs[ci] += perByte * (chunkEnd - pos);
+                        pos = chunkEnd;
+                    }
+                }
+                start = Math.Max(start, end);
+            }
+            return costs;
+        }
         public Task WriteRawAsync(byte[] payload)
         {
             if (payload != null && payload.Length > 0) _buf.AddRange(payload);
@@ -122,14 +163,21 @@ namespace eMRBCS.Platforms.Android
                 ?? throw new InvalidOperationException($"Could not resolve device: {macAddress}");
             try { adapter.CancelDiscovery(); } catch { }
 
-            bool bleCapable = false;
-            try { bleCapable = device.Type is BluetoothDeviceType.Le or BluetoothDeviceType.Dual; } catch { }
+            bool bleCapable = false, bleOnly = false;
+            try
+            {
+                bleCapable = device.Type is BluetoothDeviceType.Le or BluetoothDeviceType.Dual;
+                bleOnly = device.Type == BluetoothDeviceType.Le;
+            }
+            catch { }
+
+            bool bleFirst = bleOnly || (!PrinterHardware.PreferSpp && bleCapable);
 
             var order = Transport switch
             {
                 PrinterTransport.SppOnly => new[] { "spp" },
                 PrinterTransport.BleOnly => new[] { "ble" },
-                _ => bleCapable ? new[] { "ble", "spp" } : new[] { "spp", "ble" }
+                _ => bleFirst ? new[] { "ble", "spp" } : new[] { "spp", "ble" }
             };
 
             var errors = new List<string>();
@@ -160,12 +208,16 @@ namespace eMRBCS.Platforms.Android
         }
 
         /// <summary>Connect, then queue the reset. Nothing is sent yet: the reset travels in the same stream as the receipt.</summary>
-        public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 0, int settleMs = 0)
+        public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 200, int settleMs = 300)
         {
             await ConnectAsync(macAddress);
             if (postConnectDelayMs > 0) await Task.Delay(postConnectDelayMs);
-            if (settleMs > 0) await Task.Delay(settleMs);
+
+            // Send the reset ALONE and give the printer time to finish it, so the first
+            // bytes of the logo are never swallowed. Nothing is printed yet, so this is not a visible pause.
             await InitializeAsync();
+            await FlushAsync();
+            if (settleMs > 0) await Task.Delay(settleMs);
         }
 
         /// <summary>
@@ -250,6 +302,9 @@ namespace eMRBCS.Platforms.Android
         //  sending: ONE continuous stream
         // ======================================================================
         /// <summary>Sends everything collected so far as one continuous stream. Does not wait for the printer to finish.</summary>
+        public int BytesSent { get; private set; }
+        public string Stats => $"{TransportInUse} | head {Head} | paper {Profile.WidthDots}+{Profile.OffsetDots} | {BytesSent} B | {RasterRows} rows";
+
         public async Task FlushAsync(bool sendTailDelay = false)
         {
             if (_buf.Count == 0) return;
@@ -257,24 +312,29 @@ namespace eMRBCS.Platforms.Android
 
             byte[] data = _buf.ToArray();
             _buf.Clear();
+            _marks.Clear();
 
-            int chunk = SendChunkSize > 0 ? SendChunkSize : data.Length;
-            if (link.MaxChunk > 0) chunk = Math.Min(chunk, link.MaxChunk);   // BLE MTU limit
+            int chunk = SendChunkSize > 0 ? SendChunkSize : 512;
+            if (link.MaxChunk > 0) chunk = Math.Min(chunk, link.MaxChunk);
             chunk = Math.Max(1, chunk);
 
-            var sw = Stopwatch.StartNew();
-            for (int i = 0; i < data.Length; i += chunk)
-            {
-                int len = Math.Min(chunk, data.Length - i);
-                await link.WriteChunkAsync(data, i, len).ConfigureAwait(false);
+            int n = (data.Length + chunk - 1) / chunk;
+            var costs = new double[n];
+            int rate = PrinterHardware.MaxBytesPerSecond;
+            if (PrinterHardware.PacingEnabled && rate > 0)
+                for (int i = 0; i < n; i++)
+                    costs[i] = Math.Min(chunk, data.Length - i * chunk) * 1000.0 / rate;
 
-                if (ThrottleBytesPerSecond > 0)
-                {
-                    double due = (i + len) * 1000.0 / ThrottleBytesPerSecond;
-                    double wait = due - sw.Elapsed.TotalMilliseconds;
-                    if (wait > 1) await Task.Delay((int)wait).ConfigureAwait(false);
-                }
-            }
+            BytesSent += data.Length;
+
+            double remainingMs = await link.WriteStreamAsync(
+                data, chunk, costs, PrinterHardware.LeadMs, PrinterHardware.MaxAheadBytes)
+                .ConfigureAwait(false);
+
+            double printMs = (_lines * 30.0 + RasterRows) * 1000.0
+                             / Math.Max(50, PrinterHardware.PrintRowsPerSecond);
+            var done = DateTime.UtcNow.AddMilliseconds(Math.Max(remainingMs, printMs));
+            if (done > _printDoneUtc) _printDoneUtc = done;
 
             if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
         }
@@ -292,7 +352,11 @@ namespace eMRBCS.Platforms.Android
         {
             if (_link == null) { Disconnect(); return; }
             try { await FlushAsync(); } catch { }
-            int wait = Math.Min(30000, TailDelayMs + RasterRows * 2 + _lines * 4 + extraDelayMs);
+
+            // Wait until the printer has really finished what is still in its buffer,
+            // otherwise closing the socket cuts the end of the receipt.
+            double remaining = Math.Max(0, (_printDoneUtc - DateTime.UtcNow).TotalMilliseconds);
+            int wait = (int)Math.Min(60000, TailDelayMs + remaining * 1.25 + extraDelayMs);
             await Task.Delay(wait);
             Disconnect();
         }
@@ -495,6 +559,7 @@ namespace eMRBCS.Platforms.Android
 
             _buf.Add(0x0A);
             _lines++;
+            Mark(LineDots(r));
         }
 
         public Task PrintTextAsync(string text, PrintAlign align = PrintAlign.Left,
@@ -579,6 +644,7 @@ namespace eMRBCS.Platforms.Android
             int n = Math.Max(0, lines);
             for (int i = 0; i < n; i++) _buf.Add(0x0A);
             _lines += n;
+            Mark(30.0 * n);
             return Task.CompletedTask;
         }
 
@@ -625,6 +691,7 @@ namespace eMRBCS.Platforms.Android
             {
                 case SeparatorStyle.Blank:
                     _buf.AddRange(FeedDots(PrinterHardware.BlankLineDots));
+                    Mark(PrinterHardware.BlankLineDots);
                     return Task.CompletedTask;
                 case SeparatorStyle.DoubleSolid:
                 case SeparatorStyle.DoubleBroken:
@@ -646,17 +713,17 @@ namespace eMRBCS.Platforms.Android
         // ======================================================================
         //  graphics: ONE GS v 0 raster command per image, same stream as the text
         // ======================================================================
-        private const int MaxRowsPerCommand = 1600;
-
+        // Graphics are sent as SMALL GS v 0 bands inside the same continuous stream.
+        // ESC 3 0 makes the bands touch (no white gaps); ESC 2 restores text spacing after.
         private void EmitRaster(int contentW, int h, Func<int, int, bool> isBlack,
-                                PrintAlign align, int sendW = -1)
+                                 PrintAlign align, int sendW = -1, bool vDouble = false)
         {
             if (h <= 0 || contentW <= 0) return;
             if (sendW < 0 || sendW > contentW) sendW = contentW;
 
             int head = Head;
             int headBytes = head / 8;
-            int paperW = Profile.WidthDots;
+            int paperW = Math.Min(Profile.WidthDots, head);
 
             int x0 = align switch
             {
@@ -665,19 +732,31 @@ namespace eMRBCS.Platforms.Android
                 _ => 0
             };
             x0 = Math.Max(0, x0) + Profile.OffsetDots;
+            x0 = Math.Clamp(x0, 0, Math.Max(0, head - 8));
+            sendW = Math.Min(sendW, head - x0);          // NEVER past the physical head
+            if (sendW <= 0) return;
 
-            int usedDots = Math.Min(head, x0 + sendW);
-            int rowBytes = Math.Clamp((usedDots + 7) / 8, 1, headBytes);
+            int margin = PrinterHardware.RasterUseMargin ? (x0 / 8) * 8 : 0;
+            int shift = x0 - margin;
+            int rowBytes = Math.Clamp((shift + sendW + 7) / 8, 1, headBytes - margin / 8);
             int rowDots = rowBytes * 8;
 
-            // position is made with blank bits inside the image, so the printer must be left aligned
-            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });
+            int band = Math.Clamp(PrinterHardware.RasterBandRows, 1, vDouble ? 127 : 255);
+            band = Math.Min(band, Math.Max(1, PrinterHardware.RasterBandMaxBytes / rowBytes));
+            bool banded = band < h;
 
-            for (int y0 = 0; y0 < h; y0 += MaxRowsPerCommand)
+            int areaW = head - margin;
+            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });
+            _buf.AddRange(new byte[] { 0x1D, 0x4C, (byte)(margin & 0xFF), (byte)(margin >> 8) });
+            _buf.AddRange(new byte[] { 0x1D, 0x57, (byte)(areaW & 0xFF), (byte)(areaW >> 8) });
+            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x33, 0x00 });      // ESC 3 0: bands touch
+
+            for (int y0 = 0; y0 < h; y0 += band)
             {
-                int rows = Math.Min(MaxRowsPerCommand, h - y0);
+                int rows = Math.Min(band, h - y0);
                 var cmd = new byte[8 + rowBytes * rows];
-                cmd[0] = 0x1D; cmd[1] = 0x76; cmd[2] = 0x30; cmd[3] = 0x00;       // GS v 0, normal density
+                cmd[0] = 0x1D; cmd[1] = 0x76; cmd[2] = 0x30;
+                cmd[3] = (byte)(vDouble ? 2 : 0);
                 cmd[4] = (byte)(rowBytes & 0xFF); cmd[5] = (byte)(rowBytes >> 8);
                 cmd[6] = (byte)(rows & 0xFF); cmd[7] = (byte)(rows >> 8);
 
@@ -685,14 +764,18 @@ namespace eMRBCS.Platforms.Android
                     for (int x = 0; x < sendW; x++)
                     {
                         if (!isBlack(x, y0 + r)) continue;
-                        int px = x0 + x;
+                        int px = shift + x;
                         if (px >= rowDots) break;
                         cmd[8 + r * rowBytes + px / 8] |= (byte)(0x80 >> (px % 8));
                     }
-
                 _buf.AddRange(cmd);
             }
-            RasterRows += h;
+
+            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x32 });            // ESC 2
+            _buf.AddRange(new byte[] { 0x1D, 0x4C, 0x00, 0x00 });            // margin back to 0 for text
+            _buf.AddRange(new byte[] { 0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8) });
+
+            RasterRows += vDouble ? h * 2 : h;
         }
 
         public Task WriteGraphicAsync(byte[] imageBytes, int widthDots, int heightDots, byte threshold = 150)
@@ -724,56 +807,98 @@ namespace eMRBCS.Platforms.Android
         {
             lock (LogoCacheLock)
             {
-                if (_logoCacheMask != null && _logoCacheW == w && _logoCacheThr == threshold && _logoCacheBold == bolden
+                bool trim = PrinterHardware.LogoTrimWhitespace;
+                if (_logoCacheMask != null && _logoCacheW == w && _logoCacheThr == threshold
+                    && _logoCacheBold == bolden && _logoCacheTrim == trim
                     && _logoCacheSrc != null && _logoCacheSrc.Length == imageBytes.Length
                     && _logoCacheSrc.SequenceEqual(imageBytes))
                     return (_logoCacheMask, _logoCacheH);
 
                 using var bmp = SKBitmap.Decode(imageBytes) ?? throw new InvalidOperationException("Bad image.");
-                int h = Math.Max(1, (int)Math.Round(bmp.Height * (w / (double)bmp.Width)));
+                int sw = bmp.Width, sh = bmp.Height;
+                int cx = 0, cy = 0, cw = sw, ch = sh;
 
-                using var resized = bmp.Resize(new SKImageInfo(w, h), new SKSamplingOptions(SKCubicResampler.Mitchell))
-                    ?? throw new InvalidOperationException("Image resize failed.");
-
-                SKColor[] px = resized.Pixels;
-                var mask = new bool[w * h];
-                for (int i = 0; i < mask.Length; i++)
+                // ---- find the ink bounding box in the ORIGINAL image ----
+                if (trim)
                 {
-                    SKColor p = px[i];
-                    double a = p.Alpha / 255.0;
-                    double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
-                    mask[i] = lum < threshold;
+                    SKColor[] src = bmp.Pixels;
+                    int minX = sw, maxX = -1, minY = sh, maxY = -1;
+                    for (int y = 0; y < sh; y++)
+                    {
+                        int row = y * sw;
+                        for (int x = 0; x < sw; x++)
+                        {
+                            SKColor p = src[row + x];
+                            double a = p.Alpha / 255.0;
+                            double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
+                            if (lum >= threshold) continue;
+                            if (x < minX) minX = x;
+                            if (x > maxX) maxX = x;
+                            if (y < minY) minY = y;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
+                    if (maxX >= 0) { cx = minX; cy = minY; cw = maxX - minX + 1; ch = maxY - minY + 1; }
                 }
 
-                if (bolden)
+                SKBitmap source = bmp;
+                SKBitmap cropped = null;
+                if (cx != 0 || cy != 0 || cw != sw || ch != sh)
                 {
-                    var thick = (bool[])mask.Clone();
-                    for (int y = 0; y < h; y++)
-                        for (int x = 1; x < w; x++)
-                            if (mask[y * w + x - 1]) thick[y * w + x] = true;
-                    mask = thick;
+                    cropped = new SKBitmap();
+                    if (bmp.ExtractSubset(cropped, new SKRectI(cx, cy, cx + cw, cy + ch))) source = cropped;
+                    else { cropped.Dispose(); cropped = null; }
                 }
 
-                _logoCacheSrc = (byte[])imageBytes.Clone();
-                _logoCacheW = w; _logoCacheH = h; _logoCacheThr = threshold; _logoCacheBold = bolden;
-                _logoCacheMask = mask;
-                return (mask, h);
+                try
+                {
+                    // ---- scale the CROPPED artwork to the full paper width ----
+                    int h = Math.Max(1, (int)Math.Round(ch * (w / (double)cw)));
+                    using var resized = source.Resize(new SKImageInfo(w, h), new SKSamplingOptions(SKCubicResampler.Mitchell))
+                        ?? throw new InvalidOperationException("Image resize failed.");
+
+                    SKColor[] px = resized.Pixels;
+                    var mask = new bool[w * h];
+                    for (int i = 0; i < mask.Length; i++)
+                    {
+                        SKColor p = px[i];
+                        double a = p.Alpha / 255.0;
+                        double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
+                        mask[i] = lum < threshold;
+                    }
+                    if (bolden)
+                    {
+                        var thick = (bool[])mask.Clone();
+                        for (int y = 0; y < h; y++)
+                            for (int x = 1; x < w; x++)
+                                if (mask[y * w + x - 1]) thick[y * w + x] = true;
+                        mask = thick;
+                    }
+
+                    _logoCacheSrc = (byte[])imageBytes.Clone();
+                    _logoCacheW = w; _logoCacheH = h; _logoCacheThr = threshold;
+                    _logoCacheBold = bolden; _logoCacheTrim = trim;
+                    _logoCacheMask = mask;
+                    return (mask, h);
+                }
+                finally { cropped?.Dispose(); }
             }
         }
 
-        public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign align = PrintAlign.Center)
+        public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign? align = null)
         {
-            int maxW = Math.Min(Profile.WidthDots, Head - Profile.OffsetDots);
-            int w = Math.Max(8, (int)(maxW * widthFraction) / 8 * 8);
-            w = Math.Min(w, maxW / 8 * 8);
+            PrintAlign a = align ?? PaperAlign;          // follows 321 / 322 / 323
+
+            int paperW = Profile.WidthDots;
+            int w = Math.Max(8, (int)(paperW * widthFraction) / 8 * 8);
             if (LogoMaxWidthDots > 0) w = Math.Max(8, Math.Min(w, LogoMaxWidthDots) / 8 * 8);
+            w = Math.Min(w, paperW / 8 * 8);
 
             int thr = LogoThreshold; bool bold = LogoBolden;
             var prepared = await Task.Run(() => PrepareLogoMask(imageBytes, w, thr, bold));
             bool[] mask = prepared.Mask;
             int h = prepared.H;
 
-            // empty columns on the right are never sent
             int maxX = -1;
             for (int y = 0; y < h; y++)
             {
@@ -781,9 +906,22 @@ namespace eMRBCS.Platforms.Android
                 for (int x = w - 1; x > maxX; x--)
                     if (mask[row + x]) { maxX = x; break; }
             }
-            if (maxX < 0) maxX = 0;
+            if (maxX < 0) return;                        // blank logo -> print nothing
 
-            EmitRaster(w, h, (x, y) => mask[y * w + x], align, sendW: maxX + 1);
+            if (PrinterHardware.LogoVerticalDouble)
+            {
+                int half = (h + 1) / 2;
+                EmitRaster(w, half, (x, y) =>
+                {
+                    int y0 = y * 2;
+                    if (y0 >= h) return false;
+                    return mask[y0 * w + x] || (y0 + 1 < h && mask[(y0 + 1) * w + x]);
+                }, a, sendW: maxX + 1, vDouble: true);
+            }
+            else
+            {
+                EmitRaster(w, h, (x, y) => mask[y * w + x], a, sendW: maxX + 1);
+            }
         }
 
         // ---------- barcode ----------
@@ -936,6 +1074,29 @@ namespace eMRBCS.Platforms.Android
                 foreach (char e in p) sb.Append(e == 'w' ? '3' : '1');
             }
             return sb.ToString();
+        }
+        private void EmitSolidBar(int rowBytes, int rows)
+        {
+            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00, 0x1D, 0x4C, 0x00, 0x00 });
+            var cmd = new byte[8 + rowBytes * rows];
+            cmd[0] = 0x1D; cmd[1] = 0x76; cmd[2] = 0x30; cmd[3] = 0x00;
+            cmd[4] = (byte)rowBytes; cmd[5] = 0; cmd[6] = (byte)rows; cmd[7] = 0;
+            for (int i = 8; i < cmd.Length; i++) cmd[i] = 0xFF;
+            _buf.AddRange(cmd);
+            RasterRows += rows;
+        }
+
+        public Task PrintHeadProbeAsync()
+        {
+            PrintTextAsync("BAR A = 384 DOTS (58mm)", PrintAlign.Left, new PrintStyle(Bold: true));
+            EmitSolidBar(48, 24);
+            FeedAsync(1);
+            PrintTextAsync("BAR B = 576 DOTS (80mm)", PrintAlign.Left, new PrintStyle(Bold: true));
+            EmitSolidBar(72, 24);
+            FeedAsync(2);
+            WriteRawAsync(new byte[] { 0x1B, 0x40 });
+            FeedAsync(3);
+            return Task.CompletedTask;
         }
     }
 }

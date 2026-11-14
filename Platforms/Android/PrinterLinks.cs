@@ -1,13 +1,67 @@
 ﻿using Android.Bluetooth;
 using Android.OS;
+using System.Diagnostics;
+using Thread = System.Threading.Thread;
+using ThreadPriority = System.Threading.ThreadPriority;
 using UUID = Java.Util.UUID;
 
 namespace eMRBCS.Platforms.Android
 {
+    /// <summary>Decides how long to wait before the next chunk so the printer always has data, but never too much.</summary>
+    internal sealed class Pacer
+    {
+        private readonly Stopwatch _sw = Stopwatch.StartNew();
+        private readonly double _leadMs;
+        private readonly int _maxAhead;
+        private readonly Queue<(double DoneAt, int Bytes)> _q = new();
+        private int _ahead;
+        private double _freeAt;
+
+        public Pacer(double leadMs, int maxAheadBytes)
+        {
+            _leadMs = Math.Max(0, leadMs);
+            _maxAhead = Math.Max(256, maxAheadBytes);
+        }
+
+        private double Now => _sw.Elapsed.TotalMilliseconds;
+
+        /// <summary>Milliseconds to wait before sending the next chunk (0 = send now).</summary>
+        public double WaitMs(int bytes)
+        {
+            double now = Now;
+            while (_q.Count > 0 && _q.Peek().DoneAt <= now) _ahead -= _q.Dequeue().Bytes;
+
+            double wait = _freeAt - now - _leadMs;
+
+            if (_ahead + bytes > _maxAhead)
+            {
+                int need = _ahead + bytes - _maxAhead, freed = 0;
+                foreach (var c in _q)
+                {
+                    freed += c.Bytes;
+                    if (freed >= need) { wait = Math.Max(wait, c.DoneAt - now); break; }
+                }
+            }
+            return wait > 0 ? wait : 0;
+        }
+
+        /// <summary>Call right after a chunk was written.</summary>
+        public void Sent(int bytes, double costMs)
+        {
+            double now = Now;
+            _freeAt = Math.Max(_freeAt, now) + costMs;
+            _q.Enqueue((_freeAt, bytes));
+            _ahead += bytes;
+        }
+
+        /// <summary>Estimated ms the printer still needs to finish what was sent.</summary>
+        public double RemainingMs => Math.Max(0, _freeAt - Now);
+    }
     /// <summary>One reliable transport. WriteChunkAsync must not return until the
     /// chunk was actually handed to the stack (BLE: acknowledged by the printer).</summary>
     internal interface IPrinterLink : IDisposable
     {
+        Task<double> WriteStreamAsync(byte[] data, int chunk, double[] chunkCostMs, int leadMs, int maxAheadBytes);
         bool IsConnected { get; }
         bool IsAcked { get; }            // true = every chunk confirmed by the printer
         string TransportName { get; }
@@ -30,6 +84,37 @@ namespace eMRBCS.Platforms.Android
         public string DeviceName { get; private set; } = "";
         public int MaxChunk => 0;
 
+        public Task<double> WriteStreamAsync(byte[] data, int chunk, double[] chunkCostMs, int leadMs, int maxAheadBytes)
+        {
+            var s = _out ?? throw new InvalidOperationException("SPP not connected.");
+            var tcs = new TaskCompletionSource<double>(TaskCreationOptions.RunContinuationsAsynchronously);
+            int step = Math.Max(1, chunk);
+
+            // One dedicated thread for the whole job: no thread-pool hops, steady timing.
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    var pacer = new Pacer(leadMs, maxAheadBytes);
+                    for (int i = 0, ci = 0; i < data.Length; i += step, ci++)
+                    {
+                        int len = Math.Min(step, data.Length - i);
+                        double wait = pacer.WaitMs(len);
+                        if (wait >= 1) Thread.Sleep((int)wait);
+
+                        s.Write(data, i, len);
+                        pacer.Sent(len, chunkCostMs[ci]);
+                    }
+                    s.Flush();
+                    tcs.TrySetResult(pacer.RemainingMs);
+                }
+                catch (Exception ex) { tcs.TrySetException(ex); }
+            })
+            { IsBackground = true, Priority = ThreadPriority.Highest, Name = "EscPosSend" };
+
+            thread.Start();
+            return tcs.Task;
+        }
         public async Task ConnectAsync(BluetoothDevice device, int timeoutSeconds)
         {
             try { DeviceName = device.Name ?? ""; } catch { }
@@ -151,6 +236,21 @@ namespace eMRBCS.Platforms.Android
             catch { _payload = 20; }
         }
 
+        public async Task<double> WriteStreamAsync(byte[] data, int chunk, double[] chunkCostMs, int leadMs, int maxAheadBytes)
+        {
+            int step = Math.Max(1, chunk);
+            var pacer = new Pacer(leadMs, maxAheadBytes);
+            for (int i = 0, ci = 0; i < data.Length; i += step, ci++)
+            {
+                int len = Math.Min(step, data.Length - i);
+                double wait = pacer.WaitMs(len);
+                if (wait >= 1) await Task.Delay((int)wait).ConfigureAwait(false);
+
+                await WriteChunkAsync(data, i, len).ConfigureAwait(false);
+                pacer.Sent(len, chunkCostMs[ci]);
+            }
+            return pacer.RemainingMs;
+        }
         private void PickCharacteristic()
         {
             BluetoothGattCharacteristic best = null; int bestScore = -1;

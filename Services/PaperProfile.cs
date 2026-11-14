@@ -5,6 +5,49 @@
 
     public static class PrinterHardware
     {
+        /// <summary>true = crop the logo's white border BEFORE scaling, so the artwork itself fills the paper width.</summary>
+        public static bool LogoTrimWhitespace { get; set; } = true;
+        // 0 = auto. SET THIS to what Step 1 told you (384 or 576).
+        public static int HeadWidthDots
+        {
+            get => Preferences.Get("print_head_dots", 0);
+            set => Preferences.Set("print_head_dots", value is 576 ? value : 0);
+        }
+
+        /// <summary>false = burst. RFCOMM blocking writes are the real flow control.</summary>
+        public static bool PacingEnabled { get; set; } = false;
+
+        /// <summary>Only used when PacingEnabled = true. 0 = unlimited. Simple byte rate, not print speed.</summary>
+        public static int MaxBytesPerSecond { get; set; } = 0;
+
+        public static int SendChunkBytes { get; set; } = 512;
+        public static int LeadMs { get; set; } = 400;
+        public static int MaxAheadBytes { get; set; } = 8192;
+
+        // ---- raster ----
+        public static int RasterBandRows { get; set; } = 24;
+        public static int RasterBandMaxBytes { get; set; } = 1024;
+        /// <summary>Position images with GS L instead of blank padding bytes (less data).</summary>
+        public static bool RasterUseMargin { get; set; } = true;
+        /// <summary>Send half the logo rows, printer prints each twice (GS v 0 mode 2). Halves the byte rate.</summary>
+        public static bool LogoVerticalDouble { get; set; } = false;
+        /// <summary>Extra print-time cost per band (ms) for firmware turnaround. Not a sleep.</summary>
+        public static int RasterBandGapMs { get; set; } = 3;
+        // ---------------- send pacing (keeps printing continuous) ----------------
+
+        /// <summary>Printer speed assumed by the pacing, in dot rows per second (8 rows = 1 mm). 350 = about 44 mm/s.
+        /// Printing garbled / rows missing  -> LOWER it. Printer visibly stopping and starting -> RAISE it.</summary>
+        public static int PrintRowsPerSecond
+        {
+            get => Preferences.Get("print_rows_per_sec", 600);
+            set => Preferences.Set("print_rows_per_sec", Math.Clamp(value, 50, 2000));
+        }
+
+        /// <summary>Bytes per Bluetooth write. Small = smooth.</summary>
+
+        /// true = Bluetooth Classic (SPP) is tried first, even on dual-mode printers. SPP is far faster than BLE,
+        /// which is what keeps the logo from having blank lines. BLE is used only if SPP fails (or the printer is BLE-only).
+        public static bool PreferSpp { get; set; } = true;
         // ---------------- reset / ASCII mode ----------------
         /// <summary>
         /// true = send FS . (0x1C 0x2E) after the reset to leave Chinese / GBK (Kanji) mode.
@@ -21,7 +64,6 @@
 
         // ---------------- paper / head ----------------
         /// <summary>0 = automatic (384 for 2-inch, 576 for 3-inch). Set a number only to force a head width.</summary>
-        public static int HeadWidthDots { get; set; } = 0;
 
         /// <summary>Used when the Line Space has no alignment digit (e.g. "48"). 1 = left, 2 = center, 3 = right.</summary>
         public static int DefaultAlignment { get; set; } = 2;

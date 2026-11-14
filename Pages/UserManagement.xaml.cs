@@ -59,7 +59,7 @@ public partial class UserManagement : ContentPage
             lstUsers.IsEnabled = false;
 
             Users_admin _selectedAdmin = new Users_admin();
-            _selectedAdmin = adminusers.Where(a => a.name == lstUsers.SelectedItem).FirstOrDefault();
+            _selectedAdmin = adminusers.Where(a => a.name == lstUsers.SelectedItem.ToString()).FirstOrDefault();
             if (_selectedAdmin != null)
             {
                 txtname.Text = _selectedAdmin.name;
@@ -87,32 +87,37 @@ public partial class UserManagement : ContentPage
 
     private async void OnSaveUser(object sender, EventArgs e)
     {
+        if (string.IsNullOrWhiteSpace(txtusername.Text) || string.IsNullOrWhiteSpace(txtpassword.Text))
+        {
+            await DisplayAlertAsync("Notice", "Username and password are required.", "Ok");
+            return;
+        }
+
         if (isNewuser)
         {
-            Users_admin _selectedAdmin = new Users_admin();
-            _selectedAdmin = adminusers.Where(a => a.name == txtusername.Text).FirstOrDefault();
-            if (_selectedAdmin != null)
+            var existing = adminusers?.FirstOrDefault(a =>
+                string.Equals(a.username, txtusername.Text.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
             {
                 await DisplayAlertAsync("Notice", "Username already exists. Please try again", "Ok");
                 return;
             }
         }
 
-        bool isSucess = await dbService.SaveAdminOperators(txtusername.Text, txtpassword.Text, txtname.Text, txtposition.Text);
+        bool isSucess = await dbService.SaveAdminOperators(txtusername.Text.Trim(), txtpassword.Text, txtname.Text, txtposition.Text);
         if (isSucess)
         {
+            isNewuser = false;                       // NEW
             await DisplayAlertAsync("Notice", "User has been saved!", "Ok");
             btnSaveUser.IsEnabled = false;
             btnEditUser.IsEnabled = true;
             btnNewUser.IsEnabled = true;
             lstUsers.IsEnabled = true;
             LoadUsers();
-            lstUsers.Focus();
         }
         else
         {
             await DisplayAlertAsync("Notice", "Something went wrong. Failed to save user!", "Ok");
         }
-
     }
 }

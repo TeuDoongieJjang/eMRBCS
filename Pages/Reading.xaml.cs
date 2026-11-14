@@ -1916,12 +1916,6 @@ public partial class Reading : ContentPage
         bool IsCWD = consumer.parameters.Contains("[CWD]");
         bool IsPlaWD = consumer.parameters.Contains("[PLAWD]");
 
-        // ==================================================================
-        // GLOBAL ALIGNMENT: parse the Line Space into a PaperProfile.
-        //   32 / 48       => 32 / 48 columns, DefaultAlignment (usually left)
-        //   321 / 482     => columns + alignment digit  (1 = L, 2 = C, 3 = R)
-        //   323           => 32 columns, right aligned
-        // ==================================================================
 
         var paper = PaperProfile.FromLineSpace(MyDeviceInfo.currentPrintConfig.linespacing);
         if (paper == null)

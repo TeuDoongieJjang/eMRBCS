@@ -309,6 +309,7 @@ namespace eMRBCS.Services
             List<Consumers> _newlist = new List<Consumers>();
             await Task.Run(() =>
             {
+                InitializeDatabase();
                 if (rptRequest == 1)
                 {
                     _newlist = Database.Table<Consumers>().Where(c => c.status == 1).OrderBy(c => c.accountID).ToList();
@@ -324,6 +325,7 @@ namespace eMRBCS.Services
             List<Consumers> _newlist = new List<Consumers>();
             await Task.Run(() =>
             {
+                InitializeDatabase();
                 if (rptRequest == 1)
                 {
                     _newlist = Database.Table<Consumers>().Where(c => c.status != 1).OrderBy(c => c.accountID).ToList();
@@ -339,9 +341,10 @@ namespace eMRBCS.Services
             List<Consumers> _newlist = new List<Consumers>();
             await Task.Run(() =>
             {
+                InitializeDatabase();
                 if (rptRequest == 1)
                 {
-                    _newlist = Database.Table<Consumers>().Where(c => c.remarks != "" && c.remarks != "Normal Reading").OrderBy(c => c.accountID).ToList();
+                    _newlist = Database.Table<Consumers>().Where(c => c.status == 1 && c.remarks != "" && c.remarks != "Normal Reading").OrderBy(c => c.accountID).ToList();
                 }
             });
             return _newlist;
@@ -538,21 +541,26 @@ namespace eMRBCS.Services
             bool isSuccess = true;
             await Task.Run(() =>
             {
-                InitializeDatabase();
-                Networkconfig networkconfig = new Networkconfig
+                try
                 {
-                    id = Serverdetails.NetworkID,
-                    import_ipaddress = Serverdetails.ImportServerIPAddress,
-                    import_folder = Serverdetails.ImportSharedFolder,
-                    import_user = Serverdetails.ImportServerUserName,
-                    import_pass = Serverdetails.ImportServerPassword,
-                    export_ipaddress = Serverdetails.ExportServerIPAddress,
-                    export_folder = Serverdetails.ExportSharedFolder,
-                    export_user = Serverdetails.ExportServerUserName,
-                    export_pass = Serverdetails.ExportServerPassword
-                };
+                    InitializeDatabase();
+                    Networkconfig networkconfig = new Networkconfig
+                    {
+                        id = Serverdetails.NetworkID,
+                        import_ipaddress = Serverdetails.ImportServerIPAddress,
+                        import_folder = Serverdetails.ImportSharedFolder,
+                        import_user = Serverdetails.ImportServerUserName,
+                        import_pass = Serverdetails.ImportServerPassword,
+                        export_ipaddress = Serverdetails.ExportServerIPAddress,
+                        export_folder = Serverdetails.ExportSharedFolder,
+                        export_user = Serverdetails.ExportServerUserName,
+                        export_pass = Serverdetails.ExportServerPassword
+                    };
 
-                NetworkSaveItemsToDatabase(networkconfig);
+                    NetworkSaveItemsToDatabase(networkconfig);
+                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); isSuccess = false; }
+
             });
 
             return isSuccess;
