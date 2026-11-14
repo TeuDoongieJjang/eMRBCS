@@ -480,7 +480,7 @@ namespace eMRBCS.Services
                             pca_rate = ParseFloat(items[5].Trim()),
                             graceperioddue = int.Parse(items[6].Trim()),
                             sewerage = ParseFloat(items[7].Trim()),
-                            maintenance_fee = items.Length >= 8 ? ParseFloat(items[8].Trim()) : 0f,
+                            maintenance_fee = items.Length > 8 ? ParseFloat(items[8].Trim()) : 0f,
                         };
 
                         billrates_items.Add(newItem);

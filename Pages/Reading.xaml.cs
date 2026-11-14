@@ -4,6 +4,7 @@ using eMRBCS.Models;
 using eMRBCS.Services;
 using SQLite;
 using System.Globalization;
+using System.Text.RegularExpressions;
 //using System.Collections.Generic;
 //using System.IO;
 //using System.Threading.Tasks;
@@ -1751,6 +1752,26 @@ public partial class Reading : ContentPage
     //   - CWD : truncate to N decimals  (.666666 -> .66, .333333 -> .33, .999999 -> .99)
     //   - else: normal Math.Round
     // =========================================================================
+
+    private static readonly Regex OtherChargeRegex = new Regex(
+    @"(?<name>[^\d\t,;|:=]+?)[\s,;:=|]*(?<amt>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?![\d.])",
+    RegexOptions.Compiled);
+
+    private static List<(string Name, decimal Amount)> ParseOtherCharges(string? details)
+    {
+        var list = new List<(string, decimal)>();
+        if (string.IsNullOrWhiteSpace(details)) return list;
+
+        foreach (Match m in OtherChargeRegex.Matches(details))
+        {
+            string name = Regex.Replace(m.Groups["name"].Value, @"\s+", " ").Trim(' ', ',', ';', ':', '=', '|', '-');
+            string amtText = m.Groups["amt"].Value.Replace(",", "");
+            if (name.Length == 0) continue;
+            if (decimal.TryParse(amtText, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal amt) && amt > 0)
+                list.Add((name, Math.Round(amt, 2)));
+        }
+        return list;
+    }
     private static decimal ApplyRounding(decimal value, bool isCWD, int decimals = 2)
     {
         if (isCWD)
@@ -1771,19 +1792,26 @@ public partial class Reading : ContentPage
         bool isSJWD,
         bool isMVWD,
         bool isIndangWD,
-        bool isCWD, bool isPlaWD, decimal maintenanceFee = 0m, decimal sewerageRate = 0m) // Added sewerageRate parameter
+        bool isCWD, bool isPlaWD, decimal maintenanceFee = 0m, decimal sewerageRate = 0m,
+    List<CommodityLine>? commodityLines = null)   // CHANGED: new parameter
     {
         if (consumer == null) throw new ArgumentNullException(nameof(consumer));
         var bill = new BillAmounts
         {
             IsSewerage = consumer.parameters.Contains("IsSewerage"),
             IsFlatRate = consumer.parameters.Contains("IsFlatRate"),
-            MaintenanceFee = maintenanceFee // FIX 1: Actually assign the maintenance fee so it prints
+            // CHANGED: rounded like every other amount, and only for Plaridel
+            MaintenanceFee = isPlaWD ? ApplyRounding(maintenanceFee, isCWD) : 0m
         };
 
-        decimal currentBill = ApplyRounding(Convert.ToDecimal(consumer.currentbill), isCWD);
+        // CHANGED: for Plaridel the printed commodity lines ARE the current bill,
+        // so Current Bill = sum of the lines exactly as printed (no 1-cent drift)
+        decimal currentBill;
+        if (isPlaWD && commodityLines != null && commodityLines.Count > 0)
+            currentBill = commodityLines.Sum(l => ApplyRounding(l.Amount, isCWD));
+        else
+            currentBill = ApplyRounding(Convert.ToDecimal(consumer.currentbill), isCWD);
 
-        // FIX 2: Use the rate from Billing_rates for PlaWD, otherwise fallback to consumer.sewerage
         decimal sewerageValue = isPlaWD ? sewerageRate : (float.IsNaN(consumer.sewerage) ? 0m : Convert.ToDecimal(consumer.sewerage));
         decimal sewerageAmount = 0.00m;
 
@@ -1791,18 +1819,17 @@ public partial class Reading : ContentPage
         {
             if (bill.IsSewerage)
             {
-                sewerageAmount = ApplyRounding(sewerageValue, isCWD);          // fixed amount
+                sewerageAmount = ApplyRounding(sewerageValue, isCWD);
                 if (bill.IsFlatRate) currentBill = 0.00m;
             }
         }
         else if (sewerageValue > 0)
         {
             decimal usageDec = Convert.ToDecimal(consumer.usage);
-            sewerageAmount = ApplyRounding(sewerageValue * usageDec, isCWD);   // rate per cu.m x usage
+            sewerageAmount = ApplyRounding(sewerageValue * usageDec, isCWD);
             decimal esfFtax = ApplyRounding(sewerageAmount * 0.02m, isCWD);
             sewerageAmount = ApplyRounding(sewerageAmount + esfFtax, isCWD);
         }
-        // sewerageAmount stays 0 when the consumer has none -> DoPrintBill does not print the line
 
         bill.CurrentBill = currentBill;
         bill.SewerageAmount = sewerageAmount;
@@ -1938,15 +1965,20 @@ public partial class Reading : ContentPage
                     .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
                     .OrderBy(b => b.bill_id)
                     .ToList();
-                commodityLines = RateCalculator.Breakdown(rates, consumer.usage, consumer.minusage);
+
+                // CHANGED: only show commodity lines when there is actually a current bill
+                // (Zero Reading / flat rate => currentbill = 0 => no lines, no mismatch)
+                if (consumer.currentbill > 0)
+                    commodityLines = RateCalculator.Breakdown(rates, consumer.usage, consumer.minusage);
+
                 if (rates.Count > 0)
                 {
                     maintenanceFee = Convert.ToDecimal(rates[0].maintenance_fee);
-                    sewerageRate = Convert.ToDecimal(rates[0].sewerage); // 2nd to the last value from your rate string
+                    sewerageRate = Convert.ToDecimal(rates[0].sewerage);
                 }
             }
-            // Pass the sewerageRate to the computation
-            BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD, IsPlaWD, maintenanceFee, sewerageRate);
+            // CHANGED: pass the lines in
+            BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD, IsPlaWD, maintenanceFee, sewerageRate, commodityLines);
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAndPrepareAsync(macAddress);
             //await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves
@@ -2106,7 +2138,18 @@ public partial class Reading : ContentPage
             }
             if (IsPlaWD && bill.Others > 0)
             {
-                await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
+                var otherItems = ParseOtherCharges(consumer.othercharges_details);
+
+                // print the details only when they add up to the Others total, otherwise one "Others" line
+                if (otherItems.Count > 0 && otherItems.Sum(o => o.Amount) == bill.Others)
+                {
+                    foreach (var (name, amount) in otherItems)
+                        await printer.PrintRowAsync(name, amount.ToString("#,##0.00"));
+                }
+                else
+                {
+                    await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
+                }
             }
 
             if (bill.ShowSeniorDiscount)

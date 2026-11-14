@@ -44,6 +44,7 @@ public sealed partial class DataSyncService : ObservableObject
         var msgs = new string[4];
         var ok = new bool[4];
         string? warning = null;
+        string? dateWarning = null;
 
         await Task.WhenAll(Enumerable.Range(0, 4).Select(i => Task.Run(async () =>
         {
@@ -58,7 +59,10 @@ public sealed partial class DataSyncService : ObservableObject
                     return;
                 }
                 Report(i, 0.5);
-
+                if (i == 0 && files.ConsumerFileIsNotToday)
+                    dateWarning = $"WARNING: Today's consumer file was not found.\n" +
+                                  $"The data loaded is dated {files.ConsumerFileDate:yyyy-MM-dd} ({files.ConsumerFileName}). " +
+                                  $"This is NOT current data.";
                 var db = new DBService();
                 bool saved = i switch
                 {
@@ -94,12 +98,14 @@ public sealed partial class DataSyncService : ObservableObject
         }
         catch { }
 
-        string summary = string.Join("\n", msgs) + (withError && warning != null ? "\n\n" + warning : "");
+        string summary = (dateWarning != null ? dateWarning + "\n\n" : "")
+               + string.Join("\n", msgs)
+               + (withError && warning != null ? "\n\n" + warning : "");
 
         await MainThread.InvokeOnMainThreadAsync(() => { IsBusy = false; StatusText = ""; });
 
         var page = Application.Current?.Windows.FirstOrDefault()?.Page;
         if (page != null)
-            await MainThread.InvokeOnMainThreadAsync(() => page.DisplayAlertAsync("Notice", summary, "Ok"));
+            await MainThread.InvokeOnMainThreadAsync(() => page.DisplayAlertAsync(dateWarning != null ? "Warning" : "Notice", summary, "Ok"));
     }
 }

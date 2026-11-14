@@ -9,6 +9,9 @@ namespace MSRBC.Services
 {
     internal class FileService
     {
+        public bool ConsumerFileIsNotToday { get; private set; }
+        public string ConsumerFileName { get; private set; } = "";
+        public DateTime? ConsumerFileDate { get; private set; }
         private string config_ipaddress = "";
         private string config_folder = "";
         private string config_username = "";
@@ -520,8 +523,11 @@ namespace MSRBC.Services
 
         public async Task<string> ImportFileAsync(int dataFileType)
         {
-
             string return_message = "success;no error";
+
+            ConsumerFileIsNotToday = false;
+            ConsumerFileName = "";
+            ConsumerFileDate = null;
 
             await Task.Run(() =>
             {
@@ -549,16 +555,28 @@ namespace MSRBC.Services
 
                 string localfile = Path.Combine(FileSystem.AppDataDirectory, targetfile);
 
-
                 try
                 {
                     using var session = OpenSession(1);
 
+                    // NEW: consumer file = today's, or the newest available one
+                    if (dataFileType == 0)
+                    {
+                        string? found = FindConsumerFile(session, out DateTime? foundDate, out bool isToday);
+                        if (found != null)
+                        {
+                            targetfile = found;
+                            consumerFile = Path.Combine(FileSystem.AppDataDirectory, found);
+                            localfile = consumerFile;
+                            ConsumerFileName = found;
+                            ConsumerFileDate = foundDate;
+                            ConsumerFileIsNotToday = !isToday;
+                        }
+                    }
 
                     targetfile = CombinePath(session.BasePath, targetfile);
                     config_folder = targetfile;
 
-                    // 6. Open the File
                     object fileHandle;
                     FileStatus fileStatus;
 
@@ -567,7 +585,7 @@ namespace MSRBC.Services
                         out fileStatus,
                         targetfile,
                         AccessMask.GENERIC_READ | AccessMask.SYNCHRONIZE,
-                        SMBLibrary.FileAttributes.Normal, // <-- Add SMBLibrary. prefix here
+                        SMBLibrary.FileAttributes.Normal,
                         ShareAccess.Read,
                         CreateDisposition.FILE_OPEN,
                         CreateOptions.FILE_NON_DIRECTORY_FILE | CreateOptions.FILE_SYNCHRONOUS_IO_ALERT,
@@ -575,7 +593,6 @@ namespace MSRBC.Services
 
                     if (status == NTStatus.STATUS_SUCCESS)
                     {
-                        // 7. Read the File
                         using (FileStream fs = new FileStream(localfile, FileMode.Create, FileAccess.Write))
                         {
                             long bytesReadOffset = 0;
@@ -586,9 +603,7 @@ namespace MSRBC.Services
                                 status = session.Store.ReadFile(out data, fileHandle, bytesReadOffset, (int)session.Client.MaxReadSize);
 
                                 if (status != NTStatus.STATUS_SUCCESS || data == null || data.Length == 0)
-                                {
                                     break;
-                                }
 
                                 fs.Write(data, 0, data.Length);
                                 bytesReadOffset += data.Length;
@@ -601,7 +616,6 @@ namespace MSRBC.Services
                         return_message = $"failed;File '{targetfile}' not found or access denied. Status: {status}";
                     }
 
-                    // 8. Clean up Connection
                     session.Store.Disconnect();
                     session.Client.Logoff();
                     session.Client.Disconnect();
@@ -610,15 +624,10 @@ namespace MSRBC.Services
                 {
                     return_message = "failed;An error occurred during file transfer. " + ex.Message;
                 }
-
             });
 
-
             return return_message;
-
-
         }
-
 
 
         public async Task<bool> ExportFileAsync()
@@ -787,8 +796,58 @@ namespace MSRBC.Services
                 return false;
             }
         }
+        private static List<string> ListNames(SmbSession session, string path)
+        {
+            var names = new List<string>();
+            object handle;
+            FileStatus fileStatus;
+            NTStatus status = session.Store.CreateFile(
+                out handle, out fileStatus, path,
+                AccessMask.GENERIC_READ,
+                SMBLibrary.FileAttributes.Directory,
+                ShareAccess.Read | ShareAccess.Write,
+                CreateDisposition.FILE_OPEN,
+                CreateOptions.FILE_DIRECTORY_FILE,
+                null);
+            if (status != NTStatus.STATUS_SUCCESS) return names;
 
+            List<QueryDirectoryFileInformation> list;
+            session.Store.QueryDirectory(out list, handle, "*", FileInformationClass.FileDirectoryInformation);
+            session.Store.CloseFile(handle);
+
+            if (list != null)
+                foreach (var entry in list)
+                    if (entry is FileDirectoryInformation info &&
+                        (info.FileAttributes & SMBLibrary.FileAttributes.Directory) == 0)
+                        names.Add(info.FileName);
+            return names;
+        }
+        private static string? FindConsumerFile(SmbSession session, out DateTime? fileDate, out bool isToday)
+        {
+            fileDate = null;
+            isToday = false;
+
+            string prefix = LoginUser.login_user.username + "_";
+            string suffix = FilePrefix.ConsumerFile;
+            DateTime? best = null;
+            string? bestName = null;
+
+            foreach (string name in ListNames(session, session.BasePath))
+            {
+                if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+                    !name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) continue;
+
+                string mid = name.Substring(prefix.Length, name.Length - prefix.Length - suffix.Length);
+                if (!DateTime.TryParseExact(mid, FilePrefix.configPrefix,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out DateTime d)) continue;
+
+                if (best == null || d > best) { best = d; bestName = name; }
+            }
+
+            fileDate = best;
+            isToday = best.HasValue && best.Value.Date == DateTime.Today;
+            return bestName;
+        }
     }
-
-
 }
