@@ -531,9 +531,8 @@ public partial class PrinterConfig : ContentPage
                 EscPOScmdPrint.BuildAccountPayload("01-011234", "MjM Aparente", 1250.50m), widthFraction: 0.60);
 
             await printer.FeedAsync(5);
-            await printer.WriteRawAsync(new byte[] { 0x1B, 0x40 });
             await printer.FlushAsync();
-            result = "Done printing.\n" + printer.Stats;
+            result = "Done Printing";
         }
         catch (Exception ex)
         {

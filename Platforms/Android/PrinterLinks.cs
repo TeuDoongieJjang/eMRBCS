@@ -103,7 +103,7 @@ namespace eMRBCS.Platforms.Android
                         if (wait >= 1) Thread.Sleep((int)wait);
 
                         s.Write(data, i, len);
-                        pacer.Sent(len, chunkCostMs[ci]);
+                        pacer.Sent(len, ci < chunkCostMs.Length ? chunkCostMs[ci] : 0);
                     }
                     s.Flush();
                     tcs.TrySetResult(pacer.RemainingMs);
@@ -247,7 +247,7 @@ namespace eMRBCS.Platforms.Android
                 if (wait >= 1) await Task.Delay((int)wait).ConfigureAwait(false);
 
                 await WriteChunkAsync(data, i, len).ConfigureAwait(false);
-                pacer.Sent(len, chunkCostMs[ci]);
+                pacer.Sent(len, ci < chunkCostMs.Length ? chunkCostMs[ci] : 0);
             }
             return pacer.RemainingMs;
         }

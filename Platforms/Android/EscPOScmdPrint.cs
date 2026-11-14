@@ -99,17 +99,21 @@ namespace eMRBCS.Platforms.Android
         // ======================================================================
         //  buffer (the whole receipt lives here until FlushAsync)
         // ======================================================================
-        private readonly List<byte> _buf = new(16384);
+        private readonly List<byte> _buf = new(65536);
         private int _lines;
-        private readonly List<(int End, double Cost)> _marks = new();   // print-time cost of the bytes in _buf
-        private DateTime _printDoneUtc = DateTime.MinValue;             // when the printer should be finished
+        private readonly List<(int End, double Cost)> _marks = new();
+        private DateTime _printDoneUtc = DateTime.MinValue;
         private IPrinterLink _link;
 
-        public void ClearBuffer() { _buf.Clear(); _marks.Clear(); _lines = 0; BytesSent = 0; }
+        public void ClearBuffer() { _buf.Clear(); _marks.Clear(); _lines = 0; }
+
         private static double RowMs => 1000.0 / Math.Max(50, PrinterHardware.PrintRowsPerSecond);
+
+        /// <summary>Print time of the bytes just added. ALWAYS recorded - this is what keeps the
+        /// sender in step with the print engine (no overflow, no starvation, no visible pause).</summary>
         private void MarkMs(double ms)
         {
-            if (ms <= 0 || !PrinterHardware.PacingEnabled) return;
+            if (ms <= 0) return;
             if (_marks.Count > 0 && _marks[^1].End == _buf.Count)
                 _marks[^1] = (_buf.Count, _marks[^1].Cost + ms);
             else
@@ -117,8 +121,6 @@ namespace eMRBCS.Platforms.Android
         }
 
         private void Mark(double dots) => MarkMs(dots * RowMs);
-
-        /// <summary>Records that everything added to _buf since the last mark takes about 'dots' dot-rows to print.</summary>
 
         private static double LineDots(Rs r) => Math.Max(30, (r.FontB ? 17 : 24) * r.H + 6);
 
@@ -200,6 +202,8 @@ namespace eMRBCS.Platforms.Android
                     DeviceName = _link.DeviceName;
                     ClearBuffer();
                     RasterRows = 0;
+                    BytesSent = 0;
+                    _printDoneUtc = DateTime.MinValue;
                     return;
                 }
                 catch (Exception ex) { errors.Add($"{kind.ToUpperInvariant()}: {ex.Message}"); }
@@ -311,19 +315,29 @@ namespace eMRBCS.Platforms.Android
             var link = _link ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
 
             byte[] data = _buf.ToArray();
+            var marks = _marks.ToArray();          // snapshot BEFORE clearing
             _buf.Clear();
             _marks.Clear();
+            _lines = 0;
 
             int chunk = SendChunkSize > 0 ? SendChunkSize : 512;
             if (link.MaxChunk > 0) chunk = Math.Min(chunk, link.MaxChunk);
             chunk = Math.Max(1, chunk);
 
             int n = (data.Length + chunk - 1) / chunk;
-            var costs = new double[n];
-            int rate = PrinterHardware.MaxBytesPerSecond;
-            if (PrinterHardware.PacingEnabled && rate > 0)
-                for (int i = 0; i < n; i++)
-                    costs[i] = Math.Min(chunk, data.Length - i * chunk) * 1000.0 / rate;
+            double[] costs;
+            if (PrinterHardware.PacingEnabled)
+            {
+                costs = BuildChunkCosts(data.Length, chunk, marks);   // real print time per chunk
+                int rate = PrinterHardware.MaxBytesPerSecond;
+                if (rate > 0)
+                    for (int i = 0; i < n; i++)
+                    {
+                        int len = Math.Min(chunk, data.Length - i * chunk);
+                        costs[i] = Math.Max(costs[i], len * 1000.0 / rate);
+                    }
+            }
+            else costs = new double[n];
 
             BytesSent += data.Length;
 
@@ -331,8 +345,9 @@ namespace eMRBCS.Platforms.Android
                 data, chunk, costs, PrinterHardware.LeadMs, PrinterHardware.MaxAheadBytes)
                 .ConfigureAwait(false);
 
-            double printMs = (_lines * 30.0 + RasterRows) * 1000.0
-                             / Math.Max(50, PrinterHardware.PrintRowsPerSecond);
+            double printMs = 0;
+            for (int i = 0; i < costs.Length; i++) printMs += costs[i];
+
             var done = DateTime.UtcNow.AddMilliseconds(Math.Max(remainingMs, printMs));
             if (done > _printDoneUtc) _printDoneUtc = done;
 
@@ -711,13 +726,13 @@ namespace eMRBCS.Platforms.Android
         }
 
         private void EmitRaster(int contentW, int h, Func<int, int, bool> isBlack,
-                                 PrintAlign align, int sendW = -1, bool vDouble = false)
+                        PrintAlign align, int sendW = -1)
         {
             if (h <= 0 || contentW <= 0) return;
             if (sendW < 0 || sendW > contentW) sendW = contentW;
 
             int head = Head;
-            int headBytes = head / 8;
+            int headBytes = Math.Max(1, head / 8);
             int paperW = Math.Min(Profile.WidthDots, head);
 
             int x0 = align switch
@@ -728,78 +743,61 @@ namespace eMRBCS.Platforms.Android
             };
             x0 = Math.Max(0, x0) + Profile.OffsetDots;
             x0 = Math.Clamp(x0, 0, Math.Max(0, head - 8));
-            sendW = Math.Min(sendW, head - x0);          // NEVER past the physical head
+            sendW = Math.Min(sendW, head - x0);              // never past the physical head
             if (sendW <= 0) return;
 
-            bool useMargin = PrinterHardware.RasterUseMargin;
-            int margin = useMargin ? (x0 / 8) * 8 : 0;
-            int shift = x0 - margin;                     // 0..7 with margin, full x0 without
-            int rowBytes = Math.Clamp((shift + sendW + 7) / 8, 1, headBytes - margin / 8);
+            // position with blank padding bytes only - works on every printer
+            int rowBytes = Math.Clamp((x0 + sendW + 7) / 8, 1, headBytes);
             int rowDots = rowBytes * 8;
 
-            // rows per command: whole image unless a cap is configured
-            int band = Math.Clamp(PrinterHardware.RasterBandRows, 1, 65535);
+            // 0 = whole image in ONE GS v 0 command (no seams)
+            int band = PrinterHardware.RasterBandRows <= 0
+                ? h
+                : Math.Clamp(PrinterHardware.RasterBandRows, 1, 65535);
             if (PrinterHardware.RasterBandMaxBytes > 0)
                 band = Math.Min(band, Math.Max(1, PrinterHardware.RasterBandMaxBytes / rowBytes));
+            band = Math.Clamp(band, 1, 65535);
             bool banded = band < h;
 
-            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });                       // ESC a 0 (we position ourselves)
-            if (useMargin)
+            _buf.AddRange(new byte[]
             {
-                int areaW = head - margin;
-                _buf.AddRange(new byte[] { 0x1D, 0x4C, (byte)(margin & 0xFF), (byte)(margin >> 8) }); // GS L
-                _buf.AddRange(new byte[] { 0x1D, 0x57, (byte)(areaW & 0xFF), (byte)(areaW >> 8) });   // GS W
-            }
-            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x33, 0x00 });           // ESC 3 0 (only if we must split)
+                0x1B, 0x61, 0x00,                                        // ESC a 0
+                0x1D, 0x4C, 0x00, 0x00,                                  // GS L 0
+                0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8)       // GS W = full head (no right-side clipping)
+            });
+            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x33, 0x00 });  // ESC 3 0 only when splitting
 
             for (int y0 = 0; y0 < h; y0 += band)
             {
                 int rows = Math.Min(band, h - y0);
                 var cmd = new byte[8 + rowBytes * rows];
                 cmd[0] = 0x1D; cmd[1] = 0x76; cmd[2] = 0x30;
-                cmd[3] = (byte)(vDouble ? 2 : 0);
+                cmd[3] = 0x00;                                           // mode 0 always (1:1, never half)
                 cmd[4] = (byte)(rowBytes & 0xFF); cmd[5] = (byte)(rowBytes >> 8);
                 cmd[6] = (byte)(rows & 0xFF); cmd[7] = (byte)(rows >> 8);
 
                 for (int r = 0; r < rows; r++)
+                {
+                    int src = y0 + r, dst = 8 + r * rowBytes;
                     for (int x = 0; x < sendW; x++)
                     {
-                        if (!isBlack(x, y0 + r)) continue;
-                        int px = shift + x;
+                        if (!isBlack(x, src)) continue;
+                        int px = x0 + x;
                         if (px >= rowDots) break;
-                        cmd[8 + r * rowBytes + px / 8] |= (byte)(0x80 >> (px % 8));
+                        cmd[dst + (px >> 3)] |= (byte)(0x80 >> (px & 7));
                     }
+                }
                 _buf.AddRange(cmd);
+                Mark(rows);                                              // <-- was missing: flow control
             }
 
-            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x32 });                 // ESC 2
-            if (useMargin)
-            {
-                _buf.AddRange(new byte[] { 0x1D, 0x4C, 0x00, 0x00 });
-                _buf.AddRange(new byte[] { 0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8) });
-            }
-
-            RasterRows += vDouble ? h * 2 : h;
+            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x32 });        // ESC 2
+            RasterRows += h;
         }
 
-        public Task WriteGraphicAsync(byte[] imageBytes, int widthDots, int heightDots, byte threshold = 150)
-        {
-            using var original = SKBitmap.Decode(imageBytes)
-                ?? throw new InvalidOperationException("Could not decode image bytes.");
-            using var resized = original.Resize(new SKImageInfo(widthDots, heightDots), new SKSamplingOptions(SKCubicResampler.Mitchell))
-                ?? throw new InvalidOperationException("Image resize failed.");
 
-            SKColor[] pixels = resized.Pixels;
-            EmitRaster(widthDots, heightDots, (x, y) =>
-            {
-                SKColor px = pixels[y * widthDots + x];
-                double a = px.Alpha / 255.0;
-                double lum = (0.299 * px.Red + 0.587 * px.Green + 0.114 * px.Blue) * a + 255 * (1 - a);
-                return lum < threshold;
-            }, PrintAlign.Left);
-            return Task.CompletedTask;
-        }
 
+        // ---------- logo (decoded and thresholded once, then cached) ----------
         // ---------- logo (decoded and thresholded once, then cached) ----------
         private static readonly object LogoCacheLock = new();
         private static byte[] _logoCacheSrc;
@@ -807,125 +805,95 @@ namespace eMRBCS.Platforms.Android
         private static bool _logoCacheBold;
         private static bool[] _logoCacheMask;
 
+        /// <summary>Threshold with alpha composited over white. A BMP whose alpha channel is
+        /// entirely 0 is treated as opaque (otherwise the logo would print blank).</summary>
+        private static bool[] ThresholdPixels(SKColor[] px, int w, int h, int threshold)
+        {
+            bool useAlpha = false;
+            for (int i = 0; i < px.Length; i++) if (px[i].Alpha > 0) { useAlpha = true; break; }
+
+            var mask = new bool[w * h];
+            for (int i = 0; i < mask.Length; i++)
+            {
+                SKColor p = px[i];
+                double a = useAlpha ? p.Alpha / 255.0 : 1.0;
+                double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
+                mask[i] = lum < threshold;
+            }
+            return mask;
+        }
+
         private static (bool[] Mask, int H) PrepareLogoMask(byte[] imageBytes, int w, int threshold, bool bolden)
         {
             lock (LogoCacheLock)
             {
-                bool trim = PrinterHardware.LogoTrimWhitespace;
                 if (_logoCacheMask != null && _logoCacheW == w && _logoCacheThr == threshold
-                    && _logoCacheBold == bolden && _logoCacheTrim == trim
+                    && _logoCacheBold == bolden
                     && _logoCacheSrc != null && _logoCacheSrc.Length == imageBytes.Length
                     && _logoCacheSrc.SequenceEqual(imageBytes))
                     return (_logoCacheMask, _logoCacheH);
 
                 using var bmp = SKBitmap.Decode(imageBytes) ?? throw new InvalidOperationException("Bad image.");
-                int sw = bmp.Width, sh = bmp.Height;
-                int cx = 0, cy = 0, cw = sw, ch = sh;
 
-                // ---- find the ink bounding box in the ORIGINAL image ----
-                if (trim)
+                // NO trim, NO crop: the COMPLETE BMP is scaled to the paper width, aspect kept.
+                int h = Math.Clamp((int)Math.Round(bmp.Height * (w / (double)bmp.Width)), 1, 65535);
+
+                using var resized = bmp.Resize(
+                    new SKImageInfo(w, h, SKColorType.Rgba8888, SKAlphaType.Premul),
+                    new SKSamplingOptions(SKCubicResampler.Mitchell))
+                    ?? throw new InvalidOperationException("Image resize failed.");
+
+                bool[] mask = ThresholdPixels(resized.Pixels, w, h, threshold);
+
+                if (bolden)
                 {
-                    SKColor[] src = bmp.Pixels;
-                    int minX = sw, maxX = -1, minY = sh, maxY = -1;
-                    for (int y = 0; y < sh; y++)
-                    {
-                        int row = y * sw;
-                        for (int x = 0; x < sw; x++)
-                        {
-                            SKColor p = src[row + x];
-                            double a = p.Alpha / 255.0;
-                            double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
-                            if (lum >= threshold) continue;
-                            if (x < minX) minX = x;
-                            if (x > maxX) maxX = x;
-                            if (y < minY) minY = y;
-                            if (y > maxY) maxY = y;
-                        }
-                    }
-                    if (maxX >= 0) { cx = minX; cy = minY; cw = maxX - minX + 1; ch = maxY - minY + 1; }
+                    var thick = (bool[])mask.Clone();
+                    for (int y = 0; y < h; y++)
+                        for (int x = 1; x < w; x++)
+                            if (mask[y * w + x - 1]) thick[y * w + x] = true;
+                    mask = thick;
                 }
 
-                SKBitmap source = bmp;
-                SKBitmap cropped = null;
-                if (cx != 0 || cy != 0 || cw != sw || ch != sh)
-                {
-                    cropped = new SKBitmap();
-                    if (bmp.ExtractSubset(cropped, new SKRectI(cx, cy, cx + cw, cy + ch))) source = cropped;
-                    else { cropped.Dispose(); cropped = null; }
-                }
-
-                try
-                {
-                    // ---- scale the CROPPED artwork to the full paper width ----
-                    int h = Math.Max(1, (int)Math.Round(ch * (w / (double)cw)));
-                    using var resized = source.Resize(new SKImageInfo(w, h), new SKSamplingOptions(SKCubicResampler.Mitchell))
-                        ?? throw new InvalidOperationException("Image resize failed.");
-
-                    SKColor[] px = resized.Pixels;
-                    var mask = new bool[w * h];
-                    for (int i = 0; i < mask.Length; i++)
-                    {
-                        SKColor p = px[i];
-                        double a = p.Alpha / 255.0;
-                        double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
-                        mask[i] = lum < threshold;
-                    }
-                    if (bolden)
-                    {
-                        var thick = (bool[])mask.Clone();
-                        for (int y = 0; y < h; y++)
-                            for (int x = 1; x < w; x++)
-                                if (mask[y * w + x - 1]) thick[y * w + x] = true;
-                        mask = thick;
-                    }
-
-                    _logoCacheSrc = (byte[])imageBytes.Clone();
-                    _logoCacheW = w; _logoCacheH = h; _logoCacheThr = threshold;
-                    _logoCacheBold = bolden; _logoCacheTrim = trim;
-                    _logoCacheMask = mask;
-                    return (mask, h);
-                }
-                finally { cropped?.Dispose(); }
+                _logoCacheSrc = (byte[])imageBytes.Clone();
+                _logoCacheW = w; _logoCacheH = h; _logoCacheThr = threshold;
+                _logoCacheBold = bolden; _logoCacheMask = mask;
+                return (mask, h);
             }
         }
 
         public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign? align = null)
         {
-            PrintAlign a = align ?? PaperAlign;          // follows 321 / 322 / 323
+            PrintAlign a = align ?? PaperAlign;              // follows 321 / 322 / 323
 
-            int paperW = Profile.WidthDots;
-            int w = Math.Max(8, (int)(paperW * widthFraction) / 8 * 8);
+            int paperW = Math.Min(Profile.WidthDots, Head);
+            int w = Math.Max(8, (int)(paperW * Math.Clamp(widthFraction, 0.05, 1.0)) / 8 * 8);
             if (LogoMaxWidthDots > 0) w = Math.Max(8, Math.Min(w, LogoMaxWidthDots) / 8 * 8);
             w = Math.Min(w, paperW / 8 * 8);
 
-            int thr = LogoThreshold; bool bold = LogoBolden;
-            var prepared = await Task.Run(() => PrepareLogoMask(imageBytes, w, thr, bold));
+            var prepared = await Task.Run(() => PrepareLogoMask(imageBytes, w, LogoThreshold, LogoBolden));
             bool[] mask = prepared.Mask;
             int h = prepared.H;
 
-            int maxX = -1;
-            for (int y = 0; y < h; y++)
-            {
-                int row = y * w;
-                for (int x = w - 1; x > maxX; x--)
-                    if (mask[row + x]) { maxX = x; break; }
-            }
-            if (maxX < 0) return;                        // blank logo -> print nothing
+            bool anyInk = false;
+            for (int i = 0; i < mask.Length; i++) if (mask[i]) { anyInk = true; break; }
+            if (!anyInk) return;                             // truly blank file -> nothing to print
 
-            if (PrinterHardware.LogoVerticalDouble)
-            {
-                int half = (h + 1) / 2;
-                EmitRaster(w, half, (x, y) =>
-                {
-                    int y0 = y * 2;
-                    if (y0 >= h) return false;
-                    return mask[y0 * w + x] || (y0 + 1 < h && mask[(y0 + 1) * w + x]);
-                }, a, sendW: maxX + 1, vDouble: true);
-            }
-            else
-            {
-                EmitRaster(w, h, (x, y) => mask[y * w + x], a, sendW: maxX + 1);
-            }
+            // whole logo, full width, ONE raster command, 1:1 rows
+            EmitRaster(w, h, (x, y) => mask[y * w + x], a);
+        }
+
+        public Task WriteGraphicAsync(byte[] imageBytes, int widthDots, int heightDots, byte threshold = 150)
+        {
+            using var original = SKBitmap.Decode(imageBytes)
+                ?? throw new InvalidOperationException("Could not decode image bytes.");
+            using var resized = original.Resize(
+                new SKImageInfo(widthDots, heightDots, SKColorType.Rgba8888, SKAlphaType.Premul),
+                new SKSamplingOptions(SKCubicResampler.Mitchell))
+                ?? throw new InvalidOperationException("Image resize failed.");
+
+            bool[] mask = ThresholdPixels(resized.Pixels, widthDots, heightDots, threshold);
+            EmitRaster(widthDots, heightDots, (x, y) => mask[y * widthDots + x], PrintAlign.Left);
+            return Task.CompletedTask;
         }
 
         // ---------- barcode ----------
@@ -1081,13 +1049,22 @@ namespace eMRBCS.Platforms.Android
         }
         private void EmitSolidBar(int rowBytes, int rows)
         {
-            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00, 0x1D, 0x4C, 0x00, 0x00 });
+            rowBytes = Math.Clamp(rowBytes, 1, Math.Max(1, Head / 8));
+            rows = Math.Clamp(rows, 1, 65535);
+            int head = Head;
+            _buf.AddRange(new byte[]
+            {
+                0x1B, 0x61, 0x00, 0x1D, 0x4C, 0x00, 0x00,
+                0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8)
+            });
             var cmd = new byte[8 + rowBytes * rows];
             cmd[0] = 0x1D; cmd[1] = 0x76; cmd[2] = 0x30; cmd[3] = 0x00;
-            cmd[4] = (byte)rowBytes; cmd[5] = 0; cmd[6] = (byte)rows; cmd[7] = 0;
+            cmd[4] = (byte)(rowBytes & 0xFF); cmd[5] = (byte)(rowBytes >> 8);
+            cmd[6] = (byte)(rows & 0xFF); cmd[7] = (byte)(rows >> 8);
             for (int i = 8; i < cmd.Length; i++) cmd[i] = 0xFF;
             _buf.AddRange(cmd);
             RasterRows += rows;
+            Mark(rows);
         }
 
         public Task PrintHeadProbeAsync()
