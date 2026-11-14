@@ -1979,7 +1979,7 @@ public partial class Reading : ContentPage
 
             // ================= LOGO =================
             await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);
-
+            await printer.FeedAsync(1);
             // ================= DATES =================
             string[] inputFormats =
             {

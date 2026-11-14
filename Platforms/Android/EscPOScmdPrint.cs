@@ -710,11 +710,6 @@ namespace eMRBCS.Platforms.Android
             return Task.CompletedTask;
         }
 
-        // ======================================================================
-        //  graphics: ONE GS v 0 raster command per image, same stream as the text
-        // ======================================================================
-        // Graphics are sent as SMALL GS v 0 bands inside the same continuous stream.
-        // ESC 3 0 makes the bands touch (no white gaps); ESC 2 restores text spacing after.
         private void EmitRaster(int contentW, int h, Func<int, int, bool> isBlack,
                                  PrintAlign align, int sendW = -1, bool vDouble = false)
         {
@@ -736,20 +731,26 @@ namespace eMRBCS.Platforms.Android
             sendW = Math.Min(sendW, head - x0);          // NEVER past the physical head
             if (sendW <= 0) return;
 
-            int margin = PrinterHardware.RasterUseMargin ? (x0 / 8) * 8 : 0;
-            int shift = x0 - margin;
+            bool useMargin = PrinterHardware.RasterUseMargin;
+            int margin = useMargin ? (x0 / 8) * 8 : 0;
+            int shift = x0 - margin;                     // 0..7 with margin, full x0 without
             int rowBytes = Math.Clamp((shift + sendW + 7) / 8, 1, headBytes - margin / 8);
             int rowDots = rowBytes * 8;
 
-            int band = Math.Clamp(PrinterHardware.RasterBandRows, 1, vDouble ? 127 : 255);
-            band = Math.Min(band, Math.Max(1, PrinterHardware.RasterBandMaxBytes / rowBytes));
+            // rows per command: whole image unless a cap is configured
+            int band = Math.Clamp(PrinterHardware.RasterBandRows, 1, 65535);
+            if (PrinterHardware.RasterBandMaxBytes > 0)
+                band = Math.Min(band, Math.Max(1, PrinterHardware.RasterBandMaxBytes / rowBytes));
             bool banded = band < h;
 
-            int areaW = head - margin;
-            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });
-            _buf.AddRange(new byte[] { 0x1D, 0x4C, (byte)(margin & 0xFF), (byte)(margin >> 8) });
-            _buf.AddRange(new byte[] { 0x1D, 0x57, (byte)(areaW & 0xFF), (byte)(areaW >> 8) });
-            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x33, 0x00 });      // ESC 3 0: bands touch
+            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });                       // ESC a 0 (we position ourselves)
+            if (useMargin)
+            {
+                int areaW = head - margin;
+                _buf.AddRange(new byte[] { 0x1D, 0x4C, (byte)(margin & 0xFF), (byte)(margin >> 8) }); // GS L
+                _buf.AddRange(new byte[] { 0x1D, 0x57, (byte)(areaW & 0xFF), (byte)(areaW >> 8) });   // GS W
+            }
+            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x33, 0x00 });           // ESC 3 0 (only if we must split)
 
             for (int y0 = 0; y0 < h; y0 += band)
             {
@@ -771,9 +772,12 @@ namespace eMRBCS.Platforms.Android
                 _buf.AddRange(cmd);
             }
 
-            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x32 });            // ESC 2
-            _buf.AddRange(new byte[] { 0x1D, 0x4C, 0x00, 0x00 });            // margin back to 0 for text
-            _buf.AddRange(new byte[] { 0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8) });
+            if (banded) _buf.AddRange(new byte[] { 0x1B, 0x32 });                 // ESC 2
+            if (useMargin)
+            {
+                _buf.AddRange(new byte[] { 0x1D, 0x4C, 0x00, 0x00 });
+                _buf.AddRange(new byte[] { 0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8) });
+            }
 
             RasterRows += vDouble ? h * 2 : h;
         }

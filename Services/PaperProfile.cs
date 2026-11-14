@@ -5,6 +5,16 @@
 
     public static class PrinterHardware
     {
+        // ---- raster ----
+        /// <summary>Max rows per GS v 0 command. Large = the whole image goes out as ONE command (no gaps).</summary>
+        public static int RasterBandRows { get; set; } = 255;
+
+        /// <summary>0 = no byte cap per command. (Old value 1024 chopped the logo into ~14-21 row strips.)</summary>
+        public static int RasterBandMaxBytes { get; set; } = 0;
+
+        /// <summary>false = position images with blank padding bytes (works on every printer).
+        /// true = GS L / GS W (many printers ignore them for raster -> logo misaligned).</summary>
+        public static bool RasterUseMargin { get; set; } = false;
         /// <summary>true = crop the logo's white border BEFORE scaling, so the artwork itself fills the paper width.</summary>
         public static bool LogoTrimWhitespace { get; set; } = true;
         // 0 = auto. SET THIS to what Step 1 told you (384 or 576).
@@ -25,10 +35,6 @@
         public static int MaxAheadBytes { get; set; } = 8192;
 
         // ---- raster ----
-        public static int RasterBandRows { get; set; } = 24;
-        public static int RasterBandMaxBytes { get; set; } = 1024;
-        /// <summary>Position images with GS L instead of blank padding bytes (less data).</summary>
-        public static bool RasterUseMargin { get; set; } = true;
         /// <summary>Send half the logo rows, printer prints each twice (GS v 0 mode 2). Halves the byte rate.</summary>
         public static bool LogoVerticalDouble { get; set; } = false;
         /// <summary>Extra print-time cost per band (ms) for firmware turnaround. Not a sleep.</summary>
