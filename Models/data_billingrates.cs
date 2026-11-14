@@ -1,9 +1,4 @@
 ﻿using SQLite;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace eMRBCS.Models
 {
@@ -20,6 +15,6 @@ namespace eMRBCS.Models
         public int graceperioddue { get; set; }
         public float sewerage { get; set; }
         public float ftax { get; set; }
-
+        public float maintenance_fee { get; set; }
     }
 }

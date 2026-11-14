@@ -439,12 +439,6 @@ public partial class PrinterConfig : ContentPage
         try
         {
             // dilate every glyph
-            PrinterHardware.DensityMethod = DensityMethod.Esc7HeatTime;
-            PrinterHardware.DensityLevel = 4;      // 0..4, 4 = darkest
-
-            // OPTIONAL: If you want standard ASCII characters to use the printer's native font
-            // (which is often darker than 1-bit raster graphics):
-            PrinterHardware.SmallFont = SmallFontMode.Native;
             string mac = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             // ESC 7 heat-time method (works on most Epson-compatible printers)
 

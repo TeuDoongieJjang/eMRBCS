@@ -77,6 +77,7 @@ public partial class Reading : ContentPage
     {
         public decimal CurrentBill { get; set; }
         public decimal SewerageAmount { get; set; }
+        public decimal MaintenanceFee { get; set; }
         public decimal SeniorDiscount { get; set; }
         public decimal Arrears { get; set; }
         public decimal Others { get; set; }
@@ -87,6 +88,7 @@ public partial class Reading : ContentPage
         public bool IsSewerage { get; set; }
         public bool IsFlatRate { get; set; }
         public bool ShowSeniorDiscount { get; set; }
+
     }
 
     public Reading()
@@ -1766,23 +1768,23 @@ public partial class Reading : ContentPage
     //      DoPrintBill just prints the pre-computed values.
     // =========================================================================
     private static BillAmounts ComputeBillAmounts(Consumers consumer,
-                                          bool isSJWD,
-                                          bool isMVWD,
-                                          bool isIndangWD,
-                                          bool isCWD, bool isPlaWD)
+        bool isSJWD,
+        bool isMVWD,
+        bool isIndangWD,
+        bool isCWD, bool isPlaWD, decimal maintenanceFee = 0m, decimal sewerageRate = 0m) // Added sewerageRate parameter
     {
         if (consumer == null) throw new ArgumentNullException(nameof(consumer));
-
         var bill = new BillAmounts
         {
             IsSewerage = consumer.parameters.Contains("IsSewerage"),
             IsFlatRate = consumer.parameters.Contains("IsFlatRate"),
+            MaintenanceFee = maintenanceFee // FIX 1: Actually assign the maintenance fee so it prints
         };
 
         decimal currentBill = ApplyRounding(Convert.ToDecimal(consumer.currentbill), isCWD);
 
-        // ---------------- sewerage: taken from the consumer record only ----------------
-        decimal sewerageValue = float.IsNaN(consumer.sewerage) ? 0m : Convert.ToDecimal(consumer.sewerage);
+        // FIX 2: Use the rate from Billing_rates for PlaWD, otherwise fallback to consumer.sewerage
+        decimal sewerageValue = isPlaWD ? sewerageRate : (float.IsNaN(consumer.sewerage) ? 0m : Convert.ToDecimal(consumer.sewerage));
         decimal sewerageAmount = 0.00m;
 
         if (isMVWD)
@@ -1805,13 +1807,24 @@ public partial class Reading : ContentPage
         bill.CurrentBill = currentBill;
         bill.SewerageAmount = sewerageAmount;
 
+
         decimal runningTotalBill = 0.00m;
         if (bill.CurrentBill > 0) runningTotalBill += bill.CurrentBill;
         if (bill.SewerageAmount > 0) runningTotalBill += bill.SewerageAmount;
+        if (isPlaWD && bill.MaintenanceFee > 0) runningTotalBill += bill.MaintenanceFee;
 
         decimal penaltyBase = runningTotalBill;
         if (isCWD && bill.SewerageAmount > 0)
+        {
             penaltyBase -= bill.SewerageAmount;
+        }
+        if (isPlaWD && bill.MaintenanceFee > 0 || isPlaWD && bill.SewerageAmount > 0)
+        {
+            penaltyBase -= bill.MaintenanceFee;
+            penaltyBase -= bill.SewerageAmount;
+        }
+
+
 
         bill.SeniorDiscount = 0.00m;
         if (!isIndangWD)
@@ -1856,7 +1869,12 @@ public partial class Reading : ContentPage
 
         return bill;
     }
-
+    private async Task<decimal> GetMaintenanceFeeAsync(Consumers c)
+    {
+        var rates = await new DBService().GetBillrates(c.consumer_type, c.metersize);
+        // every tier row of a type/size carries the same fee
+        return rates != null && rates.Count > 0 ? Convert.ToDecimal(rates[0].maintenance_fee) : 0m;
+    }
     public Task<string> DoPrintBill(Consumers consumer) => PrintGate.RunAsync(() => DoPrintBillCore(consumer));
     public async Task<string> DoPrintBillCore(Consumers consumer)
     {
@@ -1910,8 +1928,9 @@ public partial class Reading : ContentPage
             // NEW: single call – every money value is computed and pre-rounded
             //      here (CWD = truncate, others = normal Round).
             // ------------------------------------------------------------------
-            BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD, IsPlaWD);
 
+            decimal maintenanceFee = 0m;
+            decimal sewerageRate = 0m; // NEW: Fetch sewerage rate from Billing_rates for PlaWD
             List<CommodityLine> commodityLines = null;
             if (IsPlaWD)
             {
@@ -1920,8 +1939,14 @@ public partial class Reading : ContentPage
                     .OrderBy(b => b.bill_id)
                     .ToList();
                 commodityLines = RateCalculator.Breakdown(rates, consumer.usage, consumer.minusage);
+                if (rates.Count > 0)
+                {
+                    maintenanceFee = Convert.ToDecimal(rates[0].maintenance_fee);
+                    sewerageRate = Convert.ToDecimal(rates[0].sewerage); // 2nd to the last value from your rate string
+                }
             }
-
+            // Pass the sewerageRate to the computation
+            BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD, IsPlaWD, maintenanceFee, sewerageRate);
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
             await printer.ConnectAndPrepareAsync(macAddress);
             //await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves
@@ -1987,7 +2012,7 @@ public partial class Reading : ContentPage
                 await printer.PrintTextAsync("Tel. No: 795-01-02", PrintAlign.Center, smallOn32: true);
             }
 
-            await printer.FeedAsync(1);
+            await printer.PrintSeparatorAsync(' ');
 
             // ================= TITLE =================
             if (IsPlaWD)
@@ -2001,7 +2026,7 @@ public partial class Reading : ContentPage
 
             await printer.PrintTextAsync("For the month of " + printCurrentMonthYear, PrintAlign.Center);
             await printer.PrintTextAsync("(" + printPrevMonth + " Consumption)", PrintAlign.Center);
-            await printer.FeedAsync(1);
+            await printer.PrintSeparatorAsync(' ');
 
             // ============= CONSUMER INFO =============
             await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(High: true));
@@ -2074,9 +2099,14 @@ public partial class Reading : ContentPage
             if (bill.SewerageAmount > 0)
                 await printer.PrintRowAsync(IsMVWD ? "Sewerage" : IsCWD ? "ESF" : IsPlaWD ? "Environmental/Septage Fee" : "Septage Mgmt. Fee",
                                             bill.SewerageAmount.ToString("#,##0.00"));
+            if (bill.MaintenanceFee > 0 && IsPlaWD)
+            {
+                await printer.PrintRowAsync("Maintenance Fee", bill.MaintenanceFee.ToString("#,##0.00"));
+
+            }
             if (IsPlaWD && bill.Others > 0)
             {
-                await printer.PrintRowAsync("Maintenance Fee", bill.Others.ToString("#,##0.00"));
+                await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
             }
 
             if (bill.ShowSeniorDiscount)
