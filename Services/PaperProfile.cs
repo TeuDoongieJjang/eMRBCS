@@ -1,49 +1,36 @@
 ﻿namespace eMRBCS.Services
 {
-    public enum AlignMethod { Hardware, Software }
-
-    /// <summary>Hybrid = text for plain ASCII, raster image for everything else (default).</summary>
-    public enum RenderMode { Hybrid, TextOnly, RasterOnly }
-
-    /// <summary>Raster = Font B requests are drawn as an image (always followed). Native = ESC M (printer must support it).</summary>
-    public enum SmallFontMode { Raster, Native }
-
     /// <summary>Optional darkness commands. Off = send nothing (safe on every printer).</summary>
     public enum DensityMethod { Off = 0, Esc7HeatTime = 1, Dc2Hash = 2 }
 
     public static class PrinterHardware
     {
-        /// <summary>Weight of '-' separators (solid line). '=' uses two lines.</summary>
-        public static int SeparatorThicknessDots { get; set; } = 3;
+        // ---------------- reset / ASCII mode ----------------
+        /// <summary>
+        /// true = send FS . (0x1C 0x2E) after the reset to leave Chinese / GBK (Kanji) mode.
+        /// If a printer does not know FS it may print a stray '.', then set this to false.
+        /// </summary>
+        public static bool ExitKanjiMode { get; set; } = true;
 
-        /// <summary>Dash length (dots) for broken separators ('~' and '#').</summary>
-        public static int SeparatorDashDots { get; set; } = 12;
+        /// <summary>
+        /// true = also send ESC R 0, ESC { 0, ESC V 0, GS B 0, ESC G 0, ESC SP 0 in the reset.
+        /// ESC @ already resets them, and printers that do not know these commands print a stray letter,
+        /// so this is off by default.
+        /// </summary>
+        public static bool ExtendedReset { get; set; } = false;
 
-        /// <summary>Gap length (dots) between dashes for broken separators.</summary>
-        public static int SeparatorGapDots { get; set; } = 6;
-
-        /// <summary>Height of a blank line made by PrintSeparatorAsync(' ').</summary>
-        public static int BlankLineDots { get; set; } = 24;
-        /// <summary>0 = automatic. Set a number only to force a head width.</summary>
+        // ---------------- paper / head ----------------
+        /// <summary>0 = automatic (384 for 2-inch, 576 for 3-inch). Set a number only to force a head width.</summary>
         public static int HeadWidthDots { get; set; } = 0;
 
         /// <summary>Used when the Line Space has no alignment digit (e.g. "48"). 1 = left, 2 = center, 3 = right.</summary>
         public static int DefaultAlignment { get; set; } = 2;
 
-        /// <summary>
-        /// Only matters when the paper is narrower than the print head (321/322/323...).
-        /// Software = leading spaces for text, blank dots for images. Hardware = GS L / GS W margins.
-        /// </summary>
-        public static AlignMethod AlignBy { get; set; } = AlignMethod.Software;
-
         /// <summary>true = every print on a 3-inch head starts with GS L 0 / GS W (full head).</summary>
         public static bool ResetMargins { get; set; } = true;
 
-        public const bool RasterIgnoresMargin = true;
-
-        // ---------------- hybrid rendering ----------------
-        public static RenderMode Render { get; set; } = RenderMode.Hybrid;
-        public static SmallFontMode SmallFont { get; set; } = SmallFontMode.Raster;
+        /// <summary>Height of a blank line made by PrintSeparatorAsync(' ') (dots).</summary>
+        public static int BlankLineDots { get; set; } = 24;
 
         /// <summary>true = all normal text is printed emphasised (darker). Helps faded printers.</summary>
         public static bool ForceBold { get; set; } = false;
@@ -51,24 +38,15 @@
         // ---------------- font metrics (dots) ----------------
         public static int FontADots { get; set; } = 12;
         public static int FontBDots { get; set; } = 9;
-        public static int FontAHeight { get; set; } = 24;
-        public static int FontBHeight { get; set; } = 17;
 
-        // ---------------- rules / underline ----------------
-        /// <summary>Weight of '-' separators (solid line). '=' uses two lines.</summary>
-
-        /// <summary>Distance of the underline below the text baseline (smaller = closer to the text).</summary>
-        public static int UnderlineGapDots { get; set; } = 2;
-        public static int UnderlineThicknessDots { get; set; } = 2;
-        public static int UnderlineBoldThicknessDots { get; set; } = 3;
-
-        // ---------------- image quality ----------------
-        /// <summary>Luminance below this becomes black. Higher = darker logo (128 was too light).</summary>
+        // ---------------- logo quality ----------------
+        /// <summary>Luminance below this becomes black. Higher = darker logo.</summary>
         public static int LogoThreshold { get; set; } = 170;
+
         /// <summary>true = thicken every black pixel by 1 dot horizontally.</summary>
         public static bool LogoBolden { get; set; } = false;
 
-        // ---------------- print density (persisted, set from Test Print) ----------------
+        // ---------------- print density (persisted) ----------------
         public static DensityMethod DensityMethod
         {
             get => (DensityMethod)Preferences.Get("print_density_method", 0);
@@ -81,81 +59,6 @@
             get => Preferences.Get("print_density_level", 3);
             set => Preferences.Set("print_density_level", Math.Clamp(value, 0, 4));
         }
-    }
-
-    /// <summary>
-    /// Generic, model independent send settings. Text is plain ASCII (identical in every code page, incl. GBK),
-    /// everything else is printed as an image, so no code page / model detection is needed.
-    /// </summary>
-    public sealed class PrinterCaps
-    {
-        // text sending
-        public int SendChunkSize { get; init; } = 512;
-        public int SendChunkDelayMs { get; init; } = 4;
-        public int TailDelayMs { get; init; } = 400;
-
-        // barcode / QR / text-image / rule raster
-        public int RasterSliceRows { get; init; } = 48;
-        public int RasterChunkSize { get; init; } = 192;
-        public int RasterChunkDelayMs { get; init; } = 8;
-        public int RasterMsPerRow { get; init; } = 1;      // band catch-up pause
-
-        // logo
-        public bool LogoBitImage { get; init; } = false;
-        public int LogoSliceRows { get; init; } = 24;
-        public int LogoChunkSize { get; init; } = 192;
-        public int LogoChunkDelayMs { get; init; } = 8;
-        public int LogoMsPerRow { get; init; } = 1;
-        public int LogoStripPauseMs { get; init; } = 0;
-
-        /// <summary>Safe for every printer.</summary>
-        public static PrinterCaps Default => new();
-
-        /// <summary>Old/low-end phones + cheap printers: small chunks, real pacing,
-        /// small bands so the printer's RX buffer can never overflow (no white cuts).
-        /// Auto-selected on Android &lt; 10; can also be forced manually.</summary>
-        /// <summary>Lockstep pacing for unacknowledged links (SPP / BLE no-ack).
-        /// Used on EVERY phone, not just old Android versions.</summary>
-        /// <summary>Lockstep pacing for unacknowledged links (SPP / BLE no-ack).
-        /// Used on EVERY phone, not just old Android versions.</summary>
-        public static PrinterCaps Compat => new()
-        {
-            SendChunkSize = 128,
-            SendChunkDelayMs = 2,
-            TailDelayMs = 600,
-
-            RasterSliceRows = 0,      // 0 = whole image in ONE GS v 0 (text lines, rules, QR, barcode)
-            RasterChunkSize = 128,
-            RasterChunkDelayMs = 2,
-            RasterMsPerRow = 0,       // drain pause AFTER each complete image
-
-            LogoBitImage = false,
-            LogoSliceRows = 0,        // 0 = whole logo in ONE GS v 0 -> no seams
-            LogoChunkSize = 128,
-            LogoChunkDelayMs = 2,
-            LogoMsPerRow = 0,
-            LogoStripPauseMs = 0
-        };
-
-        /// <summary>For printers with a fast Bluetooth buffer.</summary>
-        public static PrinterCaps Fast => new()
-        {
-            SendChunkSize = 2048,
-            SendChunkDelayMs = 0,
-            TailDelayMs = 150,
-            RasterSliceRows = 0,
-            RasterChunkSize = 0,
-            RasterChunkDelayMs = -1,
-            RasterMsPerRow = 0,
-            LogoBitImage = true,
-            LogoChunkSize = 256,
-            LogoChunkDelayMs = 10,
-            LogoMsPerRow = 0,
-            LogoStripPauseMs = 3
-        };
-
-        /// <summary>Use if the logo does not print with GS v 0 raster.</summary>
-        public static PrinterCaps BitImageLogo => new() { LogoBitImage = true };
     }
 
     public sealed class PaperProfile

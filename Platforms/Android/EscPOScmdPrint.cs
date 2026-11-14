@@ -2,22 +2,33 @@
 using eMRBCS.Services;
 using QRCoder;
 using SkiaSharp;
+using System.Diagnostics;
 using System.Text;
 
 namespace eMRBCS.Platforms.Android
 {
     public enum PrinterTransport { Auto, SppOnly, BleOnly }
     public enum PrintAlign { Left, Center, Right }
-    public enum TextSize { Default, Small, Normal, Big, Large }
-    /// <summary>Visual style of a separator/rule line.</summary>
+
+    /// <summary>
+    /// Small  = Font B 1x1
+    /// Normal / Medium = Font A 1x1
+    /// Big / Large     = Font A 2x2
+    /// XL              = Font A 3x3
+    /// (WidthMul / HeightMul in PrintStyle override these.)
+    /// </summary>
+    public enum TextSize { Default, Small, Normal, Big, XL, Medium = Normal, Large = Big }
+
+    /// <summary>Single '-' / double '=' rules, drawn as plain ASCII characters.</summary>
     public enum SeparatorStyle
     {
-        Blank,         // ' ' – just feed blank dots (old BlankLineDots)
-        Solid,         // '-' / '_' – one continuous line
-        DoubleSolid,   // '=' – two continuous lines
-        Broken,        // '~' – short dashes with gaps
-        DoubleBroken   // '#' – two lines of short dashes
+        Blank,         // blank paper feed
+        Solid,         // ----
+        DoubleSolid,   // ====
+        Broken,        // ---- (same as Solid, kept so old calls still compile)
+        DoubleBroken   // ==== (same as DoubleSolid)
     }
+
     public readonly record struct PrintStyle(
         bool Bold = false,
         bool Wide = false,
@@ -29,81 +40,50 @@ namespace eMRBCS.Platforms.Android
         int HeightMul = 0);
 
     public enum BarcodeType { Code39, Code128 }
-    public enum LogoMode { Raster, RasterBands, BitImage }
 
     /// <summary>
-    /// Hybrid ESC/POS printer.
-    ///   * plain ASCII (0x20-0x7E) -> text mode (same bytes in CP437/CP850/GBK/..., no code page needed)
-    ///   * anything else, underline, small font (default) -> drawn with SkiaSharp and sent as a raster image
-    ///   * logo / barcode / QR / separators -> raster
+    /// Generic ESC/POS printer, ASCII text mode only.
+    ///   * Text, alignment, separators, fonts, sizes, bold, underline = plain ESC/POS text commands.
+    ///   * Only graphics: logo, barcode, QR code (one GS v 0 raster command each).
+    ///   * Everything is collected in memory and sent in ONE continuous stream by FlushAsync():
+    ///     no pauses between commands, no banding, no separate flushes, so the paper never stops mid-print.
+    /// Always finish with: await printer.FlushAsync(); ... finally { await printer.CloseAsync(); }
     /// </summary>
     public class EscPOScmdPrint : IDisposable
     {
-        // ---------------- capabilities ----------------
-        private PrinterCaps _caps = PrinterCaps.Default;
-        public PrinterCaps Caps
-        {
-            get => _caps;
-            set { _caps = value ?? PrinterCaps.Default; ApplyCaps(); }
-        }
-
-        public string DeviceName { get; private set; } = "";
-
-        public EscPOScmdPrint() { ApplyCaps(); }
-
-        private void ApplyCaps()
-        {
-            SendChunkSize = _caps.SendChunkSize;
-            SendChunkDelayMs = _caps.SendChunkDelayMs;
-            TailDelayMs = _caps.TailDelayMs;
-            RasterSliceRows = _caps.RasterSliceRows;
-            RasterChunkSize = _caps.RasterChunkSize;
-            RasterChunkDelayMs = _caps.RasterChunkDelayMs;
-            RasterMsPerRow = _caps.RasterMsPerRow;
-            LogoMode = _caps.LogoBitImage ? LogoMode.BitImage : LogoMode.RasterBands;
-            LogoSliceRows = _caps.LogoSliceRows;
-            LogoChunkSize = _caps.LogoChunkSize;
-            LogoChunkDelayMs = _caps.LogoChunkDelayMs;
-            LogoMsPerRow = _caps.LogoMsPerRow;
-            LogoInterStripPauseMs = _caps.LogoStripPauseMs;
-        }
-
-        // ---------------- sending settings ----------------
-        public bool BufferOutput { get; set; } = true;
-        public int SendChunkSize { get; set; } = 512;
-        public int SendChunkDelayMs { get; set; } = 4;
-        public int TailDelayMs { get; set; } = 400;
+        // ======================================================================
+        //  settings
+        // ======================================================================
+        public PrinterTransport Transport { get; set; } = PrinterTransport.Auto;
         public int ConnectTimeoutSeconds { get; set; } = 6;
 
-        // ---------------- raster settings ----------------
-        public int RasterChunkSize { get; set; } = 192;
-        public int RasterChunkDelayMs { get; set; } = 8;
-        public int RasterSliceRows { get; set; } = 48;
+        /// <summary>Bytes per Bluetooth write. No delay between writes.</summary>
+        public int SendChunkSize { get; set; } = 4096;
 
-        // ---------------- logo settings ----------------
-        public LogoMode LogoMode { get; set; } = LogoMode.RasterBands;
-        public bool LogoUseBitImage
-        {
-            get => LogoMode == LogoMode.BitImage;
-            set => LogoMode = value ? LogoMode.BitImage : LogoMode.Raster;
-        }
-        public int LogoSliceRows { get; set; } = 24;
-        public int LogoChunkSize { get; set; } = 192;
-        public int LogoChunkDelayMs { get; set; } = 8;
-        public int LogoMsPerRow { get; set; } = 0;
-        public int LogoInterStripPauseMs { get; set; } = 0;
-        public int LogoStripFeedDots { get; set; } = 24;
-        public int LogoMaxWidthDots { get; set; } = 0;
-        public bool LogoVerticalDouble { get; set; } = false;
-        public bool LogoPadWithZeros { get; set; } = false;
+        /// <summary>
+        /// 0 = send as fast as the link accepts (default).
+        /// If a printer loses data because it receives too fast, set a steady rate, e.g. 20000.
+        /// This is a constant rate, not a pause between chunks, so printing stays continuous.
+        /// </summary>
+        public int ThrottleBytesPerSecond { get; set; } = 0;
+
+        /// <summary>Minimum wait in CloseAsync so closing the socket cannot cut the end of the receipt.</summary>
+        public int TailDelayMs { get; set; } = 600;
+
         public int LogoThreshold { get; set; } = PrinterHardware.LogoThreshold;
         public bool LogoBolden { get; set; } = PrinterHardware.LogoBolden;
 
-        // ---------------- state ----------------
-        private bool _gsSizeDirty;
+        /// <summary>Hard cap for the logo width in dots (0 = no cap).</summary>
+        public int LogoMaxWidthDots { get; set; } = 0;
 
         public PaperProfile Profile { get; set; } = PaperProfile.FromColumns(32);
+
+        /// <summary>Raster rows queued so far (used to estimate print time in CloseAsync).</summary>
         public int RasterRows { get; private set; }
+
+        public string DeviceName { get; private set; } = "";
+        public string TransportInUse => _link?.TransportName ?? "-";
+        public bool IsConnected => _link?.IsConnected == true;
 
         private int Head => Profile.HeadDots > 0 ? Profile.HeadDots : 384;
 
@@ -113,105 +93,27 @@ namespace eMRBCS.Platforms.Android
         /// <summary>Columns of the default style (Font A, 1x).</summary>
         public int Cols => ColsFor(Plain);
 
-        private bool UseMarginsNow => PrinterHardware.AlignBy == AlignMethod.Hardware && Profile.OffsetDots > 0;
+        /// <summary>ESC a is exact when the paper fills the whole head. Otherwise leading spaces are used.</summary>
+        private bool HwAlignAvailable => Profile.WidthDots == Head;
 
-        /// <summary>ESC a (printer-side alignment) is exact, so use it whenever the paper fills the head or margins are honoured.</summary>
-        /// <summary>ESC a (printer-side alignment) is exact, so use it whenever the paper fills the head
-        /// or hardware margins are honoured.</summary>
-        private bool HwAlignAvailable => Profile.WidthDots == Head || UseMarginsNow;
-        public string Describe() =>
-            $"{(string.IsNullOrEmpty(DeviceName) ? "?" : DeviceName)} | {Profile.Name} align {Profile.Alignment} " +
-            $"head {Profile.HeadDots} off {Profile.OffsetDots} | " +
-            (Profile.OffsetDots == 0 ? "hw align" : UseMarginsNow ? "HW margin" : "space shift");
-
-        private static byte[] FeedDots(int n) => new byte[] { 0x1B, 0x4A, (byte)Math.Clamp(n, 0, 255) };
-
-        public PrinterTransport Transport { get; set; } = PrinterTransport.Auto;
-        public int RasterMsPerRow { get; set; } = 1;      // catch-up pause per printed dot-row
-
+        // ======================================================================
+        //  buffer (the whole receipt lives here until FlushAsync)
+        // ======================================================================
+        private readonly List<byte> _buf = new(16384);
+        private int _lines;
         private IPrinterLink _link;
-        public bool IsConnected => _link?.IsConnected == true;
 
+        public void ClearBuffer() { _buf.Clear(); _lines = 0; }
 
-
-        // ======================================================================
-        //  output queue
-        // ======================================================================
-
-        private async Task WriteSegmentAsync(SendSegment s)
+        public Task WriteRawAsync(byte[] payload)
         {
-            var link = _link ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
-            int chunk = s.Chunk > 0 ? s.Chunk : s.Data.Length;
-            if (link.MaxChunk > 0) chunk = Math.Min(chunk, link.MaxChunk);   // BLE MTU limit
-            chunk = Math.Max(1, chunk);
-
-            for (int i = 0; i < s.Data.Length; i += chunk)
-            {
-                int len = Math.Min(chunk, s.Data.Length - i);
-                await link.WriteChunkAsync(s.Data, i, len).ConfigureAwait(false);
-                if (s.DelayMs > 0 && i + len < s.Data.Length)
-                    await Task.Delay(s.DelayMs).ConfigureAwait(false);
-            }
-            if (s.PauseAfterMs > 0) await Task.Delay(s.PauseAfterMs).ConfigureAwait(false);
+            if (payload != null && payload.Length > 0) _buf.AddRange(payload);
+            return Task.CompletedTask;
         }
-
-        private async Task EnqueueOrSendAsync(byte[] payload, int chunk, int delayMs, int pauseAfterMs)
-        {
-            if (_link == null)
-                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
-            if (payload == null || payload.Length == 0) return;
-
-            if (BufferOutput) { Enqueue(payload, chunk, delayMs, pauseAfterMs); return; }
-            await WriteSegmentAsync(new SendSegment(payload, chunk, delayMs, pauseAfterMs));
-        }
-
-        public async Task FlushAsync(bool sendTailDelay = true)
-        {
-            CloseCurrentSegment();
-            if (_queue.Count == 0) return;
-            if (_link == null)
-                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
-
-            var segments = _queue.ToArray();
-            _queue.Clear();
-            foreach (var s in segments) await WriteSegmentAsync(s).ConfigureAwait(false);
-
-            if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
-        }
-
-        private readonly record struct SendSegment(byte[] Data, int Chunk, int DelayMs, int PauseAfterMs);
-        private readonly List<SendSegment> _queue = new();
-        private readonly List<byte> _cur = new();
-
-        private int ResolveChunk(int v) => v > 0 ? v : SendChunkSize;
-        private int ResolveDelay(int v) => v >= 0 ? v : SendChunkDelayMs;
-
-        private void CloseCurrentSegment()
-        {
-            if (_cur.Count == 0) return;
-            _queue.Add(new SendSegment(_cur.ToArray(), SendChunkSize, SendChunkDelayMs, 0));
-            _cur.Clear();
-        }
-
-        private void Enqueue(byte[] data, int chunk, int delayMs, int pauseAfterMs)
-        {
-            if (chunk <= 0) chunk = data.Length;
-            bool isDefault = chunk == SendChunkSize && delayMs == SendChunkDelayMs && pauseAfterMs == 0;
-            if (isDefault) { _cur.AddRange(data); return; }
-            CloseCurrentSegment();
-            _queue.Add(new SendSegment(data, chunk, delayMs, pauseAfterMs));
-        }
-
-
-        public void ClearBuffer() { _queue.Clear(); _cur.Clear(); }
 
         // ======================================================================
         //  connection
         // ======================================================================
-
-        public bool AutoCaps { get; set; } = true;
-        public string TransportInUse => _link?.TransportName ?? "-";
-
         public async Task ConnectAsync(string macAddress)
         {
             var adapter = BluetoothAdapter.DefaultAdapter
@@ -227,8 +129,6 @@ namespace eMRBCS.Platforms.Android
             {
                 PrinterTransport.SppOnly => new[] { "spp" },
                 PrinterTransport.BleOnly => new[] { "ble" },
-                // BLE first whenever available: acknowledged writes are the only
-                // guarantee against lost bytes on weak phones / cheap BT modules.
                 _ => bleCapable ? new[] { "ble", "spp" } : new[] { "spp", "ble" }
             };
 
@@ -252,10 +152,6 @@ namespace eMRBCS.Platforms.Android
                     DeviceName = _link.DeviceName;
                     ClearBuffer();
                     RasterRows = 0;
-
-                    // Pacing follows the LINK, not the Android version:
-                    // acked BLE -> fast; SPP / no-ack BLE -> lockstep on EVERY phone.
-                    if (AutoCaps) Caps = PrinterCaps.Compat;
                     return;
                 }
                 catch (Exception ex) { errors.Add($"{kind.ToUpperInvariant()}: {ex.Message}"); }
@@ -263,11 +159,72 @@ namespace eMRBCS.Platforms.Android
             throw new InvalidOperationException("Could not connect via SPP or BLE. " + string.Join(" | ", errors));
         }
 
+        /// <summary>Connect, then queue the reset. Nothing is sent yet: the reset travels in the same stream as the receipt.</summary>
+        public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 0, int settleMs = 0)
+        {
+            await ConnectAsync(macAddress);
+            if (postConnectDelayMs > 0) await Task.Delay(postConnectDelayMs);
+            if (settleMs > 0) await Task.Delay(settleMs);
+            await InitializeAsync();
+        }
 
+        /// <summary>
+        /// Reset + force plain ASCII mode. Queued at the START of the stream.
+        /// ESC @ reset, FS . leave Chinese/GBK mode, ESC t 0 code page 0, then every text mode back to default.
+        /// </summary>
+        public Task InitializeAsync()
+        {
+            var c = new List<byte>
+            {
+                0x1B, 0x40,                 // ESC @    reset
+                0x1B, 0x74, 0x00,           // ESC t 0  code page 0 (PC437)
+            };
+            if (PrinterHardware.ExitKanjiMode)
+                c.AddRange(new byte[] { 0x1C, 0x2E });          // FS .  cancel Chinese / GBK (Kanji) mode
 
+            c.AddRange(new byte[]
+            {
+                0x1B, 0x4D, 0x00,           // ESC M 0  Font A
+                0x1B, 0x45, 0x00,           // ESC E 0  bold off
+                0x1B, 0x2D, 0x00,           // ESC - 0  underline off
+                0x1B, 0x21, 0x00,           // ESC ! 0  print mode normal
+                0x1D, 0x21, 0x00,           // GS ! 0   size 1x1
+                0x1B, 0x61, 0x00,           // ESC a 0  left
+                0x1B, 0x32                  // ESC 2    default line spacing
+            });
 
+            if (PrinterHardware.ExtendedReset)
+            {
+                c.AddRange(new byte[]
+                {
+                    0x1B, 0x52, 0x00,       // ESC R 0  international set: USA
+                    0x1B, 0x47, 0x00,       // ESC G 0  double-strike off
+                    0x1B, 0x20, 0x00,       // ESC SP 0 char spacing 0
+                    0x1B, 0x7B, 0x00,       // ESC { 0  upside-down off
+                    0x1B, 0x56, 0x00,       // ESC V 0  rotation off
+                    0x1D, 0x42, 0x00        // GS B 0   reverse off
+                });
+            }
 
-        // ---------------- print density (optional, see PrinterHardware.DensityMethod) ----------------
+            int head = Head;
+            if (PrinterHardware.ResetMargins && head > 384)
+            {
+                c.AddRange(new byte[]
+                {
+                    0x1D, 0x4C, 0x00, 0x00,                                // GS L 0   left margin 0
+                    0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8)     // GS W     full head width
+                });
+            }
+
+            c.AddRange(DensityBytes());
+
+            if (PrinterHardware.ExitKanjiMode)
+                c.AddRange(new byte[] { 0x1C, 0x2E });          // once more, in case a setting above re-entered it
+
+            _buf.AddRange(c);
+            return Task.CompletedTask;
+        }
+
         private static byte[] DensityBytes()
         {
             int level = Math.Clamp(PrinterHardware.DensityLevel, 0, 4);
@@ -275,14 +232,12 @@ namespace eMRBCS.Platforms.Android
             {
                 case DensityMethod.Esc7HeatTime:
                     {
-                        // ESC 7 n1 n2 n3 : max heating dots, heating time (x10us), heating interval (x10us)
                         int[] heat = { 80, 100, 120, 160, 200 };
                         byte interval = (byte)(level == 0 ? 2 : 40);
                         return new byte[] { 0x1B, 0x37, 7, (byte)heat[level], interval };
                     }
                 case DensityMethod.Dc2Hash:
                     {
-                        // DC2 # n : bits0-4 density, bits5-7 break time
                         int[] dens = { 10, 14, 18, 24, 31 };
                         return new byte[] { 0x12, 0x23, (byte)((2 << 5) | dens[level]) };
                     }
@@ -291,94 +246,66 @@ namespace eMRBCS.Platforms.Android
             }
         }
 
-        public async Task SetDensityAsync()
+        // ======================================================================
+        //  sending: ONE continuous stream
+        // ======================================================================
+        /// <summary>Sends everything collected so far as one continuous stream. Does not wait for the printer to finish.</summary>
+        public async Task FlushAsync(bool sendTailDelay = false)
         {
-            var b = DensityBytes();
-            if (b.Length > 0) await WriteRawAsync(b);
-        }
+            if (_buf.Count == 0) return;
+            var link = _link ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
 
-        public async Task InitializeAsync()
-        {
-            int w = Profile.WidthDots;
-            int o = Profile.OffsetDots;
-            int head = Head;
-            bool hw = UseMarginsNow;
+            byte[] data = _buf.ToArray();
+            _buf.Clear();
 
-            var cmd = new List<byte>
+            int chunk = SendChunkSize > 0 ? SendChunkSize : data.Length;
+            if (link.MaxChunk > 0) chunk = Math.Min(chunk, link.MaxChunk);   // BLE MTU limit
+            chunk = Math.Max(1, chunk);
+
+            var sw = Stopwatch.StartNew();
+            for (int i = 0; i < data.Length; i += chunk)
             {
-                0x1B, 0x40,                 // ESC @ reset
-                0x1B, 0x32,                 // ESC 2 default line spacing
-                0x1B, 0x61, 0x00            // left align
-            };
-            // NOTE: no ESC t (code page) and no FS . : text is plain ASCII only, the rest is an image.
+                int len = Math.Min(chunk, data.Length - i);
+                await link.WriteChunkAsync(data, i, len).ConfigureAwait(false);
 
-            cmd.AddRange(DensityBytes());
-
-            bool sendMargins = hw || (PrinterHardware.ResetMargins && head > 384);
-            if (sendMargins)
-            {
-                int left = hw ? o : 0;
-                int area = hw ? w : head;
-                cmd.AddRange(new byte[]
+                if (ThrottleBytesPerSecond > 0)
                 {
-                    0x1D, 0x4C, (byte)(left & 0xFF), (byte)(left >> 8),      // GS L left margin
-                    0x1D, 0x57, (byte)(area & 0xFF), (byte)(area >> 8)       // GS W print area width
-                });
+                    double due = (i + len) * 1000.0 / ThrottleBytesPerSecond;
+                    double wait = due - sw.Elapsed.TotalMilliseconds;
+                    if (wait > 1) await Task.Delay((int)wait).ConfigureAwait(false);
+                }
             }
-            await WriteRawAsync(cmd.ToArray());
-            _gsSizeDirty = false;
-        }
 
-        public async Task WarmUpAsync(int settleMs = 400)
-        {
-            if (_link == null)
-                throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
-
-            ClearBuffer();
-            await WriteRawAsync(new byte[] { 0x1B, 0x40 });
-            await FlushAsync(sendTailDelay: false);
-            if (settleMs > 0) await Task.Delay(settleMs);
-        }
-
-        public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 0, int settleMs = 0)
-        {
-            await ConnectAsync(macAddress);
-            if (postConnectDelayMs > 0) await Task.Delay(postConnectDelayMs);
-
-            await WarmUpAsync(settleMs);
-            await InitializeAsync();
-            await FlushAsync(sendTailDelay: false);   // don't sit on TailDelayMs before the first content
-            if (settleMs > 0) await Task.Delay(settleMs / 2);
+            if (sendTailDelay && TailDelayMs > 0) await Task.Delay(TailDelayMs);
         }
 
         public void Disconnect()
         {
-            // IMPORTANT: always await CloseAsync() first — Disconnect no longer flushes.
+            // IMPORTANT: always await CloseAsync() first - Disconnect does not flush.
             ClearBuffer();
             try { _link?.Close(); } catch { }
             _link = null;
         }
 
-        /// <summary>Flush, let the printer drain its buffer, then close. Use in finally.</summary>
+        /// <summary>Flush, let the printer finish printing, then close. Use in finally.</summary>
         public async Task CloseAsync(int extraDelayMs = 0)
         {
             if (_link == null) { Disconnect(); return; }
             try { await FlushAsync(); } catch { }
-            int wait = Math.Min(30000, 800 + RasterRows * 2 + extraDelayMs);
+            int wait = Math.Min(30000, TailDelayMs + RasterRows * 2 + _lines * 4 + extraDelayMs);
             await Task.Delay(wait);
             Disconnect();
         }
 
-        public Task WriteRawAsync(byte[] payload) => WriteRawAsync(payload, SendChunkSize, SendChunkDelayMs);
-        public Task WriteRawAsync(byte[] payload, int chunk, int delayMs) => EnqueueOrSendAsync(payload, chunk, delayMs, 0);
+        public void Dispose() => Disconnect();
 
         // ======================================================================
-        //  style resolving
+        //  style
         // ======================================================================
         private readonly record struct Rs(int W, int H, bool FontB, bool Bold, bool Underline);
         private static readonly Rs Plain = new(1, 1, false, false, false);
 
-        private (int wMul, int hMul, bool fontB) ResolveSize(PrintStyle s)
+        private static (int wMul, int hMul, bool fontB) ResolveSize(PrintStyle s)
         {
             if (s.WidthMul > 0 || s.HeightMul > 0)
             {
@@ -392,135 +319,102 @@ namespace eMRBCS.Platforms.Android
                     TextSize.Small => (1, 1, true),
                     TextSize.Normal => (1, 1, false),
                     TextSize.Big => (2, 2, false),
-                    TextSize.Large => (3, 3, false),
+                    TextSize.XL => (3, 3, false),
                     _ => (1, 1, false)
                 };
             return ((s.Wide ? 2 : 1), (s.High ? 2 : 1), s.FontB);
         }
 
-        private Rs Resolve(PrintStyle s)
+        private static Rs Resolve(PrintStyle s)
         {
             var (w, h, fb) = ResolveSize(s);
             return new Rs(w, h, fb, s.Bold || PrinterHardware.ForceBold, s.Underline);
         }
 
-        /// <summary>style = 48 (anything wider than 34 columns). style32 = used on 32 when given.
-        /// Otherwise smallOn32 = Font B 1x1, otherwise style.</summary>
+        /// <summary>style = 48 (wider than 34 columns). style32 = used on 32 when given. Otherwise smallOn32 = Font B 1x1.</summary>
         private PrintStyle PickStyle(PrintStyle style, PrintStyle? style32, bool smallOn32)
         {
             if (!IsSmallPaper) return style;
             if (style32.HasValue) return style32.Value;
-            if (smallOn32) return style with { FontB = true, WidthMul = 1, HeightMul = 1 };
+            if (smallOn32) return style with { FontB = true, WidthMul = 1, HeightMul = 1, Size = TextSize.Default };
             return style;
         }
 
         private static int CellW(Rs r) => (r.FontB ? PrinterHardware.FontBDots : PrinterHardware.FontADots) * r.W;
         private int ColsFor(Rs r) => Math.Max(1, Profile.WidthDots / Math.Max(1, CellW(r)));
 
-        // ======================================================================
-        //  text mode
-        // ======================================================================
-        private static bool IsPlainAscii(string s)
-        {
-            foreach (char c in s) if (c < 0x20 || c > 0x7E) return false;
-            return true;
-        }
-
-        private static string Normalize(string s) =>
-            (s ?? "").Replace("\r", "").Replace("\t", "    ").Replace('\u00A0', ' ');
-
-        private static byte[] Ascii(string s) => Encoding.ASCII.GetBytes(s);
-
-        private static byte AlignCode(PrintAlign a) => a switch { PrintAlign.Center => 1, PrintAlign.Right => 2, _ => 0 };
-
-        /// <summary>Hybrid decision: does this line have to be drawn as an image?</summary>
-        private bool UseRaster(string text, Rs r)
-        {
-            switch (PrinterHardware.Render)
-            {
-                case RenderMode.RasterOnly: return true;
-                case RenderMode.TextOnly: return false;
-                default:
-                    return r.Underline
-                        || (r.FontB && PrinterHardware.SmallFont == SmallFontMode.Raster)
-                        || !IsPlainAscii(text);
-            }
-        }
-
-        private byte[] StyleBytes(Rs r, bool nativeUnderline)
+        private void AppendStyle(Rs r)
         {
             byte escBang = 0;
             if (r.FontB) escBang |= 0x01;
             if (r.Bold) escBang |= 0x08;
             if (r.H >= 2) escBang |= 0x10;
             if (r.W >= 2) escBang |= 0x20;
-            if (nativeUnderline) escBang |= 0x80;
 
-            var cmd = new List<byte>
+            _buf.AddRange(new byte[]
             {
-                0x1B, 0x4D, (byte)(r.FontB ? 1 : 0),
-                0x1B, 0x45, (byte)(r.Bold ? 1 : 0),
-                0x1B, 0x21, escBang
-            };
-
-            bool needGs = r.W > 2 || r.H > 2;
-            if (needGs || _gsSizeDirty)
-            {
-                cmd.AddRange(new byte[] { 0x1D, 0x21, (byte)(((r.W - 1) << 4) | (r.H - 1)) });
-                _gsSizeDirty = needGs;
-            }
-            return cmd.ToArray();
+                0x1B, 0x4D, (byte)(r.FontB ? 1 : 0),                        // ESC M  font A/B
+                0x1B, 0x45, (byte)(r.Bold ? 1 : 0),                         // ESC E  bold
+                0x1B, 0x21, escBang,                                        // ESC !  1x / 2x (cheap printers obey this)
+                0x1D, 0x21, (byte)(((r.W - 1) << 4) | (r.H - 1)),           // GS !   1x..8x (sent after, so it wins)
+                0x1B, 0x2D, (byte)(r.Underline ? 1 : 0)                     // ESC -  underline (after ESC !, which clears it)
+            });
         }
 
-        /// <summary>
-        /// One text line. If the printer can align (ESC a) that is used = exact centering whatever the font width.
-        /// Only when the paper is narrower than the head (software offset) leading spaces are used.
-        /// </summary>
-        private void EmitTextLine(List<byte> buf, string text, PrintAlign align, Rs r)
+        private void AppendReset()
         {
-            bool nativeUl = r.Underline && PrinterHardware.Render == RenderMode.TextOnly;
-            int textDots = text.Length * CellW(r);
-
-            if (HwAlignAvailable)
-            {
-                buf.AddRange(new byte[] { 0x1B, 0x61, AlignCode(align) });
-            }
-            else
-            {
-                buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });
-
-                int pad = align switch
-                {
-                    PrintAlign.Center => (Profile.WidthDots - textDots) / 2,
-                    PrintAlign.Right => Profile.WidthDots - textDots,
-                    _ => 0
-                };
-                pad = Math.Max(0, pad);
-
-                // leading spaces are always printed in Font A 1x so the shift is exact to 1 cell (12 dots)
-                int cell = Math.Max(1, PrinterHardware.FontADots);
-                int lead = Profile.OffsetDots + pad;
-                int leadCols = align == PrintAlign.Center ? (int)Math.Round(lead / (double)cell) : lead / cell;
-                int maxLead = Math.Max(0, (Head - textDots) / cell);
-                leadCols = Math.Clamp(leadCols, 0, maxLead);
-
-                if (leadCols > 0)
-                {
-                    buf.AddRange(StyleBytes(Plain, false));
-                    buf.AddRange(Ascii(new string(' ', leadCols)));
-                }
-            }
-
-            buf.AddRange(StyleBytes(r, nativeUl));
-            buf.AddRange(Ascii(text));
-            buf.Add(0x0A);
+            AppendStyle(Plain);
+            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });
         }
 
-        private void EmitReset(List<byte> buf)
+        // ======================================================================
+        //  ASCII conversion (no special characters ever reach the printer)
+        // ======================================================================
+        private static readonly Dictionary<char, string> AsciiMap = BuildAsciiMap();
+
+        private static Dictionary<char, string> BuildAsciiMap()
         {
-            buf.AddRange(StyleBytes(Plain, false));
-            buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });
+            var d = new Dictionary<char, string>();
+            void Add(string from, string to) { foreach (char c in from) d[c] = to; }
+
+            Add("ÀÁÂÃÄÅĀĂĄ", "A"); Add("àáâãäåāăą", "a");
+            Add("ÇĆĈĊČ", "C"); Add("çćĉċč", "c");
+            Add("ĎĐ", "D"); Add("ďđ", "d");
+            Add("ÈÉÊËĒĔĖĘĚ", "E"); Add("èéêëēĕėęě", "e");
+            Add("ÌÍÎÏĨĪĬĮİ", "I"); Add("ìíîïĩīĭįı", "i");
+            Add("ÑŃŅŇ", "N"); Add("ñńņň", "n");
+            Add("ÒÓÔÕÖØŌŎŐ", "O"); Add("òóôõöøōŏő", "o");
+            Add("ÙÚÛÜŨŪŬŮŰŲ", "U"); Add("ùúûüũūŭůűų", "u");
+            Add("ÝŸ", "Y"); Add("ýÿ", "y");
+            Add("ŚŜŞŠ", "S"); Add("śŝşš", "s");
+            Add("ŹŻŽ", "Z"); Add("źżž", "z");
+            Add("Ł", "L"); Add("ł", "l");
+            Add("ß", "ss"); Add("Æ", "AE"); Add("æ", "ae"); Add("Œ", "OE"); Add("œ", "oe");
+            Add("‘’‚´`", "'"); Add("“”„", "\"");
+            Add("–—−", "-"); Add("•·", "*"); Add("…", "...");
+            Add("×", "x"); Add("°", "o"); Add("€", "EUR"); Add("₱", "P");
+            Add("\t", " "); Add("\u00A0", " ");
+            return d;
         }
+
+        private static string ToAscii(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            var sb = new StringBuilder(s.Length);
+            foreach (char c in s)
+            {
+                if (c == '\r') continue;
+                if (c == '\n' || (c >= 0x20 && c <= 0x7E)) { sb.Append(c); continue; }
+                if (AsciiMap.TryGetValue(c, out var rep)) sb.Append(rep);
+                else if (char.GetUnicodeCategory(c) == System.Globalization.UnicodeCategory.NonSpacingMark) { /* drop accents */ }
+                else sb.Append('?');
+            }
+            return sb.ToString();
+        }
+
+        private static byte[] Ascii(string s) => Encoding.ASCII.GetBytes(s);
+        private static byte AlignCode(PrintAlign a) => a switch { PrintAlign.Center => 1, PrintAlign.Right => 2, _ => 0 };
+        private static byte[] FeedDots(int n) => new byte[] { 0x1B, 0x4A, (byte)Math.Clamp(n, 0, 255) };   // ESC J n
 
         private static IEnumerable<string> Wrap(string text, int width)
         {
@@ -544,51 +438,96 @@ namespace eMRBCS.Platforms.Android
             }
         }
 
-        public async Task PrintTextAsync(string text, PrintAlign align = PrintAlign.Left,
-                                         PrintStyle style = default, PrintStyle? style32 = null,
-                                         bool smallOn32 = false)
+        // ======================================================================
+        //  text
+        // ======================================================================
+        /// <summary>
+        /// One text line with alignment. ESC a (exact) when the paper fills the head,
+        /// otherwise leading spaces. ulGap* = a part of the line that must NOT be underlined (row gap).
+        /// </summary>
+        private void EmitLine(string text, PrintAlign align, Rs r, int ulGapStart = -1, int ulGapLen = 0)
         {
-            style = PickStyle(style, style32, smallOn32);
-            var r = Resolve(style);
-            text = Normalize(text);
+            int textDots = text.Length * CellW(r);
 
-            if (UseRaster(text, r))
+            if (HwAlignAvailable)
             {
-                await PrintRasterTextAsync(text, align, r, wrap: true);
-                return;
+                _buf.AddRange(new byte[] { 0x1B, 0x61, AlignCode(align) });
+            }
+            else
+            {
+                _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });
+
+                int pad = align switch
+                {
+                    PrintAlign.Center => (Profile.WidthDots - textDots) / 2,
+                    PrintAlign.Right => Profile.WidthDots - textDots,
+                    _ => 0
+                };
+                pad = Math.Max(0, pad);
+
+                // leading spaces are always Font A 1x so the shift is exact to one cell
+                int cell = Math.Max(1, PrinterHardware.FontADots);
+                int lead = Profile.OffsetDots + pad;
+                int leadCols = align == PrintAlign.Center ? (int)Math.Round(lead / (double)cell) : lead / cell;
+                int maxLead = Math.Max(0, (Head - textDots) / cell);
+                leadCols = Math.Clamp(leadCols, 0, maxLead);
+
+                if (leadCols > 0)
+                {
+                    AppendStyle(Plain);
+                    _buf.AddRange(Ascii(new string(' ', leadCols)));
+                    AppendStyle(r);
+                }
             }
 
-            int cols = ColsFor(r);
-            var buf = new List<byte>();
-            foreach (var raw in Wrap(text, cols))
-                EmitTextLine(buf, raw.TrimEnd(), align, r);
-            EmitReset(buf);
-            await WriteRawAsync(buf.ToArray());
+            if (r.Underline && ulGapLen > 0 && ulGapStart >= 0 && ulGapStart + ulGapLen <= text.Length)
+            {
+                _buf.AddRange(Ascii(text.Substring(0, ulGapStart)));
+                _buf.AddRange(new byte[] { 0x1B, 0x2D, 0x00 });
+                _buf.AddRange(Ascii(text.Substring(ulGapStart, ulGapLen)));
+                _buf.AddRange(new byte[] { 0x1B, 0x2D, 0x01 });
+                _buf.AddRange(Ascii(text.Substring(ulGapStart + ulGapLen)));
+            }
+            else
+            {
+                _buf.AddRange(Ascii(text));
+            }
+
+            _buf.Add(0x0A);
+            _lines++;
         }
 
-        public async Task PrintRowAsync(string left, string right,
-                                        PrintStyle style = default, PrintStyle? style32 = null,
-                                        bool smallOn32 = false)
+        public Task PrintTextAsync(string text, PrintAlign align = PrintAlign.Left,
+                                   PrintStyle style = default, PrintStyle? style32 = null,
+                                   bool smallOn32 = false)
         {
-            style = PickStyle(style, style32, smallOn32);
-            var r = Resolve(style);
-            left = Normalize(left);
-            right = Normalize(right);
-
-            if (UseRaster(left + right, r))
-            {
-                await PrintRasterRowAsync(left, right, r);
-                return;
-            }
-
+            var r = Resolve(PickStyle(style, style32, smallOn32));
+            text = ToAscii(text);
             int cols = ColsFor(r);
-            var rows = new List<(string Text, PrintAlign Align)>();
+
+            AppendStyle(r);
+            foreach (var raw in Wrap(text, cols))
+                EmitLine(raw.TrimEnd(), align, r);
+            AppendReset();
+            return Task.CompletedTask;
+        }
+
+        public Task PrintRowAsync(string left, string right,
+                                  PrintStyle style = default, PrintStyle? style32 = null,
+                                  bool smallOn32 = false)
+        {
+            var r = Resolve(PickStyle(style, style32, smallOn32));
+            left = ToAscii(left).Replace('\n', ' ');
+            right = ToAscii(right).Replace('\n', ' ');
+            int cols = ColsFor(r);
+
+            AppendStyle(r);
 
             if (left.Length + 1 + right.Length > cols && right.Length > cols / 2)
             {
-                // value too long to share a line -> stack: label first, value right aligned below
-                foreach (var l in Wrap(left, cols)) rows.Add((l.TrimEnd(), PrintAlign.Left));
-                foreach (var l in Wrap(right, cols)) rows.Add((l.TrimEnd(), PrintAlign.Right));
+                // value too long to share a line -> label first, value right aligned below
+                foreach (var l in Wrap(left, cols)) EmitLine(l.TrimEnd(), PrintAlign.Left, r);
+                foreach (var l in Wrap(right, cols)) EmitLine(l.TrimEnd(), PrintAlign.Right, r);
             }
             else
             {
@@ -599,56 +538,60 @@ namespace eMRBCS.Platforms.Android
                     if (i == ll.Count - 1)
                     {
                         int gap = Math.Max(1, cols - l.Length - right.Length);
-                        l = l + new string(' ', gap) + right;
+                        EmitLine(l + new string(' ', gap) + right, PrintAlign.Left, r, l.Length, gap);
                     }
-                    rows.Add((l, PrintAlign.Left));
+                    else EmitLine(l, PrintAlign.Left, r);
                 }
             }
 
-            var buf = new List<byte>();
-            foreach (var (t, a) in rows) EmitTextLine(buf, t, a, r);
-            EmitReset(buf);
-            await WriteRawAsync(buf.ToArray());
+            AppendReset();
+            return Task.CompletedTask;
         }
 
         /// <summary>Raw line (leading spaces kept, no word re-flow). Used for table rows.</summary>
-        public async Task WriteLineAsync(string text = "")
+        public Task WriteLineAsync(string text = "")
         {
-            text = Normalize(text);
-            var r = Resolve(default);
+            text = ToAscii(text).Replace('\n', ' ');
+            int cols = ColsFor(Plain);
 
-            if (UseRaster(text, r))
-            {
-                await PrintRasterTextAsync(text, PrintAlign.Left, r, wrap: false);
-                return;
-            }
-
-            int cols = ColsFor(r);
-            var buf = new List<byte>();
-            if (text.Length == 0) EmitTextLine(buf, "", PrintAlign.Left, r);
+            AppendStyle(Plain);
+            if (text.Length == 0) EmitLine("", PrintAlign.Left, Plain);
             for (int i = 0; i < text.Length; i += cols)
-                EmitTextLine(buf, text.Substring(i, Math.Min(cols, text.Length - i)), PrintAlign.Left, r);
-            EmitReset(buf);
-            await WriteRawAsync(buf.ToArray());
+                EmitLine(text.Substring(i, Math.Min(cols, text.Length - i)), PrintAlign.Left, Plain);
+            AppendReset();
+            return Task.CompletedTask;
         }
 
-        public async Task AlignAsync(PrintAlign align)
-            => await WriteRawAsync(new byte[] { 0x1B, 0x61, AlignCode(align) });
+        public Task AlignAsync(PrintAlign align)
+        {
+            _buf.AddRange(new byte[] { 0x1B, 0x61, AlignCode(align) });
+            return Task.CompletedTask;
+        }
 
-        public async Task WriteTextAsync(string text) => await WriteRawAsync(Ascii(Normalize(text)));
+        public Task WriteTextAsync(string text)
+        {
+            _buf.AddRange(Ascii(ToAscii(text)));
+            return Task.CompletedTask;
+        }
 
-        public async Task FeedAsync(int lines = 1)
-            => await WriteRawAsync(Enumerable.Repeat((byte)0x0A, Math.Max(0, lines)).ToArray());
+        public Task FeedAsync(int lines = 1)
+        {
+            int n = Math.Max(0, lines);
+            for (int i = 0; i < n; i++) _buf.Add(0x0A);
+            _lines += n;
+            return Task.CompletedTask;
+        }
 
-        public async Task PrintRulerAsync()
+        public Task PrintRulerAsync()
         {
             int cols = Cols;
             var chars = new char[cols];
             for (int i = 0; i < cols; i++) chars[i] = (char)('0' + ((i + 1) % 10));
             chars[0] = '|'; chars[cols - 1] = '|';
-            var buf = new List<byte>();
-            EmitTextLine(buf, new string(chars), PrintAlign.Left, Plain);
-            await WriteRawAsync(buf.ToArray());
+            AppendStyle(Plain);
+            EmitLine(new string(chars), PrintAlign.Left, Plain);
+            AppendReset();
+            return Task.CompletedTask;
         }
 
         public static string NormalizeMacAddress(string raw)
@@ -660,337 +603,99 @@ namespace eMRBCS.Platforms.Android
         }
 
         // ======================================================================
-        //  separators (solid raster rules instead of thin '-' characters)
+        //  separators: '-' single, '=' double, plain ASCII text
         // ======================================================================
-        // ======================================================================
-        //  separators (raster rules instead of thin '-' characters)
-        // ======================================================================
-        public async Task PrintSeparatorAsync(char c = '-', bool fontB = false)
+        public Task PrintSeparatorAsync(char c = '-', bool fontB = false)
         {
-            SeparatorStyle? style = c switch
+            switch (c)
             {
-                ' ' => SeparatorStyle.Blank,
-                '-' => SeparatorStyle.Solid,
-                '_' => SeparatorStyle.Solid,      // kept for backward compatibility
-                '=' => SeparatorStyle.DoubleSolid,
-                '~' => SeparatorStyle.Broken,
-                '#' => SeparatorStyle.DoubleBroken,
-                _ => null
-            };
-
-            if (style.HasValue)
-            {
-                await PrintSeparatorAsync(style.Value, fontB);
-                return;
+                case ' ': return PrintSeparatorAsync(SeparatorStyle.Blank, fontB);
+                case '-':
+                case '_':
+                case '~': return PrintSeparatorAsync(SeparatorStyle.Solid, fontB);
+                case '=':
+                case '#': return PrintSeparatorAsync(SeparatorStyle.DoubleSolid, fontB);
             }
+            return PrintRepeat(c, fontB);
+        }
 
-            // non-standard char → repeat it in text mode (unchanged behavior)
+        public Task PrintSeparatorAsync(SeparatorStyle style, bool fontB = false)
+        {
+            switch (style)
+            {
+                case SeparatorStyle.Blank:
+                    _buf.AddRange(FeedDots(PrinterHardware.BlankLineDots));
+                    return Task.CompletedTask;
+                case SeparatorStyle.DoubleSolid:
+                case SeparatorStyle.DoubleBroken:
+                    return PrintRepeat('=', fontB);
+                default:
+                    return PrintRepeat('-', fontB);
+            }
+        }
+
+        private Task PrintRepeat(char c, bool fontB)
+        {
             var r = Resolve(new PrintStyle(FontB: fontB));
-            await PrintTextAsync(new string(c, ColsFor(r)), PrintAlign.Left, new PrintStyle(FontB: fontB));
+            AppendStyle(r);
+            EmitLine(new string(c, ColsFor(r)), PrintAlign.Left, r);
+            AppendReset();
+            return Task.CompletedTask;
         }
 
-        public async Task PrintSeparatorAsync(SeparatorStyle style, bool fontB = false)
-        {
-            if (style == SeparatorStyle.Blank)
-            {
-                await WriteRawAsync(FeedDots(PrinterHardware.BlankLineDots));
-                return;
-            }
-
-            if (PrinterHardware.Render == RenderMode.TextOnly)
-            {
-                char c = style switch
-                {
-                    SeparatorStyle.DoubleSolid => '=',
-                    SeparatorStyle.Broken => '-',
-                    SeparatorStyle.DoubleBroken => '=',
-                    _ => '-'
-                };
-                var r = Resolve(new PrintStyle(FontB: fontB));
-                await PrintTextAsync(new string(c, ColsFor(r)), PrintAlign.Left, new PrintStyle(FontB: fontB));
-                return;
-            }
-
-            await PrintRuleAsync(style);
-        }
-
-        private async Task PrintRuleAsync(SeparatorStyle style)
-        {
-            int t = Math.Max(1, PrinterHardware.SeparatorThicknessDots);
-            int t2 = Math.Max(1, t - 1);                       // thinner second bar for double
-            const int top = 5, bottom = 5, gap = 2;
-            int w = Profile.WidthDots;
-
-            int dashLen = Math.Max(4, PrinterHardware.SeparatorDashDots);
-            int gapLen = Math.Max(2, PrinterHardware.SeparatorGapDots);
-            int period = dashLen + gapLen;
-
-            bool isDouble = style is SeparatorStyle.DoubleSolid or SeparatorStyle.DoubleBroken;
-            bool isBroken = style is SeparatorStyle.Broken or SeparatorStyle.DoubleBroken;
-
-            if (isDouble)
-            {
-                int h = top + t2 + gap + t2 + bottom;
-                Func<int, int, bool> isBlack = (x, y) =>
-                {
-                    bool first = y >= top && y < top + t2;
-                    bool second = y >= top + t2 + gap && y < top + t2 + gap + t2;
-                    if (!first && !second) return false;
-                    if (!isBroken) return true;
-                    return (x % period) < dashLen;
-                };
-                await PrintRasterAsync(w, h, isBlack, PrintAlign.Left, sliceRows: h);
-            }
-            else
-            {
-                int h = top + t + bottom;
-                Func<int, int, bool> isBlack = (x, y) =>
-                {
-                    if (y < top || y >= top + t) return false;
-                    if (!isBroken) return true;
-                    return (x % period) < dashLen;
-                };
-                await PrintRasterAsync(w, h, isBlack, PrintAlign.Left, sliceRows: h);
-            }
-        }
         // ======================================================================
-        //  raster text (international characters, underline, small font)
+        //  graphics: ONE GS v 0 raster command per image, same stream as the text
         // ======================================================================
-        private readonly record struct RLine(string L, string R, PrintAlign A);
+        private const int MaxRowsPerCommand = 1600;
 
-        private sealed class FontSet : IDisposable
+        private void EmitRaster(int contentW, int h, Func<int, int, bool> isBlack,
+                                PrintAlign align, int sendW = -1)
         {
-            private readonly SKTypeface _primary;
-            private readonly float _size;
-            private readonly float _scaleX;
-            private readonly Dictionary<string, SKFont> _fonts = new();
+            if (h <= 0 || contentW <= 0) return;
+            if (sendW < 0 || sendW > contentW) sendW = contentW;
 
-            public FontSet(int cellW, int wMul, int hMul, bool bold)
+            int head = Head;
+            int headBytes = head / 8;
+            int paperW = Profile.WidthDots;
+
+            int x0 = align switch
             {
-                _primary = SKTypeface.FromFamilyName("monospace", bold ? SKFontStyle.Bold : SKFontStyle.Normal)
-                           ?? SKTypeface.Default;
+                PrintAlign.Center => (paperW - contentW) / 2,
+                PrintAlign.Right => paperW - contentW,
+                _ => 0
+            };
+            x0 = Math.Max(0, x0) + Profile.OffsetDots;
 
-                // size the monospace font so one character is exactly cellW dots wide (Font A = 12, Font B = 9)
-                const float probe = 20f;
-                using (var p = new SKFont(_primary, probe))
-                {
-                    float adv = p.MeasureText("0");
-                    if (adv < 1f) adv = probe * 0.6f;
-                    _size = probe * cellW / adv * hMul;
-                }
-                _scaleX = (float)wMul / hMul;
-            }
+            int usedDots = Math.Min(head, x0 + sendW);
+            int rowBytes = Math.Clamp((usedDots + 7) / 8, 1, headBytes);
+            int rowDots = rowBytes * 8;
 
-            private SKFont FontFor(int cp)
+            // position is made with blank bits inside the image, so the printer must be left aligned
+            _buf.AddRange(new byte[] { 0x1B, 0x61, 0x00 });
+
+            for (int y0 = 0; y0 < h; y0 += MaxRowsPerCommand)
             {
-                SKTypeface tf = _primary;
-                if (cp > 0x7E && !_primary.ContainsGlyph(cp))
-                {
-                    var m = SKFontManager.Default.MatchCharacter(cp);   // system fallback font (accents, CJK, symbols)
-                    if (m != null) tf = m;
-                }
+                int rows = Math.Min(MaxRowsPerCommand, h - y0);
+                var cmd = new byte[8 + rowBytes * rows];
+                cmd[0] = 0x1D; cmd[1] = 0x76; cmd[2] = 0x30; cmd[3] = 0x00;       // GS v 0, normal density
+                cmd[4] = (byte)(rowBytes & 0xFF); cmd[5] = (byte)(rowBytes >> 8);
+                cmd[6] = (byte)(rows & 0xFF); cmd[7] = (byte)(rows >> 8);
 
-                string key = tf.FamilyName + "|" + tf.FontWeight;
-                if (!_fonts.TryGetValue(key, out var f))
-                {
-                    f = new SKFont(tf, _size, _scaleX)
+                for (int r = 0; r < rows; r++)
+                    for (int x = 0; x < sendW; x++)
                     {
-                        Edging = SKFontEdging.Alias,   // no grey anti-aliasing -> crisp, dark thermal output
-                        Subpixel = false
-                    };
-                    _fonts[key] = f;
-                }
-                return f;
-            }
-
-            public List<(string Text, SKFont Font)> Runs(string text)
-            {
-                var runs = new List<(string, SKFont)>();
-                var sb = new StringBuilder();
-                SKFont cur = null;
-                foreach (Rune rune in text.EnumerateRunes())
-                {
-                    var f = FontFor(rune.Value);
-                    if (cur != null && !ReferenceEquals(cur, f))
-                    {
-                        runs.Add((sb.ToString(), cur));
-                        sb.Clear();
+                        if (!isBlack(x, y0 + r)) continue;
+                        int px = x0 + x;
+                        if (px >= rowDots) break;
+                        cmd[8 + r * rowBytes + px / 8] |= (byte)(0x80 >> (px % 8));
                     }
-                    cur = f;
-                    sb.Append(rune.ToString());
-                }
-                if (cur != null && sb.Length > 0) runs.Add((sb.ToString(), cur));
-                return runs;
-            }
 
-            public float Measure(string text)
-            {
-                if (string.IsNullOrEmpty(text)) return 0f;
-                float w = 0f;
-                foreach (var (t, f) in Runs(text)) w += f.MeasureText(t);
-                return w;
+                _buf.AddRange(cmd);
             }
-
-            public void Dispose()
-            {
-                foreach (var f in _fonts.Values) f.Dispose();
-                _fonts.Clear();
-            }
+            RasterRows += h;
         }
 
-        private static List<string> WrapMeasured(FontSet fs, string text, float maxW)
-        {
-            var lines = new List<string>();
-            foreach (var para in (text ?? "").Replace("\r", "").Split('\n'))
-            {
-                string line = "";
-                foreach (var word in para.Split(' '))
-                {
-                    string cand = line.Length == 0 ? word : line + " " + word;
-                    if (fs.Measure(cand) <= maxW) { line = cand; continue; }
-
-                    if (line.Length > 0) { lines.Add(line); line = ""; }
-
-                    string w = word;
-                    while (w.Length > 1 && fs.Measure(w) > maxW)
-                    {
-                        int n = w.Length;
-                        while (n > 1 && fs.Measure(w.Substring(0, n)) > maxW) n--;
-                        lines.Add(w.Substring(0, n));
-                        w = w.Substring(n);
-                    }
-                    line = w;
-                }
-                lines.Add(line);
-            }
-            return lines;
-        }
-
-        private static List<string> HardSplitMeasured(FontSet fs, string text, float maxW)
-        {
-            var res = new List<string>();
-            string rest = text ?? "";
-            if (rest.Length == 0) res.Add("");
-            while (rest.Length > 0)
-            {
-                int n = rest.Length;
-                while (n > 1 && fs.Measure(rest.Substring(0, n)) > maxW) n--;
-                res.Add(rest.Substring(0, n));
-                rest = rest.Substring(n);
-            }
-            return res;
-        }
-
-        private FontSet NewFontSet(Rs r) =>
-            new FontSet(r.FontB ? PrinterHardware.FontBDots : PrinterHardware.FontADots, r.W, r.H, r.Bold);
-
-        private async Task PrintRasterTextAsync(string text, PrintAlign align, Rs r, bool wrap)
-        {
-            int w = Profile.WidthDots;
-            using var fs = NewFontSet(r);
-            var lines = new List<RLine>();
-            var parts = wrap ? WrapMeasured(fs, text, w) : HardSplitMeasured(fs, text, w);
-            foreach (var p in parts) lines.Add(new RLine(wrap ? p.TrimEnd() : p, "", align));
-            foreach (var ln in lines) await PrintOneRasterLineAsync(fs, r, ln);
-        }
-
-        private async Task PrintRasterRowAsync(string left, string right, Rs r)
-        {
-            int w = Profile.WidthDots;
-            using var fs = NewFontSet(r);
-            float gap = fs.Measure("  ");
-            float rw = fs.Measure(right);
-            var lines = new List<RLine>();
-
-            if (rw > w / 2f && fs.Measure(left) + rw + gap > w)
-            {
-                foreach (var p in WrapMeasured(fs, left, w)) lines.Add(new RLine(p.TrimEnd(), "", PrintAlign.Left));
-                foreach (var p in WrapMeasured(fs, right, w)) lines.Add(new RLine("", p.TrimEnd(), PrintAlign.Right));
-            }
-            else
-            {
-                var ll = WrapMeasured(fs, left, Math.Max(1f, w - rw - gap));
-                for (int i = 0; i < ll.Count; i++)
-                    lines.Add(new RLine(ll[i].TrimEnd(), i == ll.Count - 1 ? right : "", PrintAlign.Left));
-            }
-
-            foreach (var ln in lines) await PrintOneRasterLineAsync(fs, r, ln);
-        }
-
-        private async Task PrintOneRasterLineAsync(FontSet fs, Rs r, RLine ln)
-        {
-            int w = Profile.WidthDots;
-            int cellH = (r.FontB ? PrinterHardware.FontBHeight : PrinterHardware.FontAHeight) * r.H;
-            int baseline = (int)Math.Round(cellH * 0.80);
-
-            int ulGap = Math.Max(0, PrinterHardware.UnderlineGapDots);
-            int ulT = Math.Max(1, (r.Bold ? PrinterHardware.UnderlineBoldThicknessDots : PrinterHardware.UnderlineThicknessDots) * r.H);
-
-            // same line pitch as text mode (30 dots) so raster and text lines mix evenly
-            int lineH = r.FontB ? cellH + 8 : Math.Max(30, cellH + 6);
-            if (r.Underline) lineH = Math.Max(lineH, baseline + ulGap + ulT + 3);
-
-            using var bmp = new SKBitmap(new SKImageInfo(w, lineH, SKColorType.Rgba8888, SKAlphaType.Premul));
-            using var canvas = new SKCanvas(bmp);
-            canvas.Clear(SKColors.White);
-            using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = false };
-
-            void DrawSegment(string s, float x)
-            {
-                if (string.IsNullOrEmpty(s)) return;
-                float cx = x;
-                foreach (var (t, f) in fs.Runs(s))
-                {
-                    canvas.DrawText(t, cx, baseline, f, paint);
-                    cx += f.MeasureText(t);
-                }
-                if (r.Underline)
-                    canvas.DrawRect(x, baseline + ulGap, Math.Max(1f, cx - x), ulT, paint);   // right under the text
-            }
-
-            if (ln.R.Length == 0)
-            {
-                float tw = fs.Measure(ln.L);
-                float x = ln.A switch
-                {
-                    PrintAlign.Center => (w - tw) / 2f,
-                    PrintAlign.Right => w - tw,
-                    _ => 0f
-                };
-                DrawSegment(ln.L, Math.Max(0f, x));
-            }
-            else
-            {
-                DrawSegment(ln.L, 0f);
-                DrawSegment(ln.R, Math.Max(0f, w - fs.Measure(ln.R)));
-            }
-
-            SKColor[] px = bmp.Pixels;
-            var mask = new bool[w * lineH];
-            int maxX = -1;
-            for (int i = 0; i < mask.Length; i++)
-            {
-                if (px[i].Red < 160)
-                {
-                    mask[i] = true;
-                    int x = i % w;
-                    if (x > maxX) maxX = x;
-                }
-            }
-
-            if (maxX < 0)
-            {
-                await WriteRawAsync(FeedDots(lineH));
-                return;
-            }
-
-            await PrintRasterAsync(w, lineH, (x, y) => mask[y * w + x], PrintAlign.Left, sendW: maxX + 1);
-        }
-
-        // ======================================================================
-        //  graphics
-        // ======================================================================
-        public async Task WriteGraphicAsync(byte[] imageBytes, int widthDots, int heightDots, byte threshold = 150)
+        public Task WriteGraphicAsync(byte[] imageBytes, int widthDots, int heightDots, byte threshold = 150)
         {
             using var original = SKBitmap.Decode(imageBytes)
                 ?? throw new InvalidOperationException("Could not decode image bytes.");
@@ -998,25 +703,99 @@ namespace eMRBCS.Platforms.Android
                 ?? throw new InvalidOperationException("Image resize failed.");
 
             SKColor[] pixels = resized.Pixels;
-            await PrintRasterAsync(widthDots, heightDots, (x, y) =>
+            EmitRaster(widthDots, heightDots, (x, y) =>
             {
                 SKColor px = pixels[y * widthDots + x];
                 double a = px.Alpha / 255.0;
                 double lum = (0.299 * px.Red + 0.587 * px.Green + 0.114 * px.Blue) * a + 255 * (1 - a);
                 return lum < threshold;
             }, PrintAlign.Left);
+            return Task.CompletedTask;
         }
 
-        public async Task WriteBarcodeAsync(string data, BarcodeType type = BarcodeType.Code128,
-                                            double widthFraction = 0.8, int heightDots = 70,
-                                            bool humanText = true, int maxModuleDots = 3,
-                                            PrintAlign align = PrintAlign.Center)
+        // ---------- logo (decoded and thresholded once, then cached) ----------
+        private static readonly object LogoCacheLock = new();
+        private static byte[] _logoCacheSrc;
+        private static int _logoCacheW, _logoCacheH, _logoCacheThr;
+        private static bool _logoCacheBold;
+        private static bool[] _logoCacheMask;
+
+        private static (bool[] Mask, int H) PrepareLogoMask(byte[] imageBytes, int w, int threshold, bool bolden)
+        {
+            lock (LogoCacheLock)
+            {
+                if (_logoCacheMask != null && _logoCacheW == w && _logoCacheThr == threshold && _logoCacheBold == bolden
+                    && _logoCacheSrc != null && _logoCacheSrc.Length == imageBytes.Length
+                    && _logoCacheSrc.SequenceEqual(imageBytes))
+                    return (_logoCacheMask, _logoCacheH);
+
+                using var bmp = SKBitmap.Decode(imageBytes) ?? throw new InvalidOperationException("Bad image.");
+                int h = Math.Max(1, (int)Math.Round(bmp.Height * (w / (double)bmp.Width)));
+
+                using var resized = bmp.Resize(new SKImageInfo(w, h), new SKSamplingOptions(SKCubicResampler.Mitchell))
+                    ?? throw new InvalidOperationException("Image resize failed.");
+
+                SKColor[] px = resized.Pixels;
+                var mask = new bool[w * h];
+                for (int i = 0; i < mask.Length; i++)
+                {
+                    SKColor p = px[i];
+                    double a = p.Alpha / 255.0;
+                    double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
+                    mask[i] = lum < threshold;
+                }
+
+                if (bolden)
+                {
+                    var thick = (bool[])mask.Clone();
+                    for (int y = 0; y < h; y++)
+                        for (int x = 1; x < w; x++)
+                            if (mask[y * w + x - 1]) thick[y * w + x] = true;
+                    mask = thick;
+                }
+
+                _logoCacheSrc = (byte[])imageBytes.Clone();
+                _logoCacheW = w; _logoCacheH = h; _logoCacheThr = threshold; _logoCacheBold = bolden;
+                _logoCacheMask = mask;
+                return (mask, h);
+            }
+        }
+
+        public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign align = PrintAlign.Center)
+        {
+            int maxW = Math.Min(Profile.WidthDots, Head - Profile.OffsetDots);
+            int w = Math.Max(8, (int)(maxW * widthFraction) / 8 * 8);
+            w = Math.Min(w, maxW / 8 * 8);
+            if (LogoMaxWidthDots > 0) w = Math.Max(8, Math.Min(w, LogoMaxWidthDots) / 8 * 8);
+
+            int thr = LogoThreshold; bool bold = LogoBolden;
+            var prepared = await Task.Run(() => PrepareLogoMask(imageBytes, w, thr, bold));
+            bool[] mask = prepared.Mask;
+            int h = prepared.H;
+
+            // empty columns on the right are never sent
+            int maxX = -1;
+            for (int y = 0; y < h; y++)
+            {
+                int row = y * w;
+                for (int x = w - 1; x > maxX; x--)
+                    if (mask[row + x]) { maxX = x; break; }
+            }
+            if (maxX < 0) maxX = 0;
+
+            EmitRaster(w, h, (x, y) => mask[y * w + x], align, sendW: maxX + 1);
+        }
+
+        // ---------- barcode ----------
+        public Task WriteBarcodeAsync(string data, BarcodeType type = BarcodeType.Code128,
+                                      double widthFraction = 0.8, int heightDots = 70,
+                                      bool humanText = true, int maxModuleDots = 3,
+                                      PrintAlign align = PrintAlign.Center)
         {
             if (string.IsNullOrWhiteSpace(data))
                 throw new ArgumentException("Barcode data cannot be empty.", nameof(data));
 
             if (type == BarcodeType.Code39) data = data.ToUpperInvariant();
-
             string pattern = type == BarcodeType.Code39 ? BuildCode39Pattern(data) : BuildCode128Pattern(data);
 
             int totalModules = pattern.Sum(c => c - '0');
@@ -1037,39 +816,17 @@ namespace eMRBCS.Platforms.Android
             }
 
             int h = Math.Clamp(heightDots, 8, 600);
-            await PrintRasterAsync(bars.Length, h, (x, y) => bars[x], align);
+            EmitRaster(bars.Length, h, (x, y) => bars[x], align);
 
-            if (humanText) await PrintTextAsync(data, align, new PrintStyle(FontB: true));
+            if (humanText) return PrintTextAsync(data, align, new PrintStyle(FontB: true));
+            return Task.CompletedTask;
         }
 
-        public static byte[] QrCodeBytes(string data, byte moduleSize = 6, char errorLevel = 'M')
-        {
-            var payload = Encoding.UTF8.GetBytes(data);
-            int len = payload.Length + 3;
-            byte ec = errorLevel switch { 'L' => 48, 'M' => 49, 'Q' => 50, _ => 51 };
-            var b = new List<byte>();
-            b.AddRange(new byte[] { 0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00 });
-            b.AddRange(new byte[] { 0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, moduleSize });
-            b.AddRange(new byte[] { 0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, ec });
-            b.AddRange(new byte[] { 0x1D, 0x28, 0x6B, (byte)(len & 0xFF), (byte)(len >> 8), 0x31, 0x50, 0x30 });
-            b.AddRange(payload);
-            b.AddRange(new byte[] { 0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30 });
-            return b.ToArray();
-        }
-
+        // ---------- QR ----------
         public static string BuildAccountPayload(string accNo, string name, decimal balance)
             => $"Acct#: {accNo}\nName: {name}\nBalance: {balance:N2}";
 
-        public async Task PrintQrAsync(string acct_No, string cons_name, decimal total_balance)
-        {
-            byte[] qrBytes = QrCodeBytes(BuildAccountPayload(acct_No, cons_name, total_balance), 6, 'M');
-            await WriteRawAsync(new byte[] { 0x1B, 0x61, 0x01 });
-            await WriteRawAsync(qrBytes);
-            await WriteRawAsync(new byte[] { 0x0A, 0x0A });
-            await WriteRawAsync(new byte[] { 0x1B, 0x61, 0x00 });
-        }
-
-        public async Task PrintQrSizedAsync(string payload, double widthFraction = 0.35, int minModuleDots = 2)
+        public Task PrintQrSizedAsync(string payload, double widthFraction = 0.35, int minModuleDots = 2)
         {
             using var gen = new QRCodeGenerator();
             using var qr = gen.CreateQrCode(payload, QRCodeGenerator.ECCLevel.M);
@@ -1080,7 +837,8 @@ namespace eMRBCS.Platforms.Android
             if (n * module > Profile.WidthDots) module = Math.Max(1, Profile.WidthDots / n);
             int size = n * module;
 
-            await PrintRasterAsync(size, size, (x, y) => m[y / module][x / module], PrintAlign.Center);
+            EmitRaster(size, size, (x, y) => m[y / module][x / module], PrintAlign.Center);
+            return Task.CompletedTask;
         }
 
         // ---------- CODE 128 / CODE 39 patterns ----------
@@ -1179,263 +937,5 @@ namespace eMRBCS.Platforms.Android
             }
             return sb.ToString();
         }
-
-        // ======================================================================
-        //  raster (GS v 0)
-        // ======================================================================
-        private async Task PrintRasterAsync(int contentW, int h, Func<int, int, bool> isBlack,
-                    PrintAlign align = PrintAlign.Center,
-                    int sliceRows = -1, int chunk = -1, int chunkDelay = -1, int msPerRow = -1,
-                    int sendW = -1, bool vDouble = false, bool absoluteX = false)
-        {
-            if (sliceRows < 0) sliceRows = RasterSliceRows;
-            int useChunk = ResolveChunk(chunk > 0 ? chunk : RasterChunkSize);
-            int useDelay = ResolveDelay(chunkDelay >= 0 ? chunkDelay : RasterChunkDelayMs);
-            int useMsPerRow = msPerRow >= 0 ? msPerRow : RasterMsPerRow;
-            if (sendW < 0 || sendW > contentW) sendW = contentW;
-
-            int head = Head;
-            int headBytes = head / 8;
-            int paperW = Profile.WidthDots;
-
-            int x0 = align switch
-            {
-                PrintAlign.Center => (paperW - contentW) / 2,
-                PrintAlign.Right => paperW - contentW,
-                _ => 0
-            };
-            x0 = Math.Max(0, x0) + (absoluteX ? 0 : Profile.OffsetDots);
-
-            int usedDots = Math.Min(head, x0 + sendW);
-            int rowBytes = Math.Clamp((usedDots + 7) / 8, 1, headBytes);
-            int rowDots = rowBytes * 8;
-
-            var setup = new List<byte> { 0x1B, 0x61, 0x00 };
-            if (UseMarginsNow)
-                setup.AddRange(new byte[] { 0x1D, 0x4C, 0x00, 0x00, 0x1D, 0x57, (byte)(head & 0xFF), (byte)(head >> 8) });
-            await WriteRawAsync(setup.ToArray());
-
-            sliceRows = sliceRows <= 0 ? h : sliceRows;
-            sliceRows = Math.Clamp(sliceRows, 1, 2303);
-            bool banded = sliceRows < h;
-            byte mode = (byte)(vDouble ? 2 : 0);
-
-            if (banded) await WriteRawAsync(new byte[] { 0x1B, 0x33, 0x00 });   // zero spacing: no seam between bands
-
-            for (int y0 = 0; y0 < h; y0 += sliceRows)
-            {
-                int rows = Math.Min(sliceRows, h - y0);
-                var cmd = new byte[8 + rowBytes * rows];
-                cmd[0] = 0x1D; cmd[1] = 0x76; cmd[2] = 0x30; cmd[3] = mode;
-                cmd[4] = (byte)(rowBytes & 0xFF); cmd[5] = (byte)(rowBytes >> 8);
-                cmd[6] = (byte)(rows & 0xFF); cmd[7] = (byte)(rows >> 8);
-
-                for (int r = 0; r < rows; r++)
-                    for (int x = 0; x < sendW; x++)
-                    {
-                        if (!isBlack(x, y0 + r)) continue;
-                        int px = x0 + x;
-                        if (px >= rowDots) break;
-                        cmd[8 + r * rowBytes + px / 8] |= (byte)(0x80 >> (px % 8));
-                    }
-
-                // Let the print engine catch up before the next band so its RX buffer never
-                // overflows (overflow = dropped bytes = white cuts through the image).
-                int pause = rows * useMsPerRow * (vDouble ? 2 : 1);
-                await EnqueueOrSendAsync(cmd, useChunk, useDelay, pause);
-                RasterRows += vDouble ? rows * 2 : rows;
-            }
-
-            if (banded) await WriteRawAsync(new byte[] { 0x1B, 0x32 });
-
-            if (UseMarginsNow)
-            {
-                int o = Profile.OffsetDots, w = Profile.WidthDots;
-                await WriteRawAsync(new byte[]
-                {
-            0x1D, 0x4C, (byte)(o & 0xFF), (byte)(o >> 8),
-            0x1D, 0x57, (byte)(w & 0xFF), (byte)(w >> 8)
-                });
-            }
-        }
-        // ---------------- bit image (ESC * 33) ----------------
-        private async Task PrintBitImageAsync(int fullW, int trimLeft, int trimW, int h,
-                                      Func<int, int, bool> isBlack, PrintAlign align)
-        {
-            int head = Head;
-            int paperW = Profile.WidthDots;
-
-            int baseX = align switch
-            {
-                PrintAlign.Center => (paperW - fullW) / 2,
-                PrintAlign.Right => paperW - fullW,
-                _ => 0
-            };
-            int x0 = Math.Max(0, baseX) + Profile.OffsetDots + trimLeft;
-            x0 = Math.Min(x0, head - 8);
-
-            bool pad = LogoPadWithZeros || !UseMarginsNow;
-            int dataW = Math.Clamp(trimW, 1, Math.Max(1, head - x0));
-            int lead = pad ? x0 : 0;
-            int marginDots = pad ? 0 : x0;
-            int totalW = lead + dataW;
-
-            var setup = new List<byte> { 0x1B, 0x61, 0x00 };
-            if (UseMarginsNow)
-                setup.AddRange(new byte[]
-                {
-            0x1D, 0x4C, (byte)(marginDots & 0xFF), (byte)(marginDots >> 8),
-            0x1D, 0x57, (byte)((head - marginDots) & 0xFF), (byte)((head - marginDots) >> 8)
-                });
-            setup.AddRange(new byte[] { 0x1B, 0x33, 0x00 });
-            await WriteRawAsync(setup.ToArray());
-
-            const int StripHeight = 24;
-            int step = Math.Clamp(LogoStripFeedDots, 1, StripHeight);   // 24 = seamless
-
-            for (int y0 = 0; y0 < h; y0 += step)
-            {
-                var buf = new byte[5 + totalW * 3 + 3];
-                buf[0] = 0x1B; buf[1] = 0x2A; buf[2] = 33;
-                buf[3] = (byte)(totalW & 0xFF); buf[4] = (byte)(totalW >> 8);
-
-                for (int x = 0; x < dataW; x++)
-                {
-                    int col = lead + x;
-                    for (int b = 0; b < 3; b++)
-                    {
-                        byte v = 0;
-                        for (int bit = 0; bit < 8; bit++)
-                        {
-                            int y = y0 + b * 8 + bit;
-                            if (y < h && isBlack(trimLeft + x, y)) v |= (byte)(0x80 >> bit);
-                        }
-                        buf[5 + col * 3 + b] = v;
-                    }
-                }
-
-                int advance = Math.Min(step, h - y0);
-                int tail = 5 + totalW * 3;
-                buf[tail] = 0x1B; buf[tail + 1] = 0x4A; buf[tail + 2] = (byte)advance;
-
-                int pause = Math.Max(LogoInterStripPauseMs, advance * Math.Max(1, LogoMsPerRow));
-                await EnqueueOrSendAsync(buf, ResolveChunk(LogoChunkSize), ResolveDelay(LogoChunkDelayMs), pause);
-                RasterRows += advance;
-            }
-
-            var restore = new List<byte> { 0x1B, 0x32 };
-            if (UseMarginsNow)
-            {
-                int o = Profile.OffsetDots, w = Profile.WidthDots;
-                restore.AddRange(new byte[]
-                {
-            0x1D, 0x4C, (byte)(o & 0xFF), (byte)(o >> 8),
-            0x1D, 0x57, (byte)(w & 0xFF), (byte)(w >> 8)
-                });
-            }
-            await WriteRawAsync(restore.ToArray());
-        }
-        // ---------- logo preparation (decoded and thresholded once, then cached) ----------
-        private static readonly object LogoCacheLock = new();
-        private static byte[] _logoCacheSrc;
-        private static int _logoCacheW;
-        private static int _logoCacheH;
-        private static int _logoCacheThr;
-        private static bool _logoCacheBold;
-        private static bool[] _logoCacheMask;
-
-        private static (bool[] Mask, int H) PrepareLogoMask(byte[] imageBytes, int w, int threshold, bool bolden)
-        {
-            lock (LogoCacheLock)
-            {
-                if (_logoCacheMask != null && _logoCacheW == w && _logoCacheThr == threshold && _logoCacheBold == bolden
-                    && _logoCacheSrc != null && _logoCacheSrc.Length == imageBytes.Length
-                    && _logoCacheSrc.SequenceEqual(imageBytes))
-                    return (_logoCacheMask, _logoCacheH);
-
-                using var bmp = SKBitmap.Decode(imageBytes) ?? throw new InvalidOperationException("Bad image.");
-                int h = Math.Max(1, (int)Math.Round(bmp.Height * (w / (double)bmp.Width)));
-
-                using var resized = bmp.Resize(new SKImageInfo(w, h), new SKSamplingOptions(SKCubicResampler.Mitchell))
-                    ?? throw new InvalidOperationException("Image resize failed.");
-
-                SKColor[] px = resized.Pixels;
-                var mask = new bool[w * h];
-                for (int i = 0; i < mask.Length; i++)
-                {
-                    SKColor p = px[i];
-                    double a = p.Alpha / 255.0;
-                    double lum = (0.299 * p.Red + 0.587 * p.Green + 0.114 * p.Blue) * a + 255 * (1 - a);
-                    mask[i] = lum < threshold;      // 170 instead of 128 -> darker, fuller logo
-                }
-
-                if (bolden)
-                {
-                    var thick = (bool[])mask.Clone();
-                    for (int y = 0; y < h; y++)
-                        for (int x = 1; x < w; x++)
-                            if (mask[y * w + x - 1]) thick[y * w + x] = true;
-                    mask = thick;
-                }
-
-                _logoCacheSrc = (byte[])imageBytes.Clone();
-                _logoCacheW = w; _logoCacheH = h; _logoCacheThr = threshold; _logoCacheBold = bolden;
-                _logoCacheMask = mask;
-                return (mask, h);
-            }
-        }
-
-        public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign align = PrintAlign.Center)
-        {
-            int maxW = Math.Min(Profile.WidthDots, Head - Profile.OffsetDots);
-            int w = Math.Max(8, (int)(maxW * widthFraction) / 8 * 8);
-            w = Math.Min(w, maxW / 8 * 8);
-            if (LogoMaxWidthDots > 0) w = Math.Max(8, Math.Min(w, LogoMaxWidthDots) / 8 * 8);
-
-            int thr = LogoThreshold, bold = LogoBolden ? 1 : 0;
-            var prepared = await Task.Run(() => PrepareLogoMask(imageBytes, w, thr, bold == 1));
-            bool[] mask = prepared.Mask;
-            int h = prepared.H;
-
-            Func<int, int, bool> isBlack = (x, y) => mask[y * w + x];
-
-            int minX = w, maxX = -1;
-            for (int y = 0; y < h; y++)
-            {
-                int row = y * w;
-                for (int x = 0; x < w; x++)
-                    if (mask[row + x]) { if (x < minX) minX = x; if (x > maxX) maxX = x; }
-            }
-            if (maxX < 0) { minX = 0; maxX = 0; }
-
-            if (LogoMode == LogoMode.BitImage)
-            {
-                await PrintBitImageAsync(w, minX, maxX - minX + 1, h, isBlack, align);
-                return;
-            }
-
-            int sliceRows = LogoMode == LogoMode.RasterBands ? LogoSliceRows : 0;
-
-            if (LogoVerticalDouble)
-            {
-                int halfRows = (h + 1) / 2;
-                Func<int, int, bool> isBlackHalf = (x, y) =>
-                {
-                    int y2 = y * 2;
-                    return mask[y2 * w + x] || (y2 + 1 < h && mask[(y2 + 1) * w + x]);
-                };
-                await PrintRasterAsync(w, halfRows, isBlackHalf, align, sliceRows: sliceRows,
-                    chunk: LogoChunkSize, chunkDelay: LogoChunkDelayMs, msPerRow: LogoMsPerRow,
-                    sendW: maxX + 1, vDouble: true);
-            }
-            else
-            {
-                await PrintRasterAsync(w, h, isBlack, align, sliceRows: sliceRows,
-                    chunk: LogoChunkSize, chunkDelay: LogoChunkDelayMs, msPerRow: LogoMsPerRow,
-                    sendW: maxX + 1, vDouble: false);
-            }
-        }
-
-        public void Dispose() => Disconnect();
     }
 }
