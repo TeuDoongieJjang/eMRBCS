@@ -5,6 +5,18 @@
 
     public static class PrinterHardware
     {
+        public static int LeadMs { get; set; } = 600;            // was 1000
+        public static int MaxAheadBytes { get; set; } = 2048;    // was 8192
+        /// <summary>false (default) = on acknowledged BLE the ACK is the flow control, no extra pacing
+        /// (continuous print). Set true only if a BLE printer prints garbage: it re-enables the window below.</summary>
+        public static bool PaceAckedBle { get; set; } = false;
+
+        /// <summary>Tiny pause between acknowledged BLE writes (same as the 2 ms that worked in the chat).</summary>
+        public static int BleChunkDelayMs { get; set; } = 2;
+        public static bool PreferSpp { get; set; } = false;
+        /// <summary>true = remove fully-white rows at the TOP and BOTTOM of the logo (width is never cropped).
+        /// Removes the blank space that would otherwise print after the logo.</summary>
+        public static bool LogoTrimWhitespace { get; set; } = true;
         // ---------------- raster ----------------
         /// <summary>0 = the WHOLE image in ONE GS v 0 command (no band seams = no blank strips).
         /// Only set a number (e.g. 512) if your firmware refuses tall rasters.</summary>
@@ -15,9 +27,6 @@
 
         /// <summary>Ignored (kept so other pages compile). Images are always positioned with blank padding bytes.</summary>
         public static bool RasterUseMargin { get; set; } = false;
-
-        /// <summary>Ignored (kept so other pages compile). The logo BMP is NEVER trimmed or cropped.</summary>
-        public static bool LogoTrimWhitespace { get; set; } = false;
 
         /// <summary>Ignored (kept so other pages compile). Raster is always sent 1:1 (mode 0).</summary>
         public static bool LogoVerticalDouble { get; set; } = false;
@@ -40,26 +49,19 @@
         /// <summary>Bytes per Bluetooth write. Small = smooth.</summary>
         public static int SendChunkBytes { get; set; } = 512;
 
-        /// <summary>How far ahead of the print engine we stay (ms). Bigger = smoother, more buffer used.</summary>
-        public static int LeadMs { get; set; } = 1000;
 
-        /// <summary>Hard cap on un-printed bytes in flight. THIS is what prevents dropped rows.
-        /// Blank chunks still appear -> 2048. Printer stalls -> 8192.</summary>
-        public static int MaxAheadBytes { get; set; } = 8192;
 
         /// <summary>Printer speed used by the pacing, in dot rows/s (8 rows = 1 mm). 600 ≈ 75 mm/s.
         /// Rows missing -> LOWER it. Visibly stopping/starting -> RAISE it.</summary>
         public static int PrintRowsPerSecond
         {
-            get => Preferences.Get("print_rows_per_sec", 800);
+            get => Preferences.Get("print_rows_per_sec", 500);   // was 800
             set => Preferences.Set("print_rows_per_sec", Math.Clamp(value, 50, 2000));
         }
 
         /// <summary>Not used any more (no inter-band sleeps).</summary>
         public static int RasterBandGapMs { get; set; } = 0;
 
-        /// <summary>true = SPP first. SPP is much faster than BLE; BLE only as fallback.</summary>
-        public static bool PreferSpp { get; set; } = true;
 
         // ---------------- reset / ASCII mode ----------------
         public static bool ExitKanjiMode { get; set; } = true;

@@ -532,7 +532,7 @@ public partial class PrinterConfig : ContentPage
 
             await printer.FeedAsync(5);
             await printer.FlushAsync();
-            result = "Done Printing";
+            result = "Done Printing via " + printer.TransportInUse;
         }
         catch (Exception ex)
         {

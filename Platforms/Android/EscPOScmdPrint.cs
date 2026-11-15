@@ -212,13 +212,11 @@ namespace eMRBCS.Platforms.Android
         }
 
         /// <summary>Connect, then queue the reset. Nothing is sent yet: the reset travels in the same stream as the receipt.</summary>
-        public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 200, int settleMs = 300)
+        public async Task ConnectAndPrepareAsync(string macAddress, int postConnectDelayMs = 0, int settleMs = 80)
         {
             await ConnectAsync(macAddress);
             if (postConnectDelayMs > 0) await Task.Delay(postConnectDelayMs);
 
-            // Send the reset ALONE and give the printer time to finish it, so the first
-            // bytes of the logo are never swallowed. Nothing is printed yet, so this is not a visible pause.
             await InitializeAsync();
             await FlushAsync();
             if (settleMs > 0) await Task.Delay(settleMs);
@@ -825,17 +823,18 @@ namespace eMRBCS.Platforms.Android
 
         private static (bool[] Mask, int H) PrepareLogoMask(byte[] imageBytes, int w, int threshold, bool bolden)
         {
+            bool trim = PrinterHardware.LogoTrimWhitespace;
+
             lock (LogoCacheLock)
             {
                 if (_logoCacheMask != null && _logoCacheW == w && _logoCacheThr == threshold
-                    && _logoCacheBold == bolden
+                    && _logoCacheBold == bolden && _logoCacheTrim == trim
                     && _logoCacheSrc != null && _logoCacheSrc.Length == imageBytes.Length
                     && _logoCacheSrc.SequenceEqual(imageBytes))
                     return (_logoCacheMask, _logoCacheH);
 
                 using var bmp = SKBitmap.Decode(imageBytes) ?? throw new InvalidOperationException("Bad image.");
 
-                // NO trim, NO crop: the COMPLETE BMP is scaled to the paper width, aspect kept.
                 int h = Math.Clamp((int)Math.Round(bmp.Height * (w / (double)bmp.Width)), 1, 65535);
 
                 using var resized = bmp.Resize(
@@ -854,13 +853,32 @@ namespace eMRBCS.Platforms.Android
                     mask = thick;
                 }
 
+                // remove fully-white rows at the top/bottom (no blank space baked into the logo)
+                if (trim)
+                {
+                    int minY = h, maxY = -1;
+                    for (int y = 0; y < h; y++)
+                    {
+                        int row = y * w;
+                        for (int x = 0; x < w; x++)
+                            if (mask[row + x]) { if (y < minY) minY = y; if (y > maxY) maxY = y; break; }
+                    }
+                    if (maxY >= 0 && (minY > 0 || maxY < h - 1))
+                    {
+                        int newH = maxY - minY + 1;
+                        var cropped = new bool[w * newH];
+                        Array.Copy(mask, minY * w, cropped, 0, w * newH);
+                        mask = cropped;
+                        h = newH;
+                    }
+                }
+
                 _logoCacheSrc = (byte[])imageBytes.Clone();
                 _logoCacheW = w; _logoCacheH = h; _logoCacheThr = threshold;
-                _logoCacheBold = bolden; _logoCacheMask = mask;
+                _logoCacheBold = bolden; _logoCacheTrim = trim; _logoCacheMask = mask;
                 return (mask, h);
             }
         }
-
         public async Task WriteLogoAsync(byte[] imageBytes, double widthFraction = 1.0, PrintAlign? align = null)
         {
             PrintAlign a = align ?? PaperAlign;              // follows 321 / 322 / 323

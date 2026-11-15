@@ -1,5 +1,6 @@
 ﻿using Android.Bluetooth;
 using Android.OS;
+using eMRBCS.Services;
 using System.Diagnostics;
 using Thread = System.Threading.Thread;
 using ThreadPriority = System.Threading.ThreadPriority;
@@ -239,6 +240,22 @@ namespace eMRBCS.Platforms.Android
         public async Task<double> WriteStreamAsync(byte[] data, int chunk, double[] chunkCostMs, int leadMs, int maxAheadBytes)
         {
             int step = Math.Max(1, chunk);
+
+            // Acknowledged BLE: the per-chunk ACK IS the flow control. Do not add model pacing on top,
+            // otherwise the printer is starved and stops in the middle of the print.
+            if (IsAcked && !PrinterHardware.PaceAckedBle)
+            {
+                for (int i = 0; i < data.Length; i += step)
+                {
+                    int len = Math.Min(step, data.Length - i);
+                    await WriteChunkAsync(data, i, len).ConfigureAwait(false);
+                    if (PrinterHardware.BleChunkDelayMs > 0)
+                        await Task.Delay(PrinterHardware.BleChunkDelayMs).ConfigureAwait(false);
+                }
+                return 0;   // FlushAsync/CloseAsync still wait for the modelled print time before closing
+            }
+
+            // BLE without ACK: keep the windowed pacing
             var pacer = new Pacer(leadMs, maxAheadBytes);
             for (int i = 0, ci = 0; i < data.Length; i += step, ci++)
             {
