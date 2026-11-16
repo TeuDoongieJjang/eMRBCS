@@ -1,4 +1,5 @@
-﻿namespace eMRBCS.Models
+﻿// NOT IN USE
+namespace eMRBCS.Models
 {
     public class UpdateInfo
     {

@@ -17,9 +17,11 @@ namespace eMRBCS.Pages;
 
 public partial class Reading : ContentPage
 {
+    private enum RoundingRule { Truncate, Nearest }
     int selected_field = 0; //0 - Pres Reading, 1 - Acct No, 2 - Meter No, 3 - Name
 
     long selected_seqno;
+    private static string ShortSeqNo(long seqno) => (seqno % 1_000_000).ToString();
     int selected_idno;
 
     private static SQLiteConnection? Database;
@@ -117,7 +119,7 @@ public partial class Reading : ContentPage
 
 
             txtConsumerAcctNo.FontSize = 22;
-
+            lblTypeSize.FontSize = 22;
             int defaultsize = 40;
             btnStartRecord.HeightRequest = defaultsize;
             btnStartRecord.WidthRequest = defaultsize;
@@ -171,7 +173,7 @@ public partial class Reading : ContentPage
         }
         else if (MyDeviceInfo.device_heightpix < 900 && MyDeviceInfo.device_widthpix < 500)
         {
-
+            lblTypeSize.FontSize = 16;
             btnok.FontSize = 16;
 
             txtConsumerAcctNo.FontSize = 16;
@@ -374,71 +376,67 @@ public partial class Reading : ContentPage
             await DisplayAlertAsync("Warning!", "Account Number " + parameter + " not found. Please try again.", "Ok");
         }
     }
-
+    private const int MaxPickerItems = 30;
     private async void OnFilterNameSearch(string parameter)
     {
-        string searchName = "Account No: ";
-        Consumers? result = null;
+        string term = (parameter ?? "").Trim();
+        if (term.Length == 0) return;
 
-        var source = ConsumerRecords.lstconsumers
-            .Where(c => c.status == pickerBillingFilter.SelectedIndex);
+        var source = ConsumerRecords.lstconsumers.Where(c => c.status == pickerBillingFilter.SelectedIndex);
+        var cmp = StringComparer.OrdinalIgnoreCase;
+        string searchName;
+        List<Consumers> matches;
+        Func<Consumers, string> label;
 
-        if (selected_field == 1)
+        if (selected_field == 1)            // account no -> sorted by account no
         {
-            result = source.FirstOrDefault(c => c.accountNo != null &&
-                     c.accountNo.Contains(parameter, StringComparison.OrdinalIgnoreCase));
+            searchName = "Account No: ";
+            matches = source.Where(c => (c.accountNo ?? "").Contains(term, StringComparison.OrdinalIgnoreCase))
+                            .OrderBy(c => c.accountNo, cmp).ToList();
+            label = c => $"{c.accountNo} - {(c.consumer_name ?? "").Trim()}";
         }
-        else if (selected_field == 2)
+        else if (selected_field == 2)       // meter no -> sorted by meter no
         {
             searchName = "Meter No: ";
-            result = source.FirstOrDefault(c => c.meterno != null &&
-                     c.meterno.Contains(parameter, StringComparison.OrdinalIgnoreCase));
+            matches = source.Where(c => (c.meterno ?? "").Contains(term, StringComparison.OrdinalIgnoreCase))
+                            .OrderBy(c => c.meterno, cmp).ThenBy(c => c.accountNo, cmp).ToList();
+            label = c => $"{c.meterno} - {(c.consumer_name ?? "").Trim()} ({c.accountNo})";
         }
-        else
+        else                                // name -> sorted alphabetically by name
         {
             searchName = "Name: ";
-
-            // Every word typed must appear in the name, in any order,
-            // so "adelaida armosilla" still finds "ARMOSILLA, ADELAIDA D."
-            var tokens = parameter.Split(new[] { ' ', ',', '.' },
+            var tokens = term.Split(new[] { ' ', ',', '.' },
                 StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-            var matches = source
-                .Where(c => !string.IsNullOrEmpty(c.consumer_name) &&
-                            tokens.All(t => c.consumer_name.Contains(t, StringComparison.OrdinalIgnoreCase)))
-                .OrderBy(c => c.accountID)
-                .ToList();
-
-            if (matches.Count == 1)
-            {
-                result = matches[0];
-            }
-            else if (matches.Count > 1)
-            {
-                // Several people share the text: let the user pick one
-                var shown = matches.Take(20).ToList();
-                var labels = shown.Select(c => $"{c.consumer_name.Trim()} ({c.accountNo})").ToArray();
-                string title = matches.Count > 20
-                    ? $"{matches.Count} matches (showing first 20). Type more of the name to narrow down."
-                    : $"{matches.Count} matches found";
-
-                string choice = await DisplayActionSheetAsync(title, "Cancel", null, labels);
-                if (string.IsNullOrEmpty(choice) || choice == "Cancel") return;
-
-                int idx = Array.IndexOf(labels, choice);
-                if (idx >= 0) result = shown[idx];
-                else return;
-            }
+            matches = source.Where(c => !string.IsNullOrEmpty(c.consumer_name) &&
+                                        tokens.All(t => c.consumer_name.Contains(t, StringComparison.OrdinalIgnoreCase)))
+                            .OrderBy(c => c.consumer_name.Trim(), cmp).ThenBy(c => c.accountNo, cmp).ToList();
+            label = c => $"{c.consumer_name.Trim()} ({c.accountNo})";
         }
 
-        if (result != null)
+        Consumers? result = null;
+        if (matches.Count == 1)
         {
-            OnLoadConsumerDetails(result);
+            result = matches[0];
         }
-        else
+        else if (matches.Count > 1)
         {
-            await DisplayAlertAsync("Warning!", searchName + "that contains " + parameter + " not found. Please try again.", "Ok");
+            var shown = matches.Take(MaxPickerItems).ToList();
+            var labels = shown.Select(label).ToArray();
+            string title = matches.Count > MaxPickerItems
+                ? $"{matches.Count} matches (showing first {MaxPickerItems}). Type more to narrow down."
+                : $"{matches.Count} matches found";
+
+            string choice = await DisplayActionSheetAsync(title, "Cancel", null, labels);
+            if (string.IsNullOrEmpty(choice) || choice == "Cancel") return;
+
+            int idx = Array.IndexOf(labels, choice);
+            if (idx < 0) return;
+            result = shown[idx];
         }
+
+        if (result != null) OnLoadConsumerDetails(result);
+        else await DisplayAlertAsync("Warning!", searchName + "that contains " + term + " not found. Please try again.", "Ok");
+
         gridDetails.IsVisible = true;
     }
     private async void OnNextRecordTapped(object sender, EventArgs e)
@@ -457,88 +455,61 @@ public partial class Reading : ContentPage
     {
         OnFirstLastRecord(0, pickerBillingFilter.SelectedIndex);
     }
-
+    private List<Consumers> Ordered(int status) => ConsumerRecords.lstconsumers
+                                                    .Where(c => c.status == status)
+                                                    .OrderBy(c => c.seqno).ThenBy(c => c.accountID)
+                                                    .ToList();
     private async void OnNextRecord(int isBilled)
     {
-        //ConsumerRecords.acctNo = parameter;
-        var result = ConsumerRecords.lstconsumers.Where(c => c.accountID > selected_idno && c.status == isBilled).OrderBy(c => c.accountID).FirstOrDefault();
+        var result = Ordered(isBilled).FirstOrDefault(c =>
+            c.seqno > selected_seqno || (c.seqno == selected_seqno && c.accountID > selected_idno));
 
-        if (result != null)
-        {
-            OnLoadConsumerDetails(result);
-
-
-        }
-        else
-        {
-            await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
-        }
-        //gridDetails.IsVisible = true;
-
+        if (result != null) OnLoadConsumerDetails(result);
+        else await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
     }
 
     private async void OnPrevRecord(int isBilled)
     {
-        var result = ConsumerRecords.lstconsumers
-            .Where(c => c.accountID < selected_idno && c.status == isBilled)
-            .OrderBy(c => c.accountID)
-            .LastOrDefault();
+        var result = Ordered(isBilled).LastOrDefault(c =>
+            c.seqno < selected_seqno || (c.seqno == selected_seqno && c.accountID < selected_idno));
 
-        if (result != null)
-        {
-            OnLoadConsumerDetails(result);
-        }
-        else
-        {
-            await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
-        }
+        if (result != null) OnLoadConsumerDetails(result);
+        else await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
     }
 
     private async void OnFirstLastRecord(int isFirst, int isBilled)
     {
-        Consumers result = new Consumers();
-
-        if (isFirst == 1)
-        {
-            result = ConsumerRecords.lstconsumers.Where(c => c.status == isBilled).OrderBy(c => c.accountID).FirstOrDefault();
-        }
-        else
-        {
-            result = ConsumerRecords.lstconsumers.Where(c => c.status == isBilled).OrderBy(c => c.accountID).LastOrDefault();
-
-        }
+        var list = Ordered(isBilled);
+        Consumers? result = isFirst == 1 ? list.FirstOrDefault() : list.LastOrDefault();
 
         if (result != null)
         {
             isFilterChange = false;
             OnLoadConsumerDetails(result);
-
         }
         else
         {
             if (isFilterChange)
             {
-                lblRecordNo.Text = "No: 0";
+                lblRecordNo.Text = "SeqNo: 0";
                 selected_idno = 0;
                 selected_seqno = 0;
                 txtConsumerAcctNo.Text = "";
+                lblTypeSize.Text = "";
                 txtConsumerName.Text = "";
                 txtConsumerMeterNo.Text = "";
                 txtConsumerAddress.Text = "";
                 txtConsumerPrevReading.Text = "0";
-                txtConsumerArrears.Text = "0";
+                txtConsumerArrears.Text = "0.00";
                 txtConsumerUsage.Text = "0";
-                txtConsumerCurrentBill.Text = "0";
+                txtConsumerCurrentBill.Text = "0.00";
                 txtConsumerPresReading.Text = "0";
                 txtConsumerTotalBill.Text = "0.00";
                 pickerRemarks.SelectedIndex = -1;
-                //txtRemarks.Text = "Normal Reading";
                 isFilterChange = false;
             }
             await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
         }
-        //gridDetails.IsVisible = true;
-
     }
 
     private void OnLastRecord()
@@ -560,13 +531,14 @@ public partial class Reading : ContentPage
         {
             if (consumer != null)
             {
-                lblRecordNo.Text = "No: " + consumer.accountID.ToString();
+                lblRecordNo.Text = "SeqNo: " + ShortSeqNo(consumer.seqno);
                 selected_idno = consumer.accountID;
                 selected_seqno = consumer.seqno;
                 txtConsumerAcctNo.Text = consumer.accountNo;
                 txtConsumerName.Text = consumer.consumer_name;
                 txtConsumerMeterNo.Text = consumer.meterno;
                 _averageCons = consumer.average_usage;
+                lblTypeSize.Text = $"{consumer.consumer_type}{consumer.metersize}";
 
                 bool isSaved = consumer.status != 0;     // NEW: unsaved consumers must not show leftover values
 
@@ -576,7 +548,7 @@ public partial class Reading : ContentPage
 
                 txtConsumerPrevReading.Text = consumer.prevreading.ToString();
                 txtConsumerUsage.Text = isSaved ? consumer.usage.ToString() : "0";
-                txtConsumerCurrentBill.Text = isSaved ? consumer.currentbill.ToString() : "0";
+                txtConsumerCurrentBill.Text = isSaved ? consumer.currentbill.ToString("#,##0.00") : "0.00";
 
                 if (consumer.arrears < 0)
                 {
@@ -601,7 +573,7 @@ public partial class Reading : ContentPage
                 if (isSaved && consumer.presreading > 0)
                     txtConsumerPresReading.Text = consumer.presreading.ToString();
                 if (isSaved && consumer.total_bill > 0)
-                    txtConsumerTotalBill.Text = consumer.total_bill.ToString();
+                    txtConsumerTotalBill.Text = consumer.total_bill.ToString("#,##0.00");
 
                 _currentIsLessUsage = consumer.less_usage;
             }
@@ -1272,7 +1244,7 @@ public partial class Reading : ContentPage
 
         gridNumericPad.IsVisible = true;
         gridNumericPad.IsEnabled = true;
-        txtCustomEntry.Text = txtConsumerMeterNo.Text;
+        txtCustomEntry.Text = "";
     }
 
     private void OnClickCancel(object sender, EventArgs e)
@@ -1322,7 +1294,7 @@ public partial class Reading : ContentPage
             lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
         }
 
-        OnFirstLastRecord(0, pickerBillingFilter.SelectedIndex);
+        OnFirstLastRecord(1, pickerBillingFilter.SelectedIndex);
     }
     private async Task RecomputeCurrentAsync(bool force = false)
     {
@@ -1772,16 +1744,20 @@ public partial class Reading : ContentPage
         }
         return list;
     }
-    private static decimal ApplyRounding(decimal value, bool isCWD, int decimals = 2)
+    private static RoundingRule GetRoundingRule(string? parameters)
     {
-        if (isCWD)
-        {
-            // truncate toward zero, so -0.666666 also becomes -0.66
-            decimal scale = 1m;
-            for (int i = 0; i < decimals; i++) scale *= 10m;
-            return Math.Truncate(value * scale) / scale;
-        }
-        return Math.Round(value, decimals);
+        string p = parameters ?? "";
+        // ===== ADD FUTURE DISTRICT RULES HERE =====
+        // if (p.Contains("[XYZWD]")) return RoundingRule.Nearest;
+        return RoundingRule.Truncate;      // all current districts: .666666 -> .66, .999999 -> .99
+    }
+
+    private static decimal RoundMLS(decimal value, RoundingRule rule, int decimals = 2)
+    {
+        if (rule == RoundingRule.Nearest) return Math.Round(value, decimals);
+        decimal scale = 1m;
+        for (int i = 0; i < decimals; i++) scale *= 10m;
+        return Math.Truncate(value * scale) / scale;   // toward zero, so -0.666 -> -0.66
     }
 
     // =========================================================================
@@ -1789,77 +1765,72 @@ public partial class Reading : ContentPage
     //      DoPrintBill just prints the pre-computed values.
     // =========================================================================
     private static BillAmounts ComputeBillAmounts(Consumers consumer,
-        bool isSJWD,
-        bool isMVWD,
-        bool isIndangWD,
-        bool isCWD, bool isPlaWD, decimal maintenanceFee = 0m, decimal sewerageRate = 0m,
-    List<CommodityLine>? commodityLines = null)   // CHANGED: new parameter
+    bool isSJWD, bool isMVWD, bool isIndangWD, bool isCWD, bool isPlaWD,
+    decimal maintenanceFee = 0m, decimal sewerageRate = 0m,
+    List<CommodityLine>? commodityLines = null)
     {
         if (consumer == null) throw new ArgumentNullException(nameof(consumer));
+
+        var rule = GetRoundingRule(consumer.parameters);
+        string prm = consumer.parameters ?? "";
+
         var bill = new BillAmounts
         {
-            IsSewerage = consumer.parameters.Contains("IsSewerage"),
-            IsFlatRate = consumer.parameters.Contains("IsFlatRate"),
-            // CHANGED: rounded like every other amount, and only for Plaridel
-            MaintenanceFee = isPlaWD ? ApplyRounding(maintenanceFee, isCWD) : 0m
+            IsSewerage = prm.Contains("IsSewerage"),
+            IsFlatRate = prm.Contains("IsFlatRate"),
+            MaintenanceFee = RoundMLS(maintenanceFee, rule)          // everyone
         };
 
-        // CHANGED: for Plaridel the printed commodity lines ARE the current bill,
-        // so Current Bill = sum of the lines exactly as printed (no 1-cent drift)
         decimal currentBill;
         if (isPlaWD && commodityLines != null && commodityLines.Count > 0)
-            currentBill = commodityLines.Sum(l => ApplyRounding(l.Amount, isCWD));
+            currentBill = commodityLines.Sum(l => RoundMLS(l.Amount, rule));
         else
-            currentBill = ApplyRounding(Convert.ToDecimal(consumer.currentbill), isCWD);
+            currentBill = RoundMLS(Convert.ToDecimal(consumer.currentbill), rule);
 
-        decimal sewerageValue = isPlaWD ? sewerageRate : (float.IsNaN(consumer.sewerage) ? 0m : Convert.ToDecimal(consumer.sewerage));
-        decimal sewerageAmount = 0.00m;
+        decimal fileSewerage = float.IsNaN(consumer.sewerage) ? 0m : Convert.ToDecimal(consumer.sewerage);
+        decimal sewerageAmount = 0m;
 
         if (isMVWD)
         {
             if (bill.IsSewerage)
             {
-                sewerageAmount = ApplyRounding(sewerageValue, isCWD);
-                if (bill.IsFlatRate) currentBill = 0.00m;
+                sewerageAmount = RoundMLS(fileSewerage, rule);       // MVWD = flat amount
+                if (bill.IsFlatRate) currentBill = 0m;
             }
         }
-        else if (sewerageValue > 0)
+        else
         {
-            decimal usageDec = Convert.ToDecimal(consumer.usage);
-            sewerageAmount = ApplyRounding(sewerageValue * usageDec, isCWD);
-            decimal esfFtax = ApplyRounding(sewerageAmount * 0.02m, isCWD);
-            sewerageAmount = ApplyRounding(sewerageAmount + esfFtax, isCWD);
+            // everyone else: rate from Billing_rates (fallback: rate from the consumer file)
+            decimal rate = sewerageRate > 0 ? sewerageRate : fileSewerage;
+            if (rate > 0)
+            {
+                decimal usageDec = Convert.ToDecimal(consumer.usage);
+                sewerageAmount = RoundMLS(rate * usageDec, rule);
+                decimal esfFtax = RoundMLS(sewerageAmount * 0.02m, rule);
+                sewerageAmount = RoundMLS(sewerageAmount + esfFtax, rule);
+            }
         }
 
         bill.CurrentBill = currentBill;
         bill.SewerageAmount = sewerageAmount;
 
-
-        decimal runningTotalBill = 0.00m;
+        decimal runningTotalBill = 0m;
         if (bill.CurrentBill > 0) runningTotalBill += bill.CurrentBill;
         if (bill.SewerageAmount > 0) runningTotalBill += bill.SewerageAmount;
-        if (isPlaWD && bill.MaintenanceFee > 0) runningTotalBill += bill.MaintenanceFee;
+        if (bill.MaintenanceFee > 0) runningTotalBill += bill.MaintenanceFee;
 
+        // districts whose penalty is NOT charged on the sewerage / maintenance fees
+        bool feesOutOfPenalty = isCWD || isPlaWD;      // add future districts here
         decimal penaltyBase = runningTotalBill;
-        if (isCWD && bill.SewerageAmount > 0)
-        {
-            penaltyBase -= bill.SewerageAmount;
-        }
-        if (isPlaWD && bill.MaintenanceFee > 0 || isPlaWD && bill.SewerageAmount > 0)
-        {
-            penaltyBase -= bill.MaintenanceFee;
-            penaltyBase -= bill.SewerageAmount;
-        }
+        if (feesOutOfPenalty) penaltyBase -= bill.SewerageAmount + bill.MaintenanceFee;
 
-
-
-        bill.SeniorDiscount = 0.00m;
+        bill.SeniorDiscount = 0m;
         if (!isIndangWD)
         {
-            bool isSenior = consumer.parameters.Contains("IsSenior");
+            bool isSenior = prm.Contains("IsSenior");
             if (isSenior && consumer.usage <= 30)
             {
-                decimal seniorDiscount = ApplyRounding(bill.CurrentBill * 0.05m, isCWD) * -1m;
+                decimal seniorDiscount = RoundMLS(bill.CurrentBill * 0.05m, rule) * -1m;
                 runningTotalBill += seniorDiscount;
                 penaltyBase += seniorDiscount;
                 bill.SeniorDiscount = seniorDiscount;
@@ -1870,30 +1841,22 @@ public partial class Reading : ContentPage
         decimal penaltyRate = Convert.ToDecimal(consumer.special_penalty_rate);
         decimal penaltyAmount = penaltyBase * penaltyRate;
 
-        bill.Arrears = ApplyRounding(Convert.ToDecimal(consumer.arrears), isCWD);
+        bill.Arrears = RoundMLS(Convert.ToDecimal(consumer.arrears), rule);
         runningTotalBill += bill.Arrears;
         penaltyBase += bill.Arrears;
+        if (consumer.arrears < 0) penaltyAmount = penaltyBase * penaltyRate;
 
-        if (consumer.arrears < 0)
-            penaltyAmount = penaltyBase * penaltyRate;
-
-        bill.Others = ApplyRounding(Convert.ToDecimal(consumer.othercharges), isCWD);
+        bill.Others = RoundMLS(Convert.ToDecimal(consumer.othercharges), rule);
         if (bill.Others > 0) runningTotalBill += bill.Others;
 
-        bill.BeforeDueTotal = ApplyRounding(runningTotalBill, isCWD);
+        bill.BeforeDueTotal = RoundMLS(runningTotalBill, rule);
 
-        if (penaltyAmount < 0 || consumer.isnopenalty == 1)
-            penaltyAmount = 0.00m;
-        else if (isCWD)
-            penaltyAmount = ApplyRounding(penaltyAmount, isCWD: true);
-        else if (isMVWD)
-            penaltyAmount = Math.Round(penaltyAmount, 1);
-        else
-            penaltyAmount = Math.Round(penaltyAmount, 2);
+        int penaltyDecimals = isMVWD ? 1 : 2;          // MVWD keeps 1 decimal on the penalty
+        if (penaltyAmount < 0 || consumer.isnopenalty == 1) penaltyAmount = 0m;
+        else penaltyAmount = RoundMLS(penaltyAmount, rule, penaltyDecimals);
 
         bill.PenaltyAmount = penaltyAmount;
-        bill.AfterDueTotal = ApplyRounding(runningTotalBill + penaltyAmount, isCWD);
-
+        bill.AfterDueTotal = RoundMLS(runningTotalBill + penaltyAmount, rule);
         return bill;
     }
     private async Task<decimal> GetMaintenanceFeeAsync(Consumers c)
@@ -1915,7 +1878,7 @@ public partial class Reading : ContentPage
         bool IsIndangWD = consumer.parameters.Contains("[IWD]");
         bool IsCWD = consumer.parameters.Contains("[CWD]");
         bool IsPlaWD = consumer.parameters.Contains("[PLAWD]");
-
+        var rule = GetRoundingRule(consumer.parameters);
 
         var paper = PaperProfile.FromLineSpace(MyDeviceInfo.currentPrintConfig.linespacing);
         if (paper == null)
@@ -1945,32 +1908,23 @@ public partial class Reading : ContentPage
         var printer = new EscPOScmdPrint { Profile = paper };
         try
         {
-            // ------------------------------------------------------------------
-            // NEW: single call – every money value is computed and pre-rounded
-            //      here (CWD = truncate, others = normal Round).
-            // ------------------------------------------------------------------
 
             decimal maintenanceFee = 0m;
-            decimal sewerageRate = 0m; // NEW: Fetch sewerage rate from Billing_rates for PlaWD
-            List<CommodityLine> commodityLines = null;
-            if (IsPlaWD)
+            decimal sewerageRate = 0m;
+            List<CommodityLine>? commodityLines = null;
+
+            var rates = Database.Table<Billing_rates>()
+                .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
+                .OrderBy(b => b.bill_id)
+                .ToList();
+
+            if (rates.Count > 0)
             {
-                var rates = Database.Table<Billing_rates>()
-                    .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
-                    .OrderBy(b => b.bill_id)
-                    .ToList();
-
-                // CHANGED: only show commodity lines when there is actually a current bill
-                // (Zero Reading / flat rate => currentbill = 0 => no lines, no mismatch)
-                if (consumer.currentbill > 0)
-                    commodityLines = RateCalculator.Breakdown(rates, consumer.usage, consumer.minusage);
-
-                if (rates.Count > 0)
-                {
-                    maintenanceFee = Convert.ToDecimal(rates[0].maintenance_fee);
-                    sewerageRate = Convert.ToDecimal(rates[0].sewerage);
-                }
+                maintenanceFee = Convert.ToDecimal(rates[0].maintenance_fee);   // everyone
+                sewerageRate = Convert.ToDecimal(rates[0].sewerage);            // everyone
             }
+            if (IsPlaWD && consumer.currentbill > 0)                            // commodity lines stay Plaridel-only
+                commodityLines = RateCalculator.Breakdown(rates, consumer.usage, consumer.minusage);
             // CHANGED: pass the lines in
             BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD, IsPlaWD, maintenanceFee, sewerageRate, commodityLines);
             string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
@@ -1988,7 +1942,7 @@ public partial class Reading : ContentPage
             "MM-dd-yyyy", "dd-MM-yyyy", "M/d/yyyy", "d/M/yyyy",
             "MM/d/yyyy", "dd/M/yyyy", "M/dd/yyyy", "d/MM/yyyy",
             "MM/dd/yyyy", "dd/MM/yyyy"
-        };
+            };
 
             DateTime billduedate = DateTime.ParseExact(consumer.duedate, inputFormats, CultureInfo.InvariantCulture);
             DateTime prevbilldate = DateTime.ParseExact(consumer.prevreadingdate, inputFormats, CultureInfo.InvariantCulture);
@@ -2114,7 +2068,7 @@ public partial class Reading : ContentPage
                     string left = line.IsMinimum
                         ? line.Label
                         : $"{line.Label} x {line.Rate:0.00}";
-                    await printer.PrintRowAsync(left, ApplyRounding(line.Amount, IsCWD).ToString("#,##0.00"));
+                    await printer.PrintRowAsync(left, RoundMLS(line.Amount, rule).ToString("#,##0.00"));
                 }
                 await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             }
@@ -2125,26 +2079,12 @@ public partial class Reading : ContentPage
             if (bill.SewerageAmount > 0)
                 await printer.PrintRowAsync(IsMVWD ? "Sewerage" : IsCWD ? "ESF" : IsPlaWD ? "Environmental/Septage Fee" : "Septage Mgmt. Fee",
                                             bill.SewerageAmount.ToString("#,##0.00"));
-            if (bill.MaintenanceFee > 0 && IsPlaWD)
+
+            if (bill.MaintenanceFee > 0)
             {
                 await printer.PrintRowAsync("Maintenance Fee", bill.MaintenanceFee.ToString("#,##0.00"));
-
             }
-            if (IsPlaWD && bill.Others > 0)
-            {
-                var otherItems = ParseOtherCharges(consumer.othercharges_details);
 
-                // print the details only when they add up to the Others total, otherwise one "Others" line
-                if (otherItems.Count > 0 && otherItems.Sum(o => o.Amount) == bill.Others)
-                {
-                    foreach (var (name, amount) in otherItems)
-                        await printer.PrintRowAsync(name, amount.ToString("#,##0.00"));
-                }
-                else
-                {
-                    await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
-                }
-            }
 
             if (bill.ShowSeniorDiscount)
                 await printer.PrintRowAsync("Senior Discount", bill.SeniorDiscount.ToString("#,##0.00"));
@@ -2152,10 +2092,23 @@ public partial class Reading : ContentPage
             await printer.PrintRowAsync(consumer.arrears < 0 ? "Advance" : "Arrears",
                                         bill.Arrears.ToString("#,##0.00"));
 
-            if (!IsPlaWD)
+            if (bill.Others > 0)
             {
-                if (bill.Others > 0)
+                if (IsPlaWD)
+                {
+                    var otherItems = ParseOtherCharges(consumer.othercharges_details);
+
+                    // print the details only when they add up to the Others total, otherwise one "Others" line
+                    if (otherItems.Count > 0 && otherItems.Sum(o => o.Amount) == bill.Others)
+                    {
+                        foreach (var (name, amount) in otherItems)
+                            await printer.PrintRowAsync(name, amount.ToString("#,##0.00"));
+                    }
+                }
+                else
+                {
                     await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
+                }
             }
 
             if (IsPlaWD)

@@ -64,6 +64,7 @@ public partial class Utilities : ContentPage
     private async void TapGetData(object sender, EventArgs e)
         => await UiGuard.RunAsync("get-data", async () =>
         {
+            DateTime billDate = MyDeviceInfo.BillingDate.Date;
             if (DataSyncService.Instance.IsBusy)
             {
                 await DisplayAlertAsync("Notice", "Data is already being downloaded.", "Ok");
@@ -71,7 +72,7 @@ public partial class Utilities : ContentPage
             }
             //Check the latest import date.
             string latest_importdate;
-            string import_message = "This process will import new data for " + DateTime.Now.ToString("yyyy-MM-dd") + " from server.";
+            string import_message = "This process will import new data for " + billDate.ToString("yyyy-MM-dd") + " from server.";
             bool isConfirmAgain = false;
             string warningmsg = "";
             bool withError = false;
@@ -100,7 +101,7 @@ public partial class Utilities : ContentPage
             {
                 latest_importdate = Serverdetails.Server_Transactions.latest_importdate;
 
-                if (DateTime.Parse(latest_importdate).Date != DateTime.Today.Date)
+                if (DateTime.Parse(latest_importdate).Date != billDate)
                 {
                     isNewTransaction = true;
                     if (Serverdetails.Server_Transactions.latest_exportdate == null)
@@ -113,7 +114,7 @@ public partial class Utilities : ContentPage
                         }
                         else
                         {
-                            import_message = import_message + " Existing consumer records for " + DateTime.Parse(latest_importdate).Date.ToString("yyyy-MM-dd") + " will be overwritten with " + DateTime.Today.Date.ToString("yyyy-MM-dd") + " consumers? Continue?";
+                            import_message = import_message + " Existing consumer records for " + DateTime.Parse(latest_importdate).Date.ToString("yyyy-MM-dd") + " will be overwritten with " + billDate.ToString("yyyy-MM-dd") + " consumers? Continue?";
                         }
 
                     }
@@ -142,7 +143,8 @@ public partial class Utilities : ContentPage
                 import_message = import_message + " Do you want to continue?";
             }
 
-
+            if (billDate != DateTime.Today)
+                import_message += $"\n\nWARNING: Billing date ({billDate:yyyy-MM-dd}) is not the device date ({DateTime.Today:yyyy-MM-dd}).";
             confirm_answer = await DisplayAlertAsync("Warning", import_message, "Yes", "No");
             if (confirm_answer)
             {

@@ -15,7 +15,6 @@ public partial class AppSettings : ContentPage
         InitializeComponent();
 
         import_ipaddress.Text = Serverdetails.ImportServerIPAddress;
-        import_sharedfolder.Text = Serverdetails.ImportSharedFolder;
         import_username.Text = Serverdetails.ImportServerUserName;
         import_pass.Text = Serverdetails.ImportServerPassword;
 
@@ -118,7 +117,7 @@ public partial class AppSettings : ContentPage
     public async void OnSaveChanges(object sender, EventArgs e)
     {
         string new_ip = import_ipaddress.Text;
-        string new_folder = (import_sharedfolder.Text ?? "").Trim();
+        string new_folder = "SharedFolder";
         string new_user = import_username.Text;
         string new_pass = import_pass.Text;
 

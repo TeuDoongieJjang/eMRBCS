@@ -47,7 +47,6 @@ namespace eMRBCS.Services
                     db.Execute("CREATE INDEX IF NOT EXISTS ix_rates_type       ON Billing_rates(consumer_type, metersize)");
                 }
                 catch { }
-                try { db.Execute("ALTER TABLE Billing_rates ADD COLUMN maintenance_fee REAL DEFAULT 0"); } catch { } // already exists
                 Database = db;
             }
         }
@@ -483,7 +482,7 @@ namespace eMRBCS.Services
                             pca_rate = ParseFloat(items[5].Trim()),
                             graceperioddue = int.Parse(items[6].Trim()),
                             sewerage = ParseFloat(items[7].Trim()),
-                            maintenance_fee = items.Length > 8 ? ParseFloat(items[8].Trim()) : 0f,
+                            maintenance_fee = ParseFloat(items[8].Trim())
                         };
 
                         billrates_items.Add(newItem);
@@ -795,7 +794,7 @@ namespace eMRBCS.Services
 
                     Server_transactions server_Transactions = new Server_transactions
                     {
-                        latest_importdate = DateTime.Now.ToString(),
+                        latest_importdate = MyDeviceInfo.BillingDate.Date.ToString("yyyy-MM-dd"),
                         consumers_file = consumerfile,
                         billrate_file = billratefile,
                         remark_file = remarkfile,

@@ -60,9 +60,8 @@ public sealed partial class DataSyncService : ObservableObject
                 }
                 Report(i, 0.5);
                 if (i == 0 && files.ConsumerFileIsNotToday)
-                    dateWarning = $"WARNING: Today's consumer file was not found.\n" +
-                                  $"The data loaded is dated {files.ConsumerFileDate:yyyy-MM-dd} ({files.ConsumerFileName}). " +
-                                  $"This is NOT current data.";
+                    dateWarning = $"WARNING: The consumer data loaded is for billing date {files.ConsumerFileDate:yyyy-MM-dd}, " +
+                                  $"which is NOT the device date ({DateTime.Today:yyyy-MM-dd}).\nFile: {files.ConsumerFileName}";
                 var db = new DBService();
                 bool saved = i switch
                 {

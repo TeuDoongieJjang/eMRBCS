@@ -415,7 +415,7 @@ namespace MSRBC.Services
 
                 try
                 {
-                    string datePart = DateTime.Now.ToString(FilePrefix.configPrefix);
+                    string datePart = MyDeviceInfo.BillingDate.ToString(FilePrefix.configPrefix);
 
                     string[] remoteNames = new string[4];
                     remoteNames[0] = LoginUser.login_user.username + "_" + datePart + FilePrefix.ConsumerFile;
@@ -535,10 +535,16 @@ namespace MSRBC.Services
 
                 switch (dataFileType)
                 {
-                    case 0: //Consumer
-                        targetfile = LoginUser.login_user.username + "_" + targetfile + FilePrefix.ConsumerFile;
-                        consumerFile = Path.Combine(FileSystem.AppDataDirectory, targetfile);
-                        break;
+                    case 0: //Consumer: file of the BILLING DATE (not the newest file)
+                        {
+                            var billDate = MyDeviceInfo.BillingDate.Date;
+                            targetfile = LoginUser.login_user.username + "_" + billDate.ToString(FilePrefix.configPrefix) + FilePrefix.ConsumerFile;
+                            consumerFile = Path.Combine(FileSystem.AppDataDirectory, targetfile);
+                            ConsumerFileName = targetfile;
+                            ConsumerFileDate = billDate;
+                            ConsumerFileIsNotToday = billDate != DateTime.Today;   // warning only when billing date != device date
+                            break;
+                        }
                     case 1: //Remarks
                         targetfile = FilePrefix.RemarksFile;
                         remarksFile = Path.Combine(FileSystem.AppDataDirectory, targetfile);
@@ -559,20 +565,7 @@ namespace MSRBC.Services
                 {
                     using var session = OpenSession(1);
 
-                    // NEW: consumer file = today's, or the newest available one
-                    if (dataFileType == 0)
-                    {
-                        string? found = FindConsumerFile(session, out DateTime? foundDate, out bool isToday);
-                        if (found != null)
-                        {
-                            targetfile = found;
-                            consumerFile = Path.Combine(FileSystem.AppDataDirectory, found);
-                            localfile = consumerFile;
-                            ConsumerFileName = found;
-                            ConsumerFileDate = foundDate;
-                            ConsumerFileIsNotToday = !isToday;
-                        }
-                    }
+
 
                     targetfile = CombinePath(session.BasePath, targetfile);
                     config_folder = targetfile;
@@ -615,7 +608,9 @@ namespace MSRBC.Services
                     }
                     else
                     {
-                        return_message = $"failed;File '{targetfile}' not found or access denied. Status: {status}";
+                        return_message = dataFileType == 0
+                        ? $"failed;Consumer file for billing date {MyDeviceInfo.BillingDate:yyyy-MM-dd} was not found on the server ({targetfile}). Status: {status}"
+                        : $"failed;File '{targetfile}' not found or access denied. Status: {status}";
                     }
 
                     session.Store.Disconnect();
@@ -798,58 +793,7 @@ namespace MSRBC.Services
                 return false;
             }
         }
-        private static List<string> ListNames(SmbSession session, string path)
-        {
-            var names = new List<string>();
-            object handle;
-            FileStatus fileStatus;
-            NTStatus status = session.Store.CreateFile(
-                out handle, out fileStatus, path,
-                AccessMask.GENERIC_READ,
-                SMBLibrary.FileAttributes.Directory,
-                ShareAccess.Read | ShareAccess.Write,
-                CreateDisposition.FILE_OPEN,
-                CreateOptions.FILE_DIRECTORY_FILE,
-                null);
-            if (status != NTStatus.STATUS_SUCCESS) return names;
 
-            List<QueryDirectoryFileInformation> list;
-            session.Store.QueryDirectory(out list, handle, "*", FileInformationClass.FileDirectoryInformation);
-            session.Store.CloseFile(handle);
 
-            if (list != null)
-                foreach (var entry in list)
-                    if (entry is FileDirectoryInformation info &&
-                        (info.FileAttributes & SMBLibrary.FileAttributes.Directory) == 0)
-                        names.Add(info.FileName);
-            return names;
-        }
-        private static string? FindConsumerFile(SmbSession session, out DateTime? fileDate, out bool isToday)
-        {
-            fileDate = null;
-            isToday = false;
-
-            string prefix = LoginUser.login_user.username + "_";
-            string suffix = FilePrefix.ConsumerFile;
-            DateTime? best = null;
-            string? bestName = null;
-
-            foreach (string name in ListNames(session, session.BasePath))
-            {
-                if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
-                    !name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) continue;
-
-                string mid = name.Substring(prefix.Length, name.Length - prefix.Length - suffix.Length);
-                if (!DateTime.TryParseExact(mid, FilePrefix.configPrefix,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.None, out DateTime d)) continue;
-
-                if (best == null || d > best) { best = d; bestName = name; }
-            }
-
-            fileDate = best;
-            isToday = best.HasValue && best.Value.Date == DateTime.Today;
-            return bestName;
-        }
     }
 }

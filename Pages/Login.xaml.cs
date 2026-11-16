@@ -124,7 +124,8 @@ public partial class Login : ContentPage
             await DisplayAlertAsync("Notice", "Please enter both username and password.", "Ok");
             return;
         }
-
+        var bd = Convert.ToDateTime(dpBillDate.Date);           // works whether DatePicker.Date is nullable or not
+        MyDeviceInfo.BillingDate = bd == DateTime.MinValue ? DateTime.Today : bd.Date;
         messageLabel.TextColor = Colors.Gray;
         messageLabel.Text = "Please wait...";
         bool isValid = await ValidateLogin(username, password);
