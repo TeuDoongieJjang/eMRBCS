@@ -59,7 +59,6 @@ HorizontalOptions="CenterAndExpand"
     Grid.Column="0"
     Grid.Row="1"/>
 
-
                 <Label x:Name="lblversion" 
                        Text="v6.5.104"
                        FontAttributes="Bold"               
