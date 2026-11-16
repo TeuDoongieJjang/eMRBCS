@@ -118,8 +118,134 @@ public partial class Reading : ContentPage
         ScreenAdjustment();
 
     }
+    // ---------- numeric pad ----------
+    private void AppendDigit(char d)
+    {
+        string t = txtCustomEntry.Text ?? "";
+        txtCustomEntry.Text = (t == "0" && selected_field == 0) ? d.ToString() : t + d;
+    }
 
-    private async void ScreenAdjustment()
+    private void OnDigitClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button b && b.Text?.Length == 1) AppendDigit(b.Text[0]);
+    }
+
+    // OnClickOk: cases 1 and 2 were identical
+    private async void OnClickOk(object sender, EventArgs e)
+    {
+        gridNumericPad.IsVisible = false;
+        gridDetails.IsEnabled = true;
+        if (string.IsNullOrEmpty(txtCustomEntry.Text)) return;
+
+        if (selected_field == 0)
+        {
+            txtConsumerPresReading.Text = ParseFloat(txtCustomEntry.Text).ToString();
+            await RecomputeCurrentAsync(force: true);
+        }
+        else
+        {
+            OnFilterNameSearch(txtCustomEntry.Text);   // account no / meter no
+        }
+        btnSave.Focus();
+    }
+
+    // ---------- hardware keys ----------
+#if ANDROID
+    private static readonly Dictionary<string, char> DigitKeys = new()
+    {
+        ["Num0"] = '0',
+        ["F10"] = '0',
+        ["Num1"] = '1',
+        ["F1"] = '1',
+        ["Num2"] = '2',
+        ["F2"] = '2',
+        ["Num3"] = '3',
+        ["F3"] = '3',
+        ["Num4"] = '4',
+        ["F4"] = '4',
+        ["Num5"] = '5',
+        ["F5"] = '5',
+        ["Num6"] = '6',
+        ["F6"] = '6',
+        ["Num7"] = '7',
+        ["F7"] = '7',
+        ["Num8"] = '8',
+        ["F8"] = '8',
+        ["Num9"] = '9',
+        ["F9"] = '9'
+    };
+
+    private void OnHardwareKey(object sender, Android.Views.Keycode keyCode)
+    {
+        if (_searchPromptOpen) return;
+        string key = keyCode.ToString();
+
+        if (gridNumericPad.IsVisible)
+        {
+            if (DigitKeys.TryGetValue(key, out char d)) AppendDigit(d);
+            else if (key == "Del") OnClickBackSpace(btnDel, EventArgs.Empty);
+            else if (key == "Enter") OnClickOk(btnok, EventArgs.Empty);
+            btnok.Focus();
+            return;
+        }
+
+        switch (key)
+        {
+            case "VideoApp5": OnPresReadingTapped(txtConsumerPresReading, EventArgs.Empty); break;
+            case "VideoApp6": OnMeterNoTapped(txtConsumerMeterNo, EventArgs.Empty); break;
+            case "DpadLeft": OnPrevRecordTapped(btnPrevRecord, EventArgs.Empty); break;
+            case "DpadRight": OnNextRecordTapped(btnNextRecord, EventArgs.Empty); break;
+            case "DpadUp": OnFirstRecordTapped(btnStartRecord, EventArgs.Empty); break;
+            case "DpadDown": OnLastRecordTapped(btnLastRecord, EventArgs.Empty); break;
+            case "Enter": OnSaveReading(btnSave, EventArgs.Empty); break;
+        }
+    }
+#endif
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await Task.Delay(100);
+#if ANDROID
+        MessagingCenter.Unsubscribe<object, Android.Views.Keycode>(this, "KeyDown");
+        MessagingCenter.Subscribe<object, Android.Views.Keycode>(this, "KeyDown", OnHardwareKey);
+#endif
+        OnConsumerLoad(ConsumerRecords.acctNo);
+        btnSave.Focus();
+    }
+
+    // ---------- shared helpers ----------
+    private void UpdateSummaryCount()
+    {
+        int total = ConsumerRecords.noofrecords_import;
+        int billed = ConsumerRecords.noofrecordsBilled;
+        lblSummaryCount.Text = pickerBillingFilter.SelectedIndex switch
+        {
+            0 => $"{total - billed} / {total}",
+            1 => $"{billed} / {total}",
+            _ => $"0 / {total}"
+        };
+    }
+
+    private void ClearConsumerDetails()
+    {
+        lblRecordNo.Text = "SeqNo: 0";
+        selected_idno = 0;
+        selected_seqno = 0;
+        txtConsumerAcctNo.Text = "";
+        lblTypeSize.Text = "";
+        txtConsumerName.Text = "";
+        txtConsumerMeterNo.Text = "";
+        txtConsumerAddress.Text = "";
+        txtConsumerPrevReading.Text = "0";
+        txtConsumerArrears.Text = "0.00";
+        txtConsumerUsage.Text = "0";
+        txtConsumerCurrentBill.Text = "0.00";
+        txtConsumerPresReading.Text = "0";
+        txtConsumerTotalBill.Text = "0.00";
+        pickerRemarks.SelectedIndex = -1;
+    }
+    private void ScreenAdjustment()
     {
         if (MyDeviceInfo.device_heightpix > 2000)
         {
@@ -197,109 +323,109 @@ public partial class Reading : ContentPage
         }
     }
 
-    protected override async void OnAppearing()
-    {
-        base.OnAppearing();
-        await Task.Delay(100);
-#if ANDROID
-        MessagingCenter.Subscribe<object, Android.Views.Keycode>(this, "KeyDown", (sender, keyCode) =>
-        {
-            if (_searchPromptOpen) return;   // <-- ADD THIS LINE
-            //DisplayAlertAsync("Print Notice", $"Key Pressed: {keyCode}", "Ok");
-            //switch (keyCode.ToString())
-            //{
-            //    case "VideoApp5":
-            //        OnPresReadingTapped(txtConsumerPresReading, EventArgs.Empty);                    
-            //        break;
-            //    case "Num01":
-            //        txtCustomEntry.Focus();
-            //        txtCustomEntry.Text = txtCustomEntry.Text == "0" && selected_field == 0 ? "1" : txtCustomEntry.Text + "1";
-            //        break;
-            //    case "Num02":
-            //        DisplayAlertAsync("Print Notice", $"Key Pressed: {keyCode.ToString()}", "Ok");
-            //        //OnClickB2(btnNumber2, EventArgs.Empty);
-            //        break;
-            //}
-            //btnok.Focus();
+    //    protected override async void OnAppearing()
+    //    {
+    //        base.OnAppearing();
+    //        await Task.Delay(100);
+    //#if ANDROID
+    //        MessagingCenter.Subscribe<object, Android.Views.Keycode>(this, "KeyDown", (sender, keyCode) =>
+    //        {
+    //            if (_searchPromptOpen) return;   // <-- ADD THIS LINE
+    //            //DisplayAlertAsync("Print Notice", $"Key Pressed: {keyCode}", "Ok");
+    //            //switch (keyCode.ToString())
+    //            //{
+    //            //    case "VideoApp5":
+    //            //        OnPresReadingTapped(txtConsumerPresReading, EventArgs.Empty);                    
+    //            //        break;
+    //            //    case "Num01":
+    //            //        txtCustomEntry.Focus();
+    //            //        txtCustomEntry.Text = txtCustomEntry.Text == "0" && selected_field == 0 ? "1" : txtCustomEntry.Text + "1";
+    //            //        break;
+    //            //    case "Num02":
+    //            //        DisplayAlertAsync("Print Notice", $"Key Pressed: {keyCode.ToString()}", "Ok");
+    //            //        //OnClickB2(btnNumber2, EventArgs.Empty);
+    //            //        break;
+    //            //}
+    //            //btnok.Focus();
 
-            if (gridNumericPad.IsVisible)
-            {
-                switch (keyCode.ToString())
-                {
-                    case "Num1" or "F1":
-                        OnClickB1(btnNumber1, EventArgs.Empty);
-                        break;
-                    case "Num2" or "F2":
-                        OnClickB2(btnNumber2, EventArgs.Empty);
-                        break;
-                    case "Num3" or "F3":
-                        OnClickB3(btnNumber3, EventArgs.Empty);
-                        break;
-                    case "Num4" or "F4":
-                        OnClickB4(btnNumber4, EventArgs.Empty);
-                        break;
-                    case "Num5" or "F5":
-                        OnClickB5(btnNumber5, EventArgs.Empty);
-                        break;
-                    case "Num6" or "F6":
-                        OnClickB6(btnNumber6, EventArgs.Empty);
-                        break;
-                    case "Num7" or "F7":
-                        OnClickB7(btnNumber7, EventArgs.Empty);
-                        break;
-                    case "Num8" or "F8":
-                        OnClickB8(btnNumber8, EventArgs.Empty);
-                        break;
-                    case "Num9" or "F9":
-                        OnClickB9(btnNumber9, EventArgs.Empty);
-                        break;
-                    case "Num0" or "F10":
-                        OnClickB0(btnNumber0, EventArgs.Empty);
-                        break;
-                    case "Del":
-                        OnClickBackSpace(btnDel, EventArgs.Empty);
-                        break;
-                    case "Enter":
-                        OnClickOk(btnok, EventArgs.Empty);
-                        break;
-                }
-                btnok.Focus();
-            }
-            else
-            {
-                switch (keyCode.ToString())
-                {
-                    case "VideoApp5":
-                        OnPresReadingTapped(txtConsumerPresReading, EventArgs.Empty);
-                        break;
-                    case "VideoApp6":
-                        OnMeterNoTapped(txtConsumerMeterNo, EventArgs.Empty);
-                        break;
-                    case "DpadLeft":
-                        OnPrevRecordTapped(btnPrevRecord, EventArgs.Empty);
-                        break;
-                    case "DpadRight":
-                        OnNextRecordTapped(btnNextRecord, EventArgs.Empty);
-                        break;
-                    case "DpadUp":
-                        OnFirstRecordTapped(btnStartRecord, EventArgs.Empty);
-                        break;
-                    case "DpadDown":
-                        OnLastRecordTapped(btnLastRecord, EventArgs.Empty);
-                        break;
-                    case "Enter":
-                        OnSaveReading(btnSave, EventArgs.Empty);
-                        break;
-                }
-                //DisplayAlertAsync("Print Notice", $"Key Pressed: {keyCode.ToString()}", "Ok");
-            }
+    //            if (gridNumericPad.IsVisible)
+    //            {
+    //                switch (keyCode.ToString())
+    //                {
+    //                    case "Num1" or "F1":
+    //                        OnClickB1(btnNumber1, EventArgs.Empty);
+    //                        break;
+    //                    case "Num2" or "F2":
+    //                        OnClickB2(btnNumber2, EventArgs.Empty);
+    //                        break;
+    //                    case "Num3" or "F3":
+    //                        OnClickB3(btnNumber3, EventArgs.Empty);
+    //                        break;
+    //                    case "Num4" or "F4":
+    //                        OnClickB4(btnNumber4, EventArgs.Empty);
+    //                        break;
+    //                    case "Num5" or "F5":
+    //                        OnClickB5(btnNumber5, EventArgs.Empty);
+    //                        break;
+    //                    case "Num6" or "F6":
+    //                        OnClickB6(btnNumber6, EventArgs.Empty);
+    //                        break;
+    //                    case "Num7" or "F7":
+    //                        OnClickB7(btnNumber7, EventArgs.Empty);
+    //                        break;
+    //                    case "Num8" or "F8":
+    //                        OnClickB8(btnNumber8, EventArgs.Empty);
+    //                        break;
+    //                    case "Num9" or "F9":
+    //                        OnClickB9(btnNumber9, EventArgs.Empty);
+    //                        break;
+    //                    case "Num0" or "F10":
+    //                        OnClickB0(btnNumber0, EventArgs.Empty);
+    //                        break;
+    //                    case "Del":
+    //                        OnClickBackSpace(btnDel, EventArgs.Empty);
+    //                        break;
+    //                    case "Enter":
+    //                        OnClickOk(btnok, EventArgs.Empty);
+    //                        break;
+    //                }
+    //                btnok.Focus();
+    //            }
+    //            else
+    //            {
+    //                switch (keyCode.ToString())
+    //                {
+    //                    case "VideoApp5":
+    //                        OnPresReadingTapped(txtConsumerPresReading, EventArgs.Empty);
+    //                        break;
+    //                    case "VideoApp6":
+    //                        OnMeterNoTapped(txtConsumerMeterNo, EventArgs.Empty);
+    //                        break;
+    //                    case "DpadLeft":
+    //                        OnPrevRecordTapped(btnPrevRecord, EventArgs.Empty);
+    //                        break;
+    //                    case "DpadRight":
+    //                        OnNextRecordTapped(btnNextRecord, EventArgs.Empty);
+    //                        break;
+    //                    case "DpadUp":
+    //                        OnFirstRecordTapped(btnStartRecord, EventArgs.Empty);
+    //                        break;
+    //                    case "DpadDown":
+    //                        OnLastRecordTapped(btnLastRecord, EventArgs.Empty);
+    //                        break;
+    //                    case "Enter":
+    //                        OnSaveReading(btnSave, EventArgs.Empty);
+    //                        break;
+    //                }
+    //                //DisplayAlertAsync("Print Notice", $"Key Pressed: {keyCode.ToString()}", "Ok");
+    //            }
 
 
-        });
-#endif
-        OnConsumerLoad(ConsumerRecords.acctNo);
-        btnSave.Focus();
-    }
+    //        });
+    //#endif
+    //        OnConsumerLoad(ConsumerRecords.acctNo);
+    //        btnSave.Focus();
+    //    }
 
 
     protected override void OnDisappearing()
@@ -478,22 +604,11 @@ public partial class Reading : ContentPage
 
         gridDetails.IsVisible = true;
     }
-    private async void OnNextRecordTapped(object sender, EventArgs e)
-    {
-        OnNextRecord(pickerBillingFilter.SelectedIndex);
-    }
+    private void OnNextRecordTapped(object sender, EventArgs e) => OnNextRecord(pickerBillingFilter.SelectedIndex);
 
-    private async void OnPrevRecordTapped(object sender, EventArgs e)
-    {
-        OnPrevRecord(pickerBillingFilter.SelectedIndex);
-    }
+    private void OnPrevRecordTapped(object sender, EventArgs e) => OnPrevRecord(pickerBillingFilter.SelectedIndex);
 
-
-
-    private async void OnLastRecordTapped(object sender, EventArgs e)
-    {
-        OnFirstLastRecord(0, pickerBillingFilter.SelectedIndex);
-    }
+    private void OnLastRecordTapped(object sender, EventArgs e) => OnFirstLastRecord(0, pickerBillingFilter.SelectedIndex);
     private List<Consumers> Ordered(int status)
     {
         var src = ConsumerRecords.lstconsumers.Where(c => c.status == status);
@@ -559,25 +674,7 @@ public partial class Reading : ContentPage
         }
         else
         {
-            if (isFilterChange)
-            {
-                lblRecordNo.Text = "SeqNo: 0";
-                selected_idno = 0;
-                selected_seqno = 0;
-                txtConsumerAcctNo.Text = "";
-                lblTypeSize.Text = "";
-                txtConsumerName.Text = "";
-                txtConsumerMeterNo.Text = "";
-                txtConsumerAddress.Text = "";
-                txtConsumerPrevReading.Text = "0";
-                txtConsumerArrears.Text = "0.00";
-                txtConsumerUsage.Text = "0";
-                txtConsumerCurrentBill.Text = "0.00";
-                txtConsumerPresReading.Text = "0";
-                txtConsumerTotalBill.Text = "0.00";
-                pickerRemarks.SelectedIndex = -1;
-                isFilterChange = false;
-            }
+            if (isFilterChange) { ClearConsumerDetails(); isFilterChange = false; }
             await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
         }
     }
@@ -1243,30 +1340,30 @@ public partial class Reading : ContentPage
         txtCustomEntry.Text = txtCustomEntry.Text == "0" && selected_field == 0 ? "3" : txtCustomEntry.Text + "3";
     }
 
-    private async void OnClickOk(object sender, EventArgs e)
-    {
-        gridNumericPad.IsVisible = false;
-        gridDetails.IsEnabled = true;
-        if (txtCustomEntry.Text == "")
-        {
-            return;
-        }
+    //private async void OnClickOk(object sender, EventArgs e)
+    //{
+    //    gridNumericPad.IsVisible = false;
+    //    gridDetails.IsEnabled = true;
+    //    if (txtCustomEntry.Text == "")
+    //    {
+    //        return;
+    //    }
 
-        switch (selected_field)
-        {
-            case 0:
-                txtConsumerPresReading.Text = ParseFloat(txtCustomEntry.Text).ToString();
-                await RecomputeCurrentAsync(force: true);
-                break;
-            case 1:
-                OnFilterNameSearch(txtCustomEntry.Text);
-                break;
-            case 2:
-                OnFilterNameSearch(txtCustomEntry.Text);
-                break;
-        }
-        btnSave.Focus();
-    }
+    //    switch (selected_field)
+    //    {
+    //        case 0:
+    //            txtConsumerPresReading.Text = ParseFloat(txtCustomEntry.Text).ToString();
+    //            await RecomputeCurrentAsync(force: true);
+    //            break;
+    //        case 1:
+    //            OnFilterNameSearch(txtCustomEntry.Text);
+    //            break;
+    //        case 2:
+    //            OnFilterNameSearch(txtCustomEntry.Text);
+    //            break;
+    //    }
+    //    btnSave.Focus();
+    //}
     private void OnClickB0(object sender, EventArgs e)
     {
         txtCustomEntry.Text = txtCustomEntry.Text == "0" && selected_field == 0 ? "0" : txtCustomEntry.Text + "0";
@@ -1347,17 +1444,17 @@ public partial class Reading : ContentPage
         if (selectedItem == 0)
         {
             btnPrint.IsEnabled = false;
-            lblSummaryCount.Text = (ConsumerRecords.noofrecords_import - ConsumerRecords.noofrecordsBilled).ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
+            UpdateSummaryCount();
         }
         else if (selectedItem == 1)
         {
             btnPrint.IsEnabled = true;
-            lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
+            UpdateSummaryCount();
         }
         else
         {
 
-            lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
+            UpdateSummaryCount();
         }
 
         OnFirstLastRecord(1, pickerBillingFilter.SelectedIndex);
@@ -1380,86 +1477,80 @@ public partial class Reading : ContentPage
         txtConsumerTotalBill.Text = consumer.total_bill.ToString("#,##0.00");
         txtConsumerUsage.Text = consumer.usage.ToString("0.00");
     }
+    private readonly record struct ChargeResult(float CurrentBill, float Total, float Penalty);
+
+    private static async Task<ChargeResult> ComputeChargesAsync(Consumers c, float usage, float discount)
+    {
+        string prm = c.parameters ?? "";
+        float current;
+
+        if (prm.Contains("IsSewerage") && prm.Contains("IsFlatRate"))
+        {
+            current = c.sewerage;
+        }
+        else
+        {
+            float billable = Math.Max(0, usage - Math.Max(0, c.minusage));
+            var rates = await new DBService().GetBillrates(c.consumer_type, c.metersize);
+            if (rates == null || rates.Count == 0) return default;
+            current = (float)RateCalculator.Breakdown(rates, billable).Sum(l => l.Amount);
+        }
+
+        float penaltyBase = current - discount;
+        if (c.arrears > 0) penaltyBase += c.arrears;
+
+        return new ChargeResult(current, current + c.othercharges + c.arrears, penaltyBase * c.special_penalty_rate);
+    }
+
     private async Task<Consumers> OnInitialComputation(Consumers consumer)
     {
-        Consumers _tempconsumer = consumer;
         string remarks = pickerRemarks.SelectedIndex != -1 ? (pickerRemarks.SelectedItem?.ToString() ?? "") : "";
-        float presReading = ParseFloat(txtConsumerPresReading.Text);
+        float pres = ParseFloat(txtConsumerPresReading.Text);
+        float prev = ParseFloat(txtConsumerPrevReading.Text);
 
-        // NEW: these are fields, so reset them or the previous consumer's values leak in
-        _currentBillDiscount = 0;
-        _currentPenalty = 0;
-        _currentBillAmount = 0;
-        usage = 0;
-
-        if (presReading == 0 && remarks == "Zero Reading")
+        if (pres == 0 && remarks == "Zero Reading")
         {
-            _tempconsumer.usage = 0;
-            _tempconsumer.currentbill = 0;
-            _tempconsumer.penaltyamt = 0;
-            _tempconsumer.total_bill = 0;
-            return _tempconsumer;
+            consumer.usage = 0; consumer.currentbill = 0; consumer.penaltyamt = 0; consumer.total_bill = 0;
+            return consumer;
         }
 
-        if (remarks == "" || remarks == "Normal Reading")
-        {
-            usage = ParseFloat(txtConsumerPresReading.Text) - ParseFloat(txtConsumerPrevReading.Text);
-        }
-        else if (remarks == "Abnormal Reading" || remarks == "Abnoral Reading")
-        {
+        float usage;
+        if (remarks is "" or "Normal Reading")
+            usage = pres - prev;
+        else if (remarks is "Abnormal Reading" or "Abnoral Reading")
             usage = ParseFloat(txtConsumerUsage.Text);
-        }
         else if (remarks == "Meter Reset")
         {
-            // rollover depends on how many digits the previous reading has (4 digits -> 10000, 5 -> 100000, ...)
+            // rollover depends on digits of the previous reading (4 digits -> 10000, 5 -> 100000 ...)
             int digits = (txtConsumerPrevReading.Text ?? "").Split('.')[0].Length;
-            double rollover = Math.Pow(10, Math.Max(4, digits));
-            usage = (float)((rollover - ParseFloat(txtConsumerPrevReading.Text)) + ParseFloat(txtConsumerPresReading.Text));
+            usage = (float)((Math.Pow(10, Math.Max(4, digits)) - prev) + pres);
         }
         else if (remarks.Contains("-AM"))
         {
-            usage = _tempconsumer.average_usage;
-            float fAverageMoving = ParseFloat(txtConsumerPrevReading.Text) + usage;
-            txtConsumerPresReading.Text = fAverageMoving.ToString();
+            usage = consumer.average_usage;
+            txtConsumerPresReading.Text = (prev + usage).ToString();
         }
         else if (remarks.Contains("-ANM"))
         {
-            usage = _tempconsumer.average_usage;
+            usage = consumer.average_usage;
             txtConsumerPresReading.Text = txtConsumerPrevReading.Text;
         }
         else
-        {
-            usage = ParseFloat(txtConsumerPresReading.Text) - ParseFloat(txtConsumerPrevReading.Text);
-        }
+            usage = pres - prev;
 
-        if (consumer.change_meter_usage > 0)
-        {
-            usage = usage + consumer.change_meter_usage;
-        }
+        if (consumer.change_meter_usage > 0) usage += consumer.change_meter_usage;
+        usage = Math.Max(0, usage);
+        consumer.usage = usage;
 
-        if (usage < 0)
-        {
-            _tempconsumer.usage = 0;
-            usage = 0;
-        }
-        else
-        {
-            consumer.usage = usage;
-        }
+        float discount = 0;
+        if (consumer.less_usage > 0)
+            discount = (await ComputeChargesAsync(consumer, consumer.less_usage, 0)).CurrentBill;
 
-        if (_tempconsumer.less_usage > 0)
-        {
-            // NEW: the discount is the BILL for the less-usage, not bill + arrears + others
-            await OnTotalBillCompute(_tempconsumer, _tempconsumer.less_usage);
-            _currentBillDiscount = _currentBillAmount;
-        }
-
-        float _currentTotalBill = await OnTotalBillCompute(_tempconsumer, usage);
-        _tempconsumer.penaltyamt = _currentPenalty;
-        _tempconsumer.currentbill = _currentBillAmount;
-        _tempconsumer.total_bill = _currentTotalBill;
-
-        return _tempconsumer;
+        var r = await ComputeChargesAsync(consumer, usage, discount);
+        consumer.penaltyamt = r.Penalty;
+        consumer.currentbill = r.CurrentBill;
+        consumer.total_bill = r.Total;
+        return consumer;
     }
     private async Task<float> OnTotalBillCompute(Consumers consumer, float _paramUsage)
     {
@@ -1830,8 +1921,7 @@ public partial class Reading : ContentPage
     // NEW: all money math for DoPrintBill lives here.
     //      DoPrintBill just prints the pre-computed values.
     // =========================================================================
-    private static BillAmounts ComputeBillAmounts(Consumers consumer,
-    bool isSJWD, bool isMVWD, bool isIndangWD, bool isCWD, bool isPlaWD,
+    private static BillAmounts ComputeBillAmounts(Consumers consumer, District d,
     decimal maintenanceFee = 0m, decimal sewerageRate = 0m,
     List<CommodityLine>? commodityLines = null)
     {
@@ -1848,7 +1938,7 @@ public partial class Reading : ContentPage
         };
 
         decimal currentBill;
-        if (isPlaWD && commodityLines != null && commodityLines.Count > 0)
+        if (d.PLAWD && commodityLines != null && commodityLines.Count > 0)
             currentBill = commodityLines.Sum(l => RoundMLS(l.Amount, rule));
         else
             currentBill = RoundMLS(Convert.ToDecimal(consumer.currentbill), rule);
@@ -1856,7 +1946,7 @@ public partial class Reading : ContentPage
         decimal fileSewerage = float.IsNaN(consumer.sewerage) ? 0m : Convert.ToDecimal(consumer.sewerage);
         decimal sewerageAmount = 0m;
 
-        if (isMVWD)
+        if (d.MVWD)
         {
             if (bill.IsSewerage)
             {
@@ -1886,12 +1976,12 @@ public partial class Reading : ContentPage
         if (bill.MaintenanceFee > 0) runningTotalBill += bill.MaintenanceFee;
 
         // districts whose penalty is NOT charged on the sewerage / maintenance fees
-        bool feesOutOfPenalty = isCWD || isPlaWD;      // add future districts here
+        bool feesOutOfPenalty = d.CWD || d.PLAWD;      // add future districts here
         decimal penaltyBase = runningTotalBill;
         if (feesOutOfPenalty) penaltyBase -= bill.SewerageAmount + bill.MaintenanceFee;
 
         bill.SeniorDiscount = 0m;
-        if (!isIndangWD)
+        if (!d.IWD)
         {
             bool isSenior = prm.Contains("IsSenior");
             if (isSenior && consumer.usage <= 30)
@@ -1917,7 +2007,7 @@ public partial class Reading : ContentPage
 
         bill.BeforeDueTotal = RoundMLS(runningTotalBill, rule);
 
-        int penaltyDecimals = isMVWD ? 1 : 2;          // MVWD keeps 1 decimal on the penalty
+        int penaltyDecimals = d.MVWD ? 1 : 2;          // MVWD keeps 1 decimal on the penalty
         if (penaltyAmount < 0 || consumer.isnopenalty == 1) penaltyAmount = 0m;
         else penaltyAmount = RoundMLS(penaltyAmount, rule, penaltyDecimals);
 
@@ -1931,27 +2021,36 @@ public partial class Reading : ContentPage
         // every tier row of a type/size carries the same fee
         return rates != null && rates.Count > 0 ? Convert.ToDecimal(rates[0].maintenance_fee) : 0m;
     }
+    private readonly record struct District(bool SJWD, bool MVWD, bool IWD, bool CWD, bool PLAWD)
+    {
+        public static District From(string? p)
+        {
+            p ??= "";
+            return new(p.Contains("[SJWD]"),
+                              p.Contains("[MVWD]"),
+                               p.Contains("[IWD]"),
+                               p.Contains("[CWD]"),
+                             p.Contains("[PLAWD]"));
+        }
+    }
+
+    private static readonly (string Tag, string[] Lines)[] CompanyHeaders =
+    {
+        ("[IWD]",   new[] { "San Gregorio St., Indang, Cavite", "NON VAT Reg.TIN 000-773-614-000", "Mobile#: 0917-825-3813" }),
+        ("[CWD]",   new[] { "Lakeview Subd.Halang,Calamba City", "NON VAT Reg.TIN 001-222-423-00000", "Tel#: 545-2863/545-1614/545-9344" }),
+        ("[SJWD]",  new[] { "HallSt,Poblacion,SanJuan,Batangas", "NON VAT Reg.TIN 001-774-488-000", "Mobile#: 09199947756" }),
+        ("[MVWD]",  new[] { "Pantay Daya,Vigan City,IlocosSur", "TIN 000-566-175-000 Non-VAT", "Tel. No. 077-674-0870" }),
+        ("[PLAWD]", new[] { "Poblacion,Plaridel,Bulacan", "NON VAT Reg. TIN 000-547-793-00000", "Tel. No: 795-01-02" }),
+    };
     public Task<string> DoPrintBill(Consumers consumer) => PrintGate.RunAsync(() => DoPrintBillCore(consumer));
     public async Task<string> DoPrintBillCore(Consumers consumer)
     {
         string result = "";
-        string strHeaderFileName = MOA.GetClientLogo(consumer.parameters);
-
-        InitializeDB();
-
-        bool IsSJWD = consumer.parameters.Contains("[SJWD]");
-        bool IsMVWD = consumer.parameters.Contains("[MVWD]");
-        bool IsIndangWD = consumer.parameters.Contains("[IWD]");
-        bool IsCWD = consumer.parameters.Contains("[CWD]");
-        bool IsPlaWD = consumer.parameters.Contains("[PLAWD]");
-        var rule = GetRoundingRule(consumer.parameters);
-
+        string parameters = consumer.parameters ?? "";
+        string strHeaderFileName = MOA.GetClientLogo(parameters);
+        var d = District.From(parameters);
+        var rule = GetRoundingRule(parameters);
         var paper = PaperProfile.FromLineSpace(MyDeviceInfo.currentPrintConfig.linespacing);
-        if (paper == null)
-        {
-            return "Invalid Line Space setting. Please check the printer configuration and try again.";
-        }
-
 
 #if ANDROID
         bool hasPermission = await BluetoothPermissionHelper.EnsureBluetoothPermissionsAsync();
@@ -1974,45 +2073,27 @@ public partial class Reading : ContentPage
         var printer = new EscPOScmdPrint { Profile = paper };
         try
         {
-
-            decimal maintenanceFee = 0m;
-            decimal sewerageRate = 0m;
-            List<CommodityLine>? commodityLines = null;
-
-            var rates = Database.Table<Billing_rates>()
-                .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
-                .OrderBy(b => b.bill_id)
-                .ToList();
-
+            // ---- rates (cached, off the UI thread) ----
+            var rates = await new DBService().GetBillrates(consumer.consumer_type, consumer.metersize);
+            decimal maintenanceFee = 0m, sewerageRate = 0m;
+            string typeDesc = "";
             if (rates.Count > 0)
             {
-                maintenanceFee = Convert.ToDecimal(rates[0].maintenance_fee);   // everyone
-                sewerageRate = Convert.ToDecimal(rates[0].sewerage);            // everyone
+                maintenanceFee = Convert.ToDecimal(rates[0].maintenance_fee);
+                sewerageRate = Convert.ToDecimal(rates[0].sewerage);
+                typeDesc = (rates[0].constype_description ?? "").Trim();
             }
-            if (IsPlaWD && consumer.currentbill > 0)                            // commodity lines stay Plaridel-only
+
+            List<CommodityLine>? commodityLines = null;
+            if (d.PLAWD && consumer.currentbill > 0)
                 commodityLines = RateCalculator.Breakdown(rates, consumer.usage, consumer.minusage);
-            // CHANGED: pass the lines in
-            BillAmounts bill = ComputeBillAmounts(consumer, IsSJWD, IsMVWD, IsIndangWD, IsCWD, IsPlaWD, maintenanceFee, sewerageRate, commodityLines);
-            string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
-            await printer.ConnectAndPrepareAsync(macAddress);
-            //await printer.AlignAsync(PrintAlign.Left);   // we do alignment ourselves
 
-            // ================= LOGO =================
-            await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);
-            await printer.FeedAsync(1);
-            // ================= DATES =================
-            string[] inputFormats =
-            {
-            "yyyy-MM-dd hh:mm:ss tt", "yyyy-MM-dd h:mm:ss tt",
-            "yyyy-MM-dd", "yyyy-dd-MM", "yyyy-M-d", "yyyy-d-m",
-            "MM-dd-yyyy", "dd-MM-yyyy", "M/d/yyyy", "d/M/yyyy",
-            "MM/d/yyyy", "dd/M/yyyy", "M/dd/yyyy", "d/MM/yyyy",
-            "MM/dd/yyyy", "dd/MM/yyyy"
-            };
+            BillAmounts bill = ComputeBillAmounts(consumer, d, maintenanceFee, sewerageRate, commodityLines);
 
-            DateTime billduedate = DateTime.ParseExact(consumer.duedate, inputFormats, CultureInfo.InvariantCulture);
-            DateTime prevbilldate = DateTime.ParseExact(consumer.prevreadingdate, inputFormats, CultureInfo.InvariantCulture);
-            DateTime currentbilldate = DateTime.ParseExact(consumer.billdate, inputFormats, CultureInfo.InvariantCulture);
+            // ---- dates ----
+            DateTime currentbilldate = MOA.ParseBillDate(consumer.billdate);
+            DateTime billduedate = MOA.ParseBillDate(consumer.duedate, currentbilldate);
+            DateTime prevbilldate = MOA.ParseBillDate(consumer.prevreadingdate, currentbilldate);
 
             string printDueDate = billduedate.ToString("MM/dd/yyyy");
             string printPrevDate = prevbilldate.ToString("MM/dd/yyyy");
@@ -2026,49 +2107,27 @@ public partial class Reading : ContentPage
                 discDay == "Sunday" ? billduedate.AddDays(3).ToString("MM/dd/yy") :
                                         billduedate.AddDays(2).ToString("MM/dd/yy");
 
-            // ============= COMPANY HEADER =============
-            if (IsIndangWD)
-            {
-                await printer.PrintTextAsync("San Gregorio St., Indang, Cavite", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("NON VAT Reg.TIN 000-773-614-000", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("Mobile#: 0917-825-3813", PrintAlign.Center, smallOn32: true);
-            }
-            else if (IsCWD)
-            {
-                await printer.PrintTextAsync("Lakeview Subd.Halang,Calamba City", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("NON VAT Reg.TIN 001-222-423-00000", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("Tel#: 545-2863/545-1614/545-9344", PrintAlign.Center, smallOn32: true);
-            }
-            else if (IsSJWD)
-            {
-                await printer.PrintTextAsync("HallSt,Poblacion,SanJuan,Batangas", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("NON VAT Reg.TIN 001-774-488-000", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("Mobile#: 09199947756", PrintAlign.Center, smallOn32: true);
-            }
-            else if (IsMVWD)
-            {
-                await printer.PrintTextAsync("Pantay Daya,Vigan City,IlocosSur", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("TIN 000-566-175-000 Non-VAT", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("Tel. No. 077-674-0870", PrintAlign.Center, smallOn32: true);
-            }
-            else if (IsPlaWD)
-            {
-                await printer.PrintTextAsync("Poblacion,Plaridel,Bulacan", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("NON VAT Reg. TIN 000-547-793-00000 ", PrintAlign.Center, smallOn32: true);
-                await printer.PrintTextAsync("Tel. No: 795-01-02", PrintAlign.Center, smallOn32: true);
-            }
+            string macAddress = EscPOScmdPrint.NormalizeMacAddress(MyDeviceInfo.currentPrintConfig.bluetooth_address);
+            await printer.ConnectAndPrepareAsync(macAddress);
+
+            // ================= LOGO + HEADER =================
+            await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);
+            await printer.FeedAsync(1);
+
+            var header = CompanyHeaders.FirstOrDefault(h => parameters.Contains(h.Tag)).Lines;
+            if (header != null)
+                foreach (var line in header)
+                    await printer.PrintTextAsync(line, PrintAlign.Center, smallOn32: true);
 
             await printer.PrintSeparatorAsync(' ');
 
             // ================= TITLE =================
-            if (IsPlaWD)
-            {
-                await printer.PrintTextAsync("STATEMENT OF ACCOUNT", PrintAlign.Center, new PrintStyle(Bold: true, Wide: true, High: true), new PrintStyle(Bold: true, High: true));
-            }
+            if (d.PLAWD)
+                await printer.PrintTextAsync("STATEMENT OF ACCOUNT", PrintAlign.Center,
+                    new PrintStyle(Bold: true, Wide: true, High: true), new PrintStyle(Bold: true, High: true));
             else
-            {
-                await printer.PrintTextAsync("BILLING NOTICE", PrintAlign.Center, new PrintStyle(Bold: true, Wide: true, High: true));
-            }
+                await printer.PrintTextAsync("BILLING NOTICE", PrintAlign.Center,
+                    new PrintStyle(Bold: true, Wide: true, High: true));
 
             await printer.PrintTextAsync("For the month of " + printCurrentMonthYear, PrintAlign.Center);
             await printer.PrintTextAsync("(" + printPrevMonth + " Consumption)", PrintAlign.Center);
@@ -2078,47 +2137,29 @@ public partial class Reading : ContentPage
             await printer.PrintTextAsync(consumer.consumer_name, PrintAlign.Left, new PrintStyle(High: true));
             await printer.PrintTextAsync(consumer.address, PrintAlign.Left);
 
-            if (IsPlaWD)
-            {
-                string consumerTypeDescription = Database.Table<Billing_rates>()
-                    .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
-                    .Select(b => b.constype_description)
-                    .FirstOrDefault() ?? "";
+            if (d.PLAWD && typeDesc.Length > 0)
+                await printer.PrintTextAsync(typeDesc, PrintAlign.Left);
 
-                if (!string.IsNullOrWhiteSpace(consumerTypeDescription))
-                    await printer.PrintTextAsync(consumerTypeDescription.Trim(), PrintAlign.Left);
-            }
-
-            string accountNoText = (IsMVWD || IsSJWD)
+            string accountNoText = (d.MVWD || d.SJWD)
                 ? "AccountNo   : " + consumer.accountNo + "-" + consumer.consumer_type + consumer.metersize
                 : "AccountNo   : " + consumer.accountNo;
             await printer.PrintTextAsync(accountNoText, PrintAlign.Left, new PrintStyle(High: true));
 
-            if (IsSJWD)
-            {
-                string consumerTypeDescription = Database.Table<Billing_rates>()
-                    .Where(b => b.consumer_type == consumer.consumer_type && b.metersize == consumer.metersize)
-                    .Select(b => b.constype_description)
-                    .FirstOrDefault() ?? "";
-
-                if (!string.IsNullOrWhiteSpace(consumerTypeDescription))
-                    await printer.PrintTextAsync(consumerTypeDescription.Trim(), PrintAlign.Left);
-            }
+            if (d.SJWD && typeDesc.Length > 0)
+                await printer.PrintTextAsync(typeDesc, PrintAlign.Left);
 
             await printer.PrintTextAsync("Meter No.   : " + consumer.meterno, PrintAlign.Left);
-            if (IsSJWD)
+            if (d.SJWD)
                 await printer.PrintTextAsync("Seq. No.    : " + consumer.seqno, PrintAlign.Left);
 
             await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
-
             await printer.PrintRowAsync("Period From", printPrevDate);
             await printer.PrintRowAsync("Period To", printCurrentDate);
             await printer.PrintRowAsync("Due Date", printDueDate, new PrintStyle(High: true));
             await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
-            // ============= AMOUNT CALCULATION =============
-            // All amounts come pre-computed/pre-rounded from ComputeBillAmounts().
-            if (!bill.IsFlatRate || !IsMVWD)
+            // ============= READINGS =============
+            if (!bill.IsFlatRate || !d.MVWD)
             {
                 await printer.PrintRowAsync("Pres Reading", consumer.presreading.ToString());
                 await printer.PrintRowAsync("Prev Reading", consumer.prevreading.ToString());
@@ -2126,137 +2167,102 @@ public partial class Reading : ContentPage
                 await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             }
 
-            if (IsPlaWD && commodityLines != null && commodityLines.Count > 0)
+            if (d.PLAWD && commodityLines is { Count: > 0 })
             {
                 await printer.PrintTextAsync("COMMODITY CHARGES", PrintAlign.Left, new PrintStyle(Bold: true));
                 foreach (var line in commodityLines)
                 {
-                    string left = line.IsMinimum
-                        ? line.Label
-                        : $"{line.Label} x {line.Rate:0.00}";
+                    string left = line.IsMinimum ? line.Label : $"{line.Label} x {line.Rate:0.00}";
                     await printer.PrintRowAsync(left, RoundMLS(line.Amount, rule).ToString("#,##0.00"));
                 }
                 await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             }
 
+            // ============= AMOUNTS =============
             if (bill.CurrentBill > 0)
                 await printer.PrintRowAsync("Current Bill", bill.CurrentBill.ToString("#,##0.00"));
 
-            if (bill.SewerageAmount > 0)
-                await printer.PrintRowAsync(IsMVWD ? "Sewerage" : IsCWD ? "ESF" : IsPlaWD ? "Environmental/Septage Fee" : "Septage Mgmt. Fee",
-                                            bill.SewerageAmount.ToString("#,##0.00"));
+            if (bill.SewerageAmount != 0)
+                await printer.PrintRowAsync(
+                    d.MVWD ? "Sewerage" : d.CWD ? "ESF" : d.PLAWD ? "Environmental/Septage Fee" : "Septage Mgmt. Fee",
+                    bill.SewerageAmount.ToString("#,##0.00"));
 
-            if (bill.MaintenanceFee > 0)
-            {
+            if (bill.MaintenanceFee != 0)
                 await printer.PrintRowAsync("Maintenance Fee", bill.MaintenanceFee.ToString("#,##0.00"));
-            }
-
 
             if (bill.ShowSeniorDiscount)
                 await printer.PrintRowAsync("Senior Discount", bill.SeniorDiscount.ToString("#,##0.00"));
 
-            await printer.PrintRowAsync(consumer.arrears < 0 ? "Advance" : "Arrears",
-                                        bill.Arrears.ToString("#,##0.00"));
+            await printer.PrintRowAsync(consumer.arrears < 0 ? "Advance" : "Arrears", bill.Arrears.ToString("#,##0.00"));
 
             if (bill.Others > 0)
             {
-                if (IsPlaWD)
+                if (d.PLAWD)
                 {
                     var otherItems = ParseOtherCharges(consumer.othercharges_details);
-
-                    // print the details only when they add up to the Others total, otherwise one "Others" line
                     if (otherItems.Count > 0 && otherItems.Sum(o => o.Amount) == bill.Others)
-                    {
                         foreach (var (name, amount) in otherItems)
                             await printer.PrintRowAsync(name, amount.ToString("#,##0.00"));
-                    }
                 }
                 else
-                {
                     await printer.PrintRowAsync("Others", bill.Others.ToString("#,##0.00"));
-                }
             }
 
-            await printer.PrintRowAsync(IsPlaWD ? "TOTAL DUE" : "BEFORE DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
-                                        new PrintStyle(High: true));
-
-
-
+            await printer.PrintRowAsync(d.PLAWD ? "TOTAL DUE" : "BEFORE DUE",
+                bill.BeforeDueTotal.ToString("#,##0.00"), new PrintStyle(High: true));
             await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
 
             await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
-            await printer.PrintRowAsync(IsPlaWD ? "Penalty (10%)" : "Penalty", bill.PenaltyAmount.ToString("#,##0.00"));
+            await printer.PrintRowAsync(d.PLAWD ? "Penalty (10%)" : "Penalty", bill.PenaltyAmount.ToString("#,##0.00"));
 
-
-
-
-            if (IsPlaWD)
+            if (d.PLAWD)
             {
-                await printer.PrintRowAsync("AFTER DUE DATE", bill.AfterDueTotal.ToString("#,##0.00"),
-                                        new PrintStyle(High: true));
+                await printer.PrintRowAsync("AFTER DUE DATE", bill.AfterDueTotal.ToString("#,##0.00"), new PrintStyle(High: true));
                 await printer.PrintSeparatorAsync(SeparatorStyle.DoubleBroken);
                 await printer.PrintTextAsync("DISCONNECTION REMINDER", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
                 await printer.PrintTextAsync("FOR DISCONNECTION FIVE(5) DAYS", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
                 await printer.PrintTextAsync("AFTER DUE DATE", PrintAlign.Center, new PrintStyle(Bold: true, High: true));
+                await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
             }
             else
             {
-                await printer.PrintRowAsync("AFTER DUE", bill.AfterDueTotal.ToString("#,##0.00"),
-                                        new PrintStyle(High: true));
-            }
-
-            if (!IsPlaWD)
-            {
+                await printer.PrintRowAsync("AFTER DUE", bill.AfterDueTotal.ToString("#,##0.00"), new PrintStyle(High: true));
                 await printer.PrintSeparatorAsync(SeparatorStyle.DoubleBroken);
             }
-            if (IsPlaWD)
-            {
-                await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
-            }
 
-            if (IsSJWD)
+            // ============= DISCONNECTION / READING DATE =============
+            if (d.SJWD)
             {
-                if (bill.AfterDueTotal > 0.00m)
+                if (bill.AfterDueTotal > 0m)
                 {
                     await printer.PrintTextAsync("DUE FOR DISCONNECTION ON " + printDiscDate,
-                                                 PrintAlign.Center, new PrintStyle(High: true));
+                        PrintAlign.Center, new PrintStyle(High: true));
                     await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
                 }
             }
             else
             {
-                if (IsMVWD && bill.Arrears >= 215.5m)
+                if (d.MVWD && bill.Arrears >= 215.5m)
                 {
                     await printer.PrintRowAsync("Discon Date", printDiscDate, new PrintStyle(High: true));
                     await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
                 }
-                if (IsCWD)
-                {
-                    await printer.PrintRowAsync("Reading Date/Time", currentbilldate.ToString("MM/dd/yyyy hh:mm tt"), new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
-                }
+
+                if (d.CWD)
+                    await printer.PrintRowAsync("Reading Date/Time", currentbilldate.ToString("MM/dd/yyyy hh:mm tt"),
+                        new PrintStyle(FontB: true, WidthMul: 1, HeightMul: 1));
                 else
-                {
                     await printer.PrintRowAsync("Reading Date", currentbilldate.ToString("MM/dd/yyyy"));
 
-                }
-
-                if (!IsPlaWD)
-                {
+                if (!d.PLAWD)
                     await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
-                }
-
             }
 
-            string printRemarks = string.IsNullOrWhiteSpace(consumer.remarks) ? "Normal Reading" : consumer.remarks;
-
-            await printer.PrintRowAsync("Remarks", printRemarks);
-
+            await printer.PrintRowAsync("Remarks", string.IsNullOrWhiteSpace(consumer.remarks) ? "Normal Reading" : consumer.remarks);
             await printer.PrintRowAsync("Meter Reader", consumer.billedby);
-
-
             await printer.FeedAsync();
 
-            if (!IsPlaWD)
+            if (!d.PLAWD)
             {
                 await printer.PrintTextAsync("This is not valid as", PrintAlign.Center);
                 await printer.PrintTextAsync("Official Receipt", PrintAlign.Center);
@@ -2267,52 +2273,27 @@ public partial class Reading : ContentPage
             }
 
             // ================= NOTICES =================
-
             string strNotif = LoginUser.login_user.msgmo;
             if (!string.IsNullOrWhiteSpace(strNotif))
-                if (IsPlaWD)
+            {
+                if (d.PLAWD)
                 {
                     await printer.PrintTextAsync("- ANNOUNCEMENT -", PrintAlign.Center);
                     await printer.PrintTextAsync(strNotif, PrintAlign.Left, new PrintStyle(FontB: true));
                 }
                 else
-                {
                     await printer.PrintTextAsync("REMINDER : " + strNotif, PrintAlign.Left);
-                }
-            if (IsPlaWD)
-            {
+            }
+
+            if (d.PLAWD)
                 await printer.PrintTextAsync("PAY YOUR BILLS ON TIME TO AVOID PENALTY", PrintAlign.Center);
-            }
 
-            // ================= BARCODE =================
-            if (IsPlaWD)
-            {
-                await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
-                                            widthFraction: 1.2, heightDots: 70,
-                                            humanText: false, maxModuleDots: 3,
-                                            align: PrintAlign.Center);
-            }
-            else
-            {
-                await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
-                                            widthFraction: 1.2, heightDots: 70,
-                                            humanText: false, maxModuleDots: 3,
-                                            align: PrintAlign.Center);
-            }
+            // ================= BARCODE (same for all districts) =================
+            await printer.WriteBarcodeAsync(consumer.accountNo.Trim(), BarcodeType.Code128,
+                widthFraction: 1.2, heightDots: 70, humanText: false, maxModuleDots: 3, align: PrintAlign.Center);
 
-
-            // ============== SEND EVERYTHING ==============
-            if (IsPlaWD)
-            {
-                await printer.FeedAsync(3);
-            }
-            else
-            {
-                await printer.FeedAsync(2);
-            }
-
+            await printer.FeedAsync(d.PLAWD ? 3 : 2);
             await printer.FlushAsync();
-
             result = "Done printing.";
         }
         catch (Exception ex)
@@ -2321,12 +2302,11 @@ public partial class Reading : ContentPage
         }
         finally
         {
-            await printer.CloseAsync();   // flush + drain + close (replaces Task.Delay + Disconnect)
+            await printer.CloseAsync();
         }
 #else
     result = "Printing is only implemented for Android.";
 #endif
-
         return result;
     }
 
@@ -2473,11 +2453,11 @@ public partial class Reading : ContentPage
 
             int selectedItem = pickerBillingFilter.SelectedIndex;
             if (selectedItem == 0)
-                lblSummaryCount.Text = (ConsumerRecords.noofrecords_import - ConsumerRecords.noofrecordsBilled).ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
+                UpdateSummaryCount();
             else if (selectedItem == 1)
-                lblSummaryCount.Text = ConsumerRecords.noofrecordsBilled.ToString() + " / " + ConsumerRecords.noofrecords_import.ToString();
+                UpdateSummaryCount();
             else
-                lblSummaryCount.Text = "0 / " + ConsumerRecords.noofrecords_import.ToString();
+                UpdateSummaryCount();
 
             if (MyDeviceInfo.currentPrintConfig != null)
             {
