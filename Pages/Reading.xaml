@@ -459,13 +459,12 @@ FontSize="14"
                             Grid.Row="0" Grid.Column="0" Grid.RowSpan="5"                            
                              />
                     <BoxView x:Name="boxWhite" 
-                            Color="White"                            
-                            CornerRadius="10"
-                            IsVisible="true"
-                            Margin="10,30,10,10"
-                            Grid.Row="0" Grid.Column="0" Grid.RowSpan="4"
-                             />
-                    
+                             Color="White"                            
+                             CornerRadius="10"
+                             IsVisible="true"
+                             Margin="10,30,10,10"
+                             Grid.Row="0" Grid.Column="0" Grid.RowSpan="4" />           
+
                     <Label x:Name="lblRecordNo" 
                         Grid.Row="0" Grid.Column="0"     
                            Margin="10,5,0,0"
@@ -483,7 +482,7 @@ FontSize="14"
                         TextColor="White"
                         FontSize="16"                                                  
                         HorizontalOptions="Center"/>
-                    <Grid Grid.Row="1" Grid.Column="0" Margin="20,0,20,0">
+                    <Grid Grid.Row="1" Grid.Column="0" Margin="20,5,20,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -518,16 +517,28 @@ FontSize="14"
                                 <TapGestureRecognizer Tapped="OnPrevRecordTapped" />
                             </Image.GestureRecognizers>
                         </Image>
-                        <HorizontalStackLayout Grid.Row="0" Grid.Column="2" Spacing="6" BackgroundColor="Yellow"
+                        <HorizontalStackLayout Grid.Row="0" Grid.Column="2" Spacing="6"
                        HorizontalOptions="Center" VerticalOptions="Center">
-                            <Entry x:Name="txtConsumerAcctNo" IsReadOnly="True" Placeholder="00-000000"
-           FontSize="18" TextColor="Black" PlaceholderColor="Gray" BackgroundColor="Yellow">
-                                <Entry.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnAcctNoTapped" />
-                                </Entry.GestureRecognizers>
-                            </Entry>
-                            <Label x:Name="lblTypeSize" FontSize="18" FontAttributes="Bold" TextColor="Black"
-           VerticalOptions="Center" Margin="0,0,6,0" />
+                            <!-- Account No pill -->
+                            <Grid>
+                                <BoxView Color="Yellow" CornerRadius="5">
+                                    <BoxView.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnAcctNoTapped" />
+                                    </BoxView.GestureRecognizers>
+                                </BoxView>
+                                <Label x:Name="txtConsumerAcctNo" Text="" FontSize="18" TextColor="Black"
+               Margin="10,6,10,6" VerticalOptions="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnAcctNoTapped" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Grid>
+                            <!-- Type/Size pill -->
+                            <Grid>
+                                <BoxView Color="Yellow" CornerRadius="5" />
+                                <Label x:Name="lblTypeSize" FontSize="18" FontAttributes="Bold" TextColor="Black"
+               Margin="8,6,8,6" VerticalOptions="Center" />
+                            </Grid>
                         </HorizontalStackLayout>
                         <Image x:Name="btnNextRecord" 
                             Grid.Row="0"
@@ -557,7 +568,7 @@ WidthRequest="30" >
                             Grid.Row="2" Grid.Column="0"                            
                             HeightRequest="330">-->
                         <Grid x:Name="gridConsumerDetails" Grid.Row="2" Grid.Column="0"    
-                            Padding="0,0,0,0">
+                            Padding="0,0,5,5">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
@@ -593,20 +604,15 @@ WidthRequest="30" >
                                 <TapGestureRecognizer Tapped="OnNameTapped" />
                             </Label.GestureRecognizers>
                         </Label>
-                        <BoxView Color="Yellow" CornerRadius="5" Grid.Row="1" Grid.Column="1" Margin="0,3,10,0">
+                        <BoxView Color="Yellow" CornerRadius="5" Grid.Row="1" Grid.Column="1"
+         Margin="0,3,10,0" MinimumHeightRequest="44">
                             <BoxView.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnNameTapped" />
                             </BoxView.GestureRecognizers>
                         </BoxView>
-                        <Label x:Name="txtConsumerName"
-                               TextColor="Black"
-                                Grid.Row="1"
-                                Grid.Column="1"     
-                                Text="Juan dela Cruz"
-                                MaxLines="2"
-                                Margin="10,5,10,0"          
-                                FontSize="14"                                                                                 
-                                HorizontalOptions="Fill">
+                        <Label x:Name="txtConsumerName" Grid.Row="1" Grid.Column="1"
+       Text="Juan dela Cruz" TextColor="Black" MaxLines="2" FontSize="14"
+       Margin="10,5,15,5" VerticalOptions="Center" HorizontalOptions="Fill">
                             <Label.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnNameTapped" />
                             </Label.GestureRecognizers>
@@ -619,29 +625,20 @@ WidthRequest="30" >
                                 FontSize="14"
                                 Margin="10"                                
                                 HorizontalOptions="End"/>
-                        <BoxView Color="Yellow"
-                                 Grid.Row="2"
-            Grid.Column="1"
-Margin="0,3,0,0"
-CornerRadius="5"       
-IsVisible="true"
-HorizontalOptions="FillAndExpand"
-VerticalOptions="FillAndExpand" >
-
-                            </BoxView>
-                            <Label x:Name="txtConsumerMeterNo"
-                                   TextColor="Black"
-                                    Grid.Row="2"
-                Grid.Column="1"     
-                Text="4567890"
-                Margin="10"
-                FontSize="16"                
-                HorizontalOptions="Fill">
-                                <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnMeterNoTapped" />
-                                </Label.GestureRecognizers>
-                            </Label>
-                            <Label x:Name="lbladdress" 
+                        <BoxView Color="Yellow" Grid.Row="2" Grid.Column="1"
+         Margin="0,3,10,0" CornerRadius="5" MinimumHeightRequest="44">
+                            <BoxView.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnMeterNoTapped" />
+                            </BoxView.GestureRecognizers>
+                        </BoxView>
+                        <Label x:Name="txtConsumerMeterNo" Grid.Row="2" Grid.Column="1"
+       Text="4567890" TextColor="Black" FontSize="16"
+       Margin="10,5,15,5" VerticalOptions="Center" HorizontalOptions="Fill">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnMeterNoTapped" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Label x:Name="lbladdress" 
                                 Grid.Row="3"
                 Grid.Column="0"
                 FontAttributes="Bold"
@@ -667,35 +664,22 @@ VerticalOptions="FillAndExpand" >
                 FontSize="14"
                 Margin="10"                                
                 HorizontalOptions="End"/>
-                            <BoxView Color="#3269cd"
-                                     Grid.Row="4"
-                Grid.Column="1"
-    Margin="0,3,0,0"
-    CornerRadius="5"     
-    
-    HorizontalOptions="FillAndExpand"
-    VerticalOptions="FillAndExpand" >
+                        <BoxView Color="#3269cd" Grid.Row="4" Grid.Column="1"
+         Margin="0,3,10,0" CornerRadius="5">
+                            <BoxView.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnPresReadingTapped" />
+                            </BoxView.GestureRecognizers>
+                        </BoxView>
+                        <Label x:Name="txtConsumerPresReading" Grid.Row="4" Grid.Column="1"
+       Text="0" TextColor="White" FontSize="18"
+       HorizontalTextAlignment="End" VerticalOptions="Center"
+       Margin="10,5,15,3" HorizontalOptions="Fill">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnPresReadingTapped" />
+                            </Label.GestureRecognizers>
+                        </Label>
 
-                            </BoxView>
-                            <!--IsReadOnly="True"
-Keyboard="Numeric"-->
-                            <Label x:Name="txtConsumerPresReading"                                    
-                                Grid.Row="4"
-                Grid.Column="1"     
-                Text="0"
-                HorizontalTextAlignment="End"
-                                   VerticalOptions="Center"
-                                   TextColor="White"
-                Margin="10,0,13,0"
-                FontSize="18" 
-                                   
-                HorizontalOptions="Fill" >
-                                <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnPresReadingTapped" />
-                                </Label.GestureRecognizers>
-                            </Label>
-                          
-                            <Grid  Grid.Row="5"
+                        <Grid  Grid.Row="5"
 Grid.Column="0" Grid.ColumnSpan="2"     >
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" /> 
@@ -880,15 +864,7 @@ Margin="10,5,13,0"
 FontSize="16"
                                
 HorizontalOptions="Fill"/>-->
-                        <BoxView Color="Black"
-                                 Grid.Row="10"
-            Grid.Column="1"
-Margin="0,3,0,0"
-CornerRadius="5"   
-
-IsVisible="true"
-HorizontalOptions="FillAndExpand"
-VerticalOptions="FillAndExpand" />
+                       
                             <Label Grid.Row="10" x:Name="lbltotalbill"
                 Grid.Column="0"
                 FontAttributes="Bold"
@@ -897,17 +873,14 @@ VerticalOptions="FillAndExpand" />
                 FontSize="14"
                 Margin="10"                                
                 HorizontalOptions="End"/>
-                            <Label x:Name="txtConsumerTotalBill"  
-                                    Grid.Row="10"
-                Grid.Column="1"
-                HorizontalTextAlignment="End"
-                Text="0.00"
-                Margin="10,5,13,0"      
-                           TextColor="Yellow"            
-                FontSize="18"
-                                             
-                HorizontalOptions="Fill"/>
-                            <Label Grid.Row="11"
+
+                        <BoxView Color="Black" Grid.Row="10" Grid.Column="1"
+         Margin="0,3,10,0" CornerRadius="5" />
+                        <Label x:Name="txtConsumerTotalBill" Grid.Row="10" Grid.Column="1"
+       Text="0.00" TextColor="Yellow" FontSize="18"
+       HorizontalTextAlignment="End" VerticalOptions="Center"
+       Margin="10,5,15,3" HorizontalOptions="Fill" />
+                        <Label Grid.Row="11"
                 Grid.Column="0"
                 FontAttributes="Bold"
                 Text="Remarks:"
@@ -915,41 +888,27 @@ VerticalOptions="FillAndExpand" />
                 FontSize="14"
                 Margin="10,10,10,0"                                
                 HorizontalOptions="End"/>
-                        <BoxView Color="#3269cd" CornerRadius="5" Grid.Row="11" Grid.Column="1"
-         Margin="0,3,0,0" MinimumHeightRequest="34">
+                        <BoxView Color="#3269cd" Grid.Row="11" Grid.Column="1"
+         Margin="0,3,10,0" CornerRadius="5" MinimumHeightRequest="44">
                             <BoxView.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnRemarkTapped" />
                             </BoxView.GestureRecognizers>
                         </BoxView>
-                        <Label Grid.Row="11" IsVisible="True" x:Name="txtRemarks"
-Grid.Column="1"
-FontAttributes="Bold"
-Text="Normal Reading"
-TextColor="White"
-FontSize="14"
-Margin="10,0,13,0"     
-                               VerticalOptions="Center"
-HorizontalOptions="Fill">
+                        <Label x:Name="txtRemarks" Grid.Row="11" Grid.Column="1" IsVisible="True"
+       Text="Normal Reading" FontAttributes="Bold" FontSize="14" TextColor="White"
+       Margin="10,5,15,5" VerticalOptions="Center" HorizontalOptions="Fill">
                             <Label.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnRemarkTapped" />
                             </Label.GestureRecognizers>
                         </Label>
-
-                        <Picker x:Name="pickerRemarks"   IsVisible="False"
-                                    TextColor="White" TitleColor="White" Margin="10,0,13,0"
-                                    SelectedIndexChanged="OnRemarkChanged"
-                                Focused="OnRemarkFocus"
-                                Unfocused="OnRemarkUnFocus"
-                Grid.Row="11"
-                Grid.Column="1"
-                FontSize="14"                
-                Title="Choose Remarks">
-                                
-                            </Picker>
-                        </Grid>
+                        <Picker x:Name="pickerRemarks" Grid.Row="11" Grid.Column="1" IsVisible="False"
+        TextColor="White" TitleColor="White" Margin="10,0,15,0" FontSize="14"
+        Title="Choose Remarks" SelectedIndexChanged="OnRemarkChanged"
+        Focused="OnRemarkFocus" Unfocused="OnRemarkUnFocus" />
+                    </Grid>
                     <!--</ScrollView>-->
                     <BoxView Grid.Row="3" Grid.Column="0"
-                             HeightRequest="5"
+                             HeightRequest="15"
                              BackgroundColor="Transparent"
                              />
                     <Grid x:Name="gridCommands" Grid.Row="4" Grid.Column="0" Margin="0,0,0,20"
