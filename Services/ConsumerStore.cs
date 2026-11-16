@@ -68,7 +68,16 @@ public sealed partial class ConsumerStore : ObservableObject
             var map = new Dictionary<string, Consumers>(all.Count);
             foreach (var c in all) if (c.accountNo != null) map[c.accountNo] = c;
             _byAcct = map;
-
+            var ordered = await Task.Run(() =>
+            {
+                var unbilled = all.Where(c => c.status != 1);
+                var billed = all.Where(c => c.status == 1)
+                                .Select(c => (c, d: MOA.ParseBillDate(c.billdate)))
+                                .OrderByDescending(x => x.d)
+                                .ThenByDescending(x => x.c.accountID)
+                                .Select(x => x.c);
+                return unbilled.Concat(billed).ToList();
+            });
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 Unbilled.Clear(); Billed.Clear(); _byId.Clear();
@@ -76,13 +85,13 @@ public sealed partial class ConsumerStore : ObservableObject
             });
 
             int index = 0;
-            while (index < all.Count)
+            while (index < ordered.Count)
             {
                 if (token.IsCancellationRequested) return;
 
-                int take = Math.Min(index == 0 ? 30 : 60, all.Count - index);
+                int take = Math.Min(index == 0 ? 30 : 60, ordered.Count - index);
                 var rows = new ConsumerRow[take];
-                for (int i = 0; i < take; i++) rows[i] = new ConsumerRow(all[index + i]); // off UI thread
+                for (int i = 0; i < take; i++) rows[i] = new ConsumerRow(ordered[index + i]);
                 index += take;
                 int done = index;
 
@@ -117,15 +126,12 @@ public sealed partial class ConsumerStore : ObservableObject
         if (_byId.TryGetValue(c.accountID, out var row))
         {
             row.Refresh();
-            if (Unbilled.Remove(row)) InsertSorted(Billed, row);
+            Unbilled.Remove(row);
+            Billed.Remove(row);      // re-saved consumer moves to the top again
+            Billed.Insert(0, row);
         }
         Revision++;
     });
 
-    private static void InsertSorted(ObservableCollection<ConsumerRow> list, ConsumerRow row)
-    {
-        int i = 0;
-        while (i < list.Count && list[i].Consumer.accountID < row.Consumer.accountID) i++;
-        list.Insert(i, row);
-    }
+
 }

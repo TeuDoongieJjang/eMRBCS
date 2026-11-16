@@ -12,17 +12,17 @@
     <Grid RowDefinitions="Auto,Auto,Auto,*">
 
         <!-- Header -->
-        <Grid Grid.Row="0" BackgroundColor="#3269cd" Padding="10" ColumnDefinitions="*,Auto">
-            <HorizontalStackLayout>
-                <Image Source="menuicons/prev.png" HeightRequest="50" WidthRequest="50">
-                    <Image.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="TapImgBack" />
-                    </Image.GestureRecognizers>
-                </Image>
-                <Label Text="Consumer List" TextColor="White" helpers:ResponsiveFont.BaseSize="18"
-                       VerticalOptions="Center" Margin="5,0,0,0" />
-            </HorizontalStackLayout>
-            <Image Grid.Column="1" Source="{Binding OptionsIcon}" HeightRequest="50" WidthRequest="50">
+        <Grid Grid.Row="0" BackgroundColor="#3269cd" Padding="10" ColumnDefinitions="Auto,*,Auto">
+            <Image Grid.Column="0" Source="menuicons/prev.png" HeightRequest="50" WidthRequest="50">
+                <Image.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="TapImgBack" />
+                </Image.GestureRecognizers>
+            </Image>
+            <Label Grid.Column="1" Text="{Binding TitleText}" TextColor="White"
+           helpers:ResponsiveFont.BaseSize="18"
+           HorizontalOptions="Center" HorizontalTextAlignment="Center"
+           VerticalOptions="Center" LineBreakMode="TailTruncation" />
+            <Image Grid.Column="2" Source="{Binding OptionsIcon}" HeightRequest="50" WidthRequest="50">
                 <Image.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ToggleOptionsCommand}" />
                 </Image.GestureRecognizers>

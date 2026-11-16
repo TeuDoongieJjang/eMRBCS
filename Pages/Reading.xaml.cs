@@ -15,8 +15,15 @@ using eMRBCS.Platforms.Android;
 
 namespace eMRBCS.Pages;
 
+public sealed record SearchResultItem(int Index, string Text);
 public partial class Reading : ContentPage
 {
+    private static string ListTitle(int idx) => idx switch
+    {
+        0 => "Unbilled Consumer",
+        1 => "Billed Consumer",
+        _ => "Collected Consumer"
+    };
     private enum RoundingRule { Truncate, Nearest }
     int selected_field = 0; //0 - Pres Reading, 1 - Acct No, 2 - Meter No, 3 - Name
 
@@ -340,7 +347,7 @@ public partial class Reading : ContentPage
         {
             term = await DisplayPromptAsync(
                 "Search by Name",
-                "Enter at least 3 characters of the consumer name:",
+                ListTitle(pickerBillingFilter.SelectedIndex) + "\nEnter at least 3 characters of the consumer name:",
                 accept: "Search",
                 cancel: "Cancel",
                 placeholder: "e.g. Cruz, Dela",
@@ -375,6 +382,40 @@ public partial class Reading : ContentPage
         {
             await DisplayAlertAsync("Warning!", "Account Number " + parameter + " not found. Please try again.", "Ok");
         }
+    }
+    // ===== Search results overlay (with separators) =====
+    private TaskCompletionSource<int>? _pickTcs;
+
+    private async Task<int> PickSearchResultAsync(string mode, string subtitle, string[] labels)
+    {
+        lblSearchMode.Text = mode.ToUpper();
+        lblSearchSubtitle.Text = subtitle;
+        lstSearchResults.ItemsSource = labels.Select((t, i) => new SearchResultItem(i, t)).ToList();
+
+        _pickTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _searchPromptOpen = true;                 // block hardware keys while the list is open
+        gridSearchResults.IsVisible = true;
+        try { return await _pickTcs.Task; }
+        finally
+        {
+            gridSearchResults.IsVisible = false;
+            lstSearchResults.ItemsSource = null;
+            _searchPromptOpen = false;
+        }
+    }
+
+    private void OnSearchResultTapped(object? sender, TappedEventArgs e)
+    {
+        if ((sender as BindableObject)?.BindingContext is SearchResultItem item)
+            _pickTcs?.TrySetResult(item.Index);
+    }
+
+    private void OnSearchResultsCancel(object? sender, EventArgs e) => _pickTcs?.TrySetResult(-1);
+
+    private void SetPadMode(string text, string placeholder)
+    {
+        lblPadMode.Text = text;
+        txtCustomEntry.Placeholder = placeholder;
     }
     private const int MaxPickerItems = 30;
     private async void OnFilterNameSearch(string parameter)
@@ -426,10 +467,8 @@ public partial class Reading : ContentPage
                 ? $"{matches.Count} matches (showing first {MaxPickerItems}). Type more to narrow down."
                 : $"{matches.Count} matches found";
 
-            string choice = await DisplayActionSheetAsync(title, "Cancel", null, labels);
-            if (string.IsNullOrEmpty(choice) || choice == "Cancel") return;
-
-            int idx = Array.IndexOf(labels, choice);
+            string modeText = selected_field == 1 ? "Account No" : selected_field == 2 ? "Meter No" : "Name";
+            int idx = await PickSearchResultAsync($"Search by {modeText}\n{ListTitle(pickerBillingFilter.SelectedIndex)}", title, labels);
             if (idx < 0) return;
             result = shown[idx];
         }
@@ -455,14 +494,34 @@ public partial class Reading : ContentPage
     {
         OnFirstLastRecord(0, pickerBillingFilter.SelectedIndex);
     }
-    private List<Consumers> Ordered(int status) => ConsumerRecords.lstconsumers
-                                                    .Where(c => c.status == status)
-                                                    .OrderBy(c => c.seqno).ThenBy(c => c.accountID)
-                                                    .ToList();
+    private List<Consumers> Ordered(int status)
+    {
+        var src = ConsumerRecords.lstconsumers.Where(c => c.status == status);
+
+        if (status == 1)   // billed: newest first (stack order)
+            return src.Select(c => (c, d: MOA.ParseBillDate(c.billdate)))
+                      .OrderByDescending(x => x.d)
+                      .ThenByDescending(x => x.c.accountID)
+                      .Select(x => x.c)
+                      .ToList();
+
+        return src.OrderBy(c => c.seqno).ThenBy(c => c.accountID).ToList();
+    }
     private async void OnNextRecord(int isBilled)
     {
-        var result = Ordered(isBilled).FirstOrDefault(c =>
-            c.seqno > selected_seqno || (c.seqno == selected_seqno && c.accountID > selected_idno));
+        var list = Ordered(isBilled);
+        Consumers? result;
+
+        if (isBilled == 1)   // billed: next = one step down the newest-first list
+        {
+            int i = list.FindIndex(c => c.accountID == selected_idno);
+            result = i < 0 ? list.FirstOrDefault() : (i + 1 < list.Count ? list[i + 1] : null);
+        }
+        else
+        {
+            result = list.FirstOrDefault(c =>
+                c.seqno > selected_seqno || (c.seqno == selected_seqno && c.accountID > selected_idno));
+        }
 
         if (result != null) OnLoadConsumerDetails(result);
         else await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
@@ -470,8 +529,19 @@ public partial class Reading : ContentPage
 
     private async void OnPrevRecord(int isBilled)
     {
-        var result = Ordered(isBilled).LastOrDefault(c =>
-            c.seqno < selected_seqno || (c.seqno == selected_seqno && c.accountID < selected_idno));
+        var list = Ordered(isBilled);
+        Consumers? result;
+
+        if (isBilled == 1)   // billed: prev = one step up (newer)
+        {
+            int i = list.FindIndex(c => c.accountID == selected_idno);
+            result = i > 0 ? list[i - 1] : null;
+        }
+        else
+        {
+            result = list.LastOrDefault(c =>
+                c.seqno < selected_seqno || (c.seqno == selected_seqno && c.accountID < selected_idno));
+        }
 
         if (result != null) OnLoadConsumerDetails(result);
         else await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
@@ -1227,9 +1297,8 @@ public partial class Reading : ContentPage
     private void OnAcctNoTapped(object sender, EventArgs e)
     {
         gridDetails.IsEnabled = false;
-
         selected_field = 1;
-
+        SetPadMode("SEARCH BY: ACCOUNT NO\n" + ListTitle(pickerBillingFilter.SelectedIndex), "Enter Account No");
         gridNumericPad.IsVisible = true;
         gridNumericPad.IsEnabled = true;
         txtCustomEntry.Text = "";
@@ -1238,10 +1307,8 @@ public partial class Reading : ContentPage
     private void OnMeterNoTapped(object sender, EventArgs e)
     {
         gridDetails.IsEnabled = false;
-
-
         selected_field = 2;
-
+        SetPadMode("SEARCH BY: METER NO\n" + ListTitle(pickerBillingFilter.SelectedIndex), "Enter Meter No");
         gridNumericPad.IsVisible = true;
         gridNumericPad.IsEnabled = true;
         txtCustomEntry.Text = "";
@@ -1258,13 +1325,11 @@ public partial class Reading : ContentPage
     private void OnPresReadingTapped(object sender, EventArgs e)
     {
         gridDetails.IsEnabled = false;
-
         selected_field = 0;
-
+        SetPadMode("ENTER PRESENT READING", "0");
         gridNumericPad.IsVisible = true;
         gridNumericPad.IsEnabled = true;
         txtCustomEntry.Text = txtConsumerPresReading.Text;
-
     }
 
     private void OnFirstRecordTapped(object sender, EventArgs e)
@@ -1278,6 +1343,7 @@ public partial class Reading : ContentPage
         int selectedItem = pickerBillingFilter.SelectedIndex;
         if (selectedItem < 0) return;
         ConsumerRecords.consumer_selectedtype = selectedItem;
+        lblListTitle.Text = ListTitle(selectedItem);
         if (selectedItem == 0)
         {
             btnPrint.IsEnabled = false;
@@ -2111,29 +2177,17 @@ public partial class Reading : ContentPage
                 }
             }
 
-            if (IsPlaWD)
-            {
-                await printer.PrintRowAsync("TOTAL DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
+            await printer.PrintRowAsync(IsPlaWD ? "TOTAL DUE" : "BEFORE DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
                                         new PrintStyle(High: true));
-            }
-            else
-            {
-                await printer.PrintRowAsync("BEFORE DUE", bill.BeforeDueTotal.ToString("#,##0.00"),
-                                        new PrintStyle(High: true));
-            }
+
 
 
             await printer.PrintSeparatorAsync(SeparatorStyle.Broken);
-            if (IsPlaWD)
-            {
-                await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left);
-                await printer.PrintRowAsync("Penalty (10%)", bill.PenaltyAmount.ToString("#,##0.00"));
-            }
-            else
-            {
-                await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
-                await printer.PrintRowAsync("Penalty", bill.PenaltyAmount.ToString("#,##0.00"));
-            }
+
+            await printer.PrintTextAsync("* If unpaid after Due Date.", PrintAlign.Left, new PrintStyle(Underline: true));
+            await printer.PrintRowAsync(IsPlaWD ? "Penalty (10%)" : "Penalty", bill.PenaltyAmount.ToString("#,##0.00"));
+
+
 
 
             if (IsPlaWD)

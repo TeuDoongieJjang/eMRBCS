@@ -76,6 +76,8 @@ HorizontalOptions="CenterAndExpand"
                         1. Edit Printer Configuration Formats.
                      v6.5.104
                         1. Edit Printer Configuration Formats.
+                        2. Added Name Searching.
+                        3. Loading Performance.
                 -->
                 <Grid Grid.Row="3" Grid.Column="0" Margin="10">
                     <Grid.RowDefinitions>

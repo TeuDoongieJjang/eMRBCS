@@ -11,10 +11,16 @@ public partial class ReadingConsumersViewModel : ObservableObject
 {
     public ConsumerStore Store => ConsumerStore.Instance;
     public List<string> BillingFilters { get; } = new() { "Unbilled Consumers", "Billed Consumers", "Collected Consumers" };
+    public string TitleText => SelectedFilterIndex switch
+    {
+        0 => "Unbilled Consumer List",
+        1 => "Billed Consumer List",
+        _ => "Collected Consumer List"
+    };
     public List<string> SearchFields { get; } = new() { "Meter No", "Account No", "Name" };
 
     [ObservableProperty] private IEnumerable<ConsumerRow> items;
-    [ObservableProperty] private int selectedFilterIndex;
+    [ObservableProperty][NotifyPropertyChangedFor(nameof(TitleText))] private int selectedFilterIndex;
     [ObservableProperty] private int selectedSearchFieldIndex;
     [ObservableProperty] private string searchText = "";
     [ObservableProperty][NotifyPropertyChangedFor(nameof(OptionsIcon))] private bool showOptions;

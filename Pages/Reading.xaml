@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:pages="clr-namespace:eMRBCS.Pages"
              x:Class="eMRBCS.Pages.Reading"
              NavigationPage.HasNavigationBar="False"
              Title="Reading">
@@ -279,11 +280,17 @@ WidthRequest="70"  />
 HeightRequest="70"
 Margin="5"
 WidthRequest="70"  />
+                <Label x:Name="lblPadMode"
+       Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4"
+       HorizontalOptions="Center"
+       FontAttributes="Bold"
+       FontSize="14"
+       TextColor="#3269cd"
+       Margin="0,5,0,0" />
 
 
 
-
-                </Grid>
+            </Grid>
                 <!--</StackLayout>-->
 
             </Grid>
@@ -365,22 +372,41 @@ FontSize="14"
                 <Grid Grid.Row="0" Grid.Column="0"
       BackgroundColor="#3269cd"
       MinimumHeightRequest="50"
-      ColumnDefinitions="*,Auto"
+      ColumnDefinitions="Auto,*,Auto"
+      ColumnSpacing="6"
       Padding="0">
 
+                    <!-- left: summary count (sizes to its text, never clipped) -->
                     <Label x:Name="lblSummaryCount"
            Grid.Column="0"
            Text="0 / 0"
            TextColor="White"
-           FontSize="22"
+           FontSize="17"
            FontAttributes="Bold"
            FontAutoScalingEnabled="False"
            VerticalOptions="Center"
            HorizontalOptions="Start"
-           Margin="10,0,20,0" />
+           LineBreakMode="NoWrap"
+           MaxLines="1"
+           Margin="10,0,0,0" />
 
-                    <Image x:Name="imgoption"
+                    <!-- center: list title (uses the remaining space) -->
+                    <Label x:Name="lblListTitle"
            Grid.Column="1"
+           Text="Unbilled Consumer List"
+           TextColor="White"
+           FontSize="13"
+           FontAttributes="Bold"
+           FontAutoScalingEnabled="False"
+           HorizontalOptions="Center"
+           HorizontalTextAlignment="Center"
+           VerticalOptions="Center"
+           MaxLines="2"
+           LineBreakMode="WordWrap" />
+
+                    <!-- right: options icon -->
+                    <Image x:Name="imgoption"
+           Grid.Column="2"
            Source="menuicons/options1.png"
            HeightRequest="40"
            WidthRequest="40"
@@ -968,6 +994,42 @@ Grid.Row="0" Grid.Column="1"
                 <Label x:Name="lblBusy" Text="Please wait..." TextColor="White"
                FontSize="16" HorizontalTextAlignment="Center" />
             </VerticalStackLayout>
+        </Grid>
+        <!-- Search results list (with separators) -->
+        <Grid x:Name="gridSearchResults" IsVisible="False" BackgroundColor="#99000000" ZIndex="11"
+      AbsoluteLayout.LayoutBounds="0,0,1,1" AbsoluteLayout.LayoutFlags="All">
+            <Border BackgroundColor="White" StrokeThickness="0" Margin="20,60,20,60" Padding="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="10" />
+                </Border.StrokeShape>
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <!-- Mode indicator: SEARCH BY NAME / ACCOUNT NO / METER NO -->
+                    <Label x:Name="lblSearchMode" Grid.Row="0"
+                   BackgroundColor="#3269cd" TextColor="White"
+                   FontAttributes="Bold" FontSize="16" Padding="12,10" />
+                    <Label x:Name="lblSearchSubtitle" Grid.Row="1"
+                   FontSize="12" TextColor="Gray" Margin="12,6" />
+
+                    <CollectionView x:Name="lstSearchResults" Grid.Row="2" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="pages:SearchResultItem">
+                                <VerticalStackLayout>
+                                    <Label Text="{Binding Text}" TextColor="Black"
+                                   FontSize="14" Padding="12,12" />
+                                    <!-- line separator between consumers -->
+                                    <BoxView HeightRequest="1" Color="LightGray" />
+                                    <VerticalStackLayout.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnSearchResultTapped" />
+                                    </VerticalStackLayout.GestureRecognizers>
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Button Grid.Row="3" Text="Cancel" BackgroundColor="#3269cd"
+                    Margin="10" Clicked="OnSearchResultsCancel" />
+                </Grid>
+            </Border>
         </Grid>
     </AbsoluteLayout>
    
