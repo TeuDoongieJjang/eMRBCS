@@ -239,9 +239,9 @@ public partial class Reading : ContentPage
         txtConsumerAddress.Text = "";
         txtConsumerPrevReading.Text = "0";
         txtConsumerArrears.Text = "0.00";
-        txtConsumerUsage.Text = "0";
+        txtConsumerUsage.Text = " ";
         txtConsumerCurrentBill.Text = "0.00";
-        txtConsumerPresReading.Text = "0";
+        txtConsumerPresReading.Text = " ";
         txtConsumerTotalBill.Text = "0.00";
         pickerRemarks.SelectedIndex = -1;
     }
@@ -476,7 +476,6 @@ public partial class Reading : ContentPage
                 ListTitle(pickerBillingFilter.SelectedIndex) + "\nEnter at least 3 characters of the consumer name:",
                 accept: "Search",
                 cancel: "Cancel",
-                placeholder: "e.g. Cruz, Dela",
                 maxLength: 50,
                 keyboard: Keyboard.Text);
         }
@@ -714,7 +713,7 @@ public partial class Reading : ContentPage
                 txtConsumerAddress.Text = MOA.Left(printAddress, 42) + "\nSTATUS: " + statusText + "\nAVERAGE: " + consumer.average_usage.ToString();
 
                 txtConsumerPrevReading.Text = consumer.prevreading.ToString();
-                txtConsumerUsage.Text = isSaved ? consumer.usage.ToString() : "0";
+                txtConsumerUsage.Text = isSaved ? consumer.usage.ToString() : " ";
                 txtConsumerCurrentBill.Text = isSaved ? consumer.currentbill.ToString("#,##0.00") : "0.00";
 
                 if (consumer.arrears < 0)
@@ -730,7 +729,7 @@ public partial class Reading : ContentPage
                 txtConsumerArrears.Text = consumer.arrears.ToString("0.00");
                 txtConsumerOthers.Text = consumer.othercharges.ToString("0.00");
 
-                txtConsumerPresReading.Text = "0";
+                txtConsumerPresReading.Text = " ";
                 txtConsumerTotalBill.Text = "0.00";
                 pickerRemarks.SelectedIndex = -1;
                 txtRemarks.Text = isSaved && !string.IsNullOrWhiteSpace(consumer.remarks)
@@ -1423,7 +1422,7 @@ public partial class Reading : ContentPage
     {
         gridDetails.IsEnabled = false;
         selected_field = 0;
-        SetPadMode("ENTER PRESENT READING", "0");
+        SetPadMode("ENTER PRESENT READING", " ");
         gridNumericPad.IsVisible = true;
         gridNumericPad.IsEnabled = true;
         txtCustomEntry.Text = txtConsumerPresReading.Text;
