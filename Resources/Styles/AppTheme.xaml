@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    AppTheme.xaml  -  one place for every light / dark colour in eMRBCS.
+    Merge it AFTER Styles.xaml in App.xaml so these implicit styles win.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ===================== PALETTE ===================== -->
+    <Color x:Key="Brand">#3269cd</Color>
+    <Color x:Key="BrandDark">#26498F</Color>
+    <Color x:Key="BrandSoft">#8FB4FF</Color>
+
+    <Color x:Key="PageLight">#FFFFFF</Color>
+    <Color x:Key="PageDark">#121212</Color>
+    <Color x:Key="CardLight">#FFFFFF</Color>
+    <Color x:Key="CardDark">#1E1E1E</Color>
+    <Color x:Key="TextLight">#1A1A1A</Color>
+    <Color x:Key="TextDark">#F2F2F2</Color>
+    <Color x:Key="MutedLight">#5F6368</Color>
+    <Color x:Key="MutedDark">#B5B5B5</Color>
+    <Color x:Key="FieldLight">#FFF59D</Color>
+    <Color x:Key="FieldDark">#5E5000</Color>
+    <Color x:Key="SoftBtnLight">#FFFFFF</Color>
+    <Color x:Key="SoftBtnDark">#2C2C2C</Color>
+    <Color x:Key="PadLight">#607D8B</Color>
+    <Color x:Key="PadDark">#455A64</Color>
+    <Color x:Key="FrameBorderLight">#D9D9D9</Color>
+    <Color x:Key="FrameBorderDark">#3A3A3A</Color>
+
+    <!-- Shapes (Rectangle / Border stroke) need Brushes, not Colors -->
+    <SolidColorBrush x:Key="CardLightBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CardDarkBrush" Color="#1E1E1E" />
+    <SolidColorBrush x:Key="BorderLightBrush" Color="#BDBDBD" />
+    <SolidColorBrush x:Key="BorderDarkBrush" Color="#5A5A5A" />
+    <SolidColorBrush x:Key="ShadowLightBrush" Color="#9E9E9E" />
+    <SolidColorBrush x:Key="ShadowDarkBrush" Color="#000000" />
+
+    <!-- ===================== IMPLICIT STYLES (apply to every page) ===================== -->
+    <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PageLight}, Dark={StaticResource PageDark}}" />
+    </Style>
+
+    <Style TargetType="Label">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+    </Style>
+
+    <Style TargetType="Entry">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+    </Style>
+
+    <Style TargetType="Editor">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+    </Style>
+
+    <Style TargetType="SearchBar">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="PlaceholderColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+    </Style>
+
+    <Style TargetType="Picker">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        <Setter Property="TitleColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
+    </Style>
+
+    <Style TargetType="DatePicker">
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+    </Style>
+
+    <Style TargetType="CheckBox">
+        <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Brand}, Dark={StaticResource BrandSoft}}" />
+    </Style>
+
+    <Style TargetType="ListView">
+        <Setter Property="SeparatorColor" Value="{AppThemeBinding Light={StaticResource FrameBorderLight}, Dark={StaticResource FrameBorderDark}}" />
+    </Style>
+
+    <Style TargetType="Frame">
+        <Setter Property="HasShadow" Value="False" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}" />
+        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource FrameBorderLight}, Dark={StaticResource FrameBorderDark}}" />
+    </Style>
+
+    <!-- Buttons: the MAUI template turns the TEXT purple in dark mode, which is unreadable on our blue
+         buttons. Text is always white here; disabled = dimmed. -->
+    <Style x:Key="BtnBase" TargetType="Button">
+        <Setter Property="TextColor" Value="White" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Brand}" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+    <Style TargetType="Button" BasedOn="{StaticResource BtnBase}" />
+
+    <!-- ===================== NAMED STYLES ===================== -->
+    <!-- Menu tiles (Mainmenu, Utilities, UserAccess): replace Fill="white" with Style="{StaticResource CardUpper}" -->
+    <Style x:Key="CardUpper" TargetType="Rectangle">
+        <Setter Property="Fill" Value="{AppThemeBinding Light={StaticResource CardLightBrush}, Dark={StaticResource CardDarkBrush}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderLightBrush}, Dark={StaticResource BorderDarkBrush}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="RadiusX" Value="10" />
+        <Setter Property="RadiusY" Value="10" />
+    </Style>
+    <Style x:Key="CardLower" TargetType="Rectangle">
+        <Setter Property="Fill" Value="{AppThemeBinding Light={StaticResource ShadowLightBrush}, Dark={StaticResource ShadowDarkBrush}}" />
+        <Setter Property="RadiusX" Value="10" />
+        <Setter Property="RadiusY" Value="10" />
+    </Style>
+
+    <Style x:Key="Card" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource CardLight}, Dark={StaticResource CardDark}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderLightBrush}, Dark={StaticResource BorderDarkBrush}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="10" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- plain string lists (ListView ItemsSource = List<string>) -->
+    <DataTemplate x:Key="StringItemTemplate" x:DataType="x:String">
+        <ViewCell>
+            <Label Text="{Binding .}" FontSize="14" Padding="12,10" />
+        </ViewCell>
+    </DataTemplate>
+
+</ResourceDictionary>

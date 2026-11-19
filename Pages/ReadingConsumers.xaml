@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:eMRBCS.ViewModels"
@@ -81,7 +81,7 @@
                         </Border>
 
                         <!-- Card layer -->
-                        <Border BackgroundColor="White" StrokeThickness="0"
+                        <Border BackgroundColor="{AppThemeBinding Light=White, Dark=#1E1E1E}" StrokeThickness="0"
                                 Padding="12,8" MinimumHeightRequest="86"
                                 Margin="5,1,5,5">
                             <Border.StrokeShape>
@@ -97,9 +97,9 @@
                                 <!-- Row 0 : Account No. + Name -->
                                 <VerticalStackLayout Grid.Column="0" Grid.Row="0" Spacing="0">
                                     <Label Text="Account No:" FontAttributes="Bold"
-                                           helpers:ResponsiveFont.BaseSize="12" TextColor="Black" />
+                                           helpers:ResponsiveFont.BaseSize="12" />
                                     <Label Text="{Binding AccountNo}" FontAttributes="Bold"
-                                           helpers:ResponsiveFont.BaseSize="16" TextColor="Black" />
+                                           helpers:ResponsiveFont.BaseSize="16" />
                                 </VerticalStackLayout>
 
                                 <Image Grid.Column="1" Grid.Row="0"
@@ -109,16 +109,16 @@
 
                                 <Label Grid.Column="2" Grid.Row="0"
                                        Text="{Binding Name}" FontAttributes="Bold"
-                                       helpers:ResponsiveFont.BaseSize="14" TextColor="Black"
+                                       helpers:ResponsiveFont.BaseSize="14"
                                        MaxLines="2" LineBreakMode="TailTruncation"
                                        VerticalOptions="Start" />   
 
                                 <!-- Row 1 : Meter No. + Address -->
                                 <VerticalStackLayout Grid.Column="0" Grid.Row="1" Spacing="0">
                                     <Label Text="Meter No:" FontAttributes="Bold"
-                                           helpers:ResponsiveFont.BaseSize="12" TextColor="Black" />
+                                           helpers:ResponsiveFont.BaseSize="12" />
                                     <Label Text="{Binding MeterNo}" FontAttributes="Bold"
-                                           helpers:ResponsiveFont.BaseSize="16" TextColor="Black" />
+                                           helpers:ResponsiveFont.BaseSize="16" />
                                 </VerticalStackLayout>
 
                                 <Image Grid.Column="1" Grid.Row="1"
@@ -128,7 +128,7 @@
 
                                 <Label Grid.Column="2" Grid.Row="1"
                                        Text="{Binding Address}"
-                                       helpers:ResponsiveFont.BaseSize="12" TextColor="Black"
+                                       helpers:ResponsiveFont.BaseSize="12"
                                        MaxLines="2" LineBreakMode="TailTruncation"
                                        VerticalOptions="Start" />
                             </Grid>

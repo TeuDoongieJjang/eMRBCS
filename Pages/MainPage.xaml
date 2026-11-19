@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="eMRBCS.Pages.MainPage"
@@ -136,7 +136,7 @@
                       Grid.Row="4"
                       Grid.Column="0" />
 
-                <Rectangle Fill="white"                      
+                <Rectangle Style="{StaticResource CardUpper}"                      
                       Margin="20,20,5,5"
                       WidthRequest="300"
                            HeightRequest="90"                      
@@ -157,7 +157,6 @@
                     </Image>
                     <Label 
                          Text="Meter Reading"
-                         TextColor="Black"
                          FontSize="18"
                          AbsoluteLayout.LayoutBounds="190,35"
                          VerticalOptions="Start"
@@ -173,7 +172,7 @@
                       Grid.Row="5"
                       Grid.Column="0" />
 
-                <Rectangle Fill="white"      
+                <Rectangle Style="{StaticResource CardUpper}"      
                       Margin="20,0,5,5"
                       WidthRequest="300"
                       HeightRequest="90"      
@@ -193,7 +192,6 @@
                     </Image>
                     <Label 
                          Text="Collection"
-                         TextColor="Black"
                          FontSize="18"
                          AbsoluteLayout.LayoutBounds="190,25"
                          VerticalOptions="Start"
@@ -209,7 +207,7 @@
                        Grid.Row="6"
                        Grid.Column="0" />
 
-                <Rectangle Fill="white"      
+                <Rectangle Style="{StaticResource CardUpper}"      
                        Margin="20,0,5,5"
                        WidthRequest="300"
                        HeightRequest="90"      
@@ -229,7 +227,6 @@
                       </Image>
                     <Label 
                       Text="Reports"
-                      TextColor="Black"
                       FontSize="18"
                       AbsoluteLayout.LayoutBounds="190,25"
                       VerticalOptions="Start"
@@ -245,7 +242,7 @@
                        Grid.Row="7"
                        Grid.Column="0" />
 
-                <Rectangle Fill="white"      
+                <Rectangle Style="{StaticResource CardUpper}"      
                        Margin="20,0,5,5"
                        WidthRequest="300"
                        HeightRequest="90"      
@@ -265,7 +262,6 @@
                     </Image>
                     <Label 
                       Text="Settings"
-                      TextColor="Black"
                       FontSize="18"
                       AbsoluteLayout.LayoutBounds="190,25"
                       VerticalOptions="Start"
@@ -275,7 +271,6 @@
                 <Label Grid.Row="8"
                        Grid.Column="0"
                    Text="Copyright 2024"
-                   TextColor="Black"
                    Margin="12"
                    FontSize="10"
                    AbsoluteLayout.LayoutBounds="190,25"

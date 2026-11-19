@@ -255,42 +255,28 @@ public partial class Reading : ContentPage
         txtConsumerTotalBill.Text = "0.00";
         pickerRemarks.SelectedIndex = -1;
     }
-    private void ScreenAdjustment()
+    private void ScreenAdjustment() => ApplyScreenScale();
+    private const double TextBoost = 1.10;
+
+    private void ApplyScreenScale()
     {
-        if (MyDeviceInfo.device_heightpix > 2000)
-        {
-            txtConsumerAcctNo.FontSize = 22;
-            lblTypeSize.FontSize = 22;
+        double w = MyDeviceInfo.device_width;    // dp
+        double h = MyDeviceInfo.device_height;   // dp
+        if (w <= 0 || h <= 0) return;
 
-            int s = 40;
-            foreach (var img in new Image[] { btnStartRecord, btnPrevRecord, btnNextRecord, btnLastRecord })
-            {
-                img.HeightRequest = s;
-                img.WidthRequest = s;
-            }
+        // designed for 320 x 533 dp (Honeywell EDA51K); other screens scale automatically
+        double k = Math.Clamp(Math.Min(w / 320.0, h / 533.0), 0.85, 1.35) * TextBoost;
 
-            txtConsumerMeterNo.FontSize = 18;
-            txtConsumerPresReading.FontSize = 22;
-            txtConsumerPrevReading.FontSize = 20;
-            txtConsumerUsage.FontSize = 20;
-            txtConsumerAverage.FontSize = 20;
-            txtConsumerCurrentBill.FontSize = 20;
-            txtConsumerArrears.FontSize = 20;
-            txtConsumerOthers.FontSize = 20;
-            txtConsumerTotalBill.FontSize = 24;
-        }
-        else if (MyDeviceInfo.device_heightpix < 900 && MyDeviceInfo.device_widthpix < 500)
-        {
-            lblTypeSize.FontSize = 16;
-            btnok.FontSize = 16;
-            txtConsumerAcctNo.FontSize = 16;
+        void Set(string key, double baseValue) => Resources[key] = Math.Round(baseValue * k, 1);
 
-            foreach (var child in gridButtons.Children)
-            {
-                if (child is Button btn)
-                    btn.WidthRequest = 60;
-            }
-        }
+        Set("FsCaption", 11);   // small grey captions ("Prev. Reading", "Usage", ...)
+        Set("FsBody", 13);   // name, address, status
+        Set("FsValue", 16);   // account no, meter no, readings, amounts
+        Set("FsTotal", 20);   // Total Bill
+        Set("FsPad", 22);   // numeric pad digits
+        Set("FieldH", 32);   // height of the boxes / value rows
+        Set("PadH", 46);   // numeric pad button height
+        Set("CmdH", 42);   // Back / Print / Save height
     }
 
     //    protected override async void OnAppearing()
@@ -1265,7 +1251,7 @@ public partial class Reading : ContentPage
 
     private void OnClickClear(object sender, EventArgs e)
     {
-        txtCustomEntry.Text = "0";
+        txtCustomEntry.Text = "";
     }
 
     private void OnClickB4(object sender, EventArgs e)
@@ -2115,7 +2101,7 @@ public partial class Reading : ContentPage
 
             string prevAcctNo = (consumer.prev_account_no ?? "").Trim();
             if (prevAcctNo.Length > 0)
-                await printer.PrintTextAsync("Prev AcctNo : " + prevAcctNo, PrintAlign.Left, new PrintStyle(High: true));
+                await printer.PrintTextAsync("Prev AcctNo : " + prevAcctNo, PrintAlign.Left);
 
             if (d.SJWD && typeDesc.Length > 0)
                 await printer.PrintTextAsync(typeDesc, PrintAlign.Left);
@@ -2512,20 +2498,22 @@ public partial class Reading : ContentPage
 
     private void OnSaveFocus(object sender, FocusEventArgs e)
     {
-        if (sender is Button btnclick)
+        // hardware-key focus highlight (Honeywell keypad)
+        if (sender is Button b)
         {
-            btnclick.BackgroundColor = Colors.Yellow;
+            b.BackgroundColor = Colors.Yellow;
+            b.TextColor = Colors.Black;
         }
-
     }
 
     private void OnSaveUnFocus(object sender, FocusEventArgs e)
     {
-        if (sender is Button btnclick)
+        // go back to whatever the theme style says (light or dark)
+        if (sender is Button b)
         {
-            btnclick.BackgroundColor = Colors.White;
+            b.ClearValue(Button.BackgroundColorProperty);
+            b.ClearValue(Button.TextColorProperty);
         }
-
     }
 
     public static class UsageAnalysisHelper

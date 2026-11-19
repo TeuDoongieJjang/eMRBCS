@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="eMRBCS.Pages.UserAccess"
@@ -84,7 +84,7 @@ HorizontalOptions="Start"/>
                                 RadiusX="10"
                                 RadiusY="10" />
 
-                        <Rectangle x:Name="frmProfileUpper"  Fill="white"                      
+                        <Rectangle x:Name="frmProfileUpper"  Style="{StaticResource CardUpper}"                      
                                 Margin="20,0,20,0"                           
                                 HeightRequest="90"                      
                                 Stroke="Gray"
@@ -112,7 +112,6 @@ Margin="0,0,20,0"
                         <Label x:Name="lblProfile" 
                             Text="Profile"
                             Grid.Row="0" Grid.Column="1"
-                            TextColor="Black"
                             FontSize="16"                            
                             VerticalOptions="Center"
 HorizontalOptions="Start"/>
@@ -145,7 +144,7 @@ Margin="20,10,20,0"
  RadiusY="10"
   />
 
-                        <Rectangle x:Name="frmAddEditUpper"  Fill="white"                      
+                        <Rectangle x:Name="frmAddEditUpper"  Style="{StaticResource CardUpper}"                      
 Margin="20,0,20,0"       
  HeightRequest="90"                      
  Stroke="Gray"
@@ -173,7 +172,6 @@ Margin="0,0,20,0"
                         <Label x:Name="lblAddEdit"  
     Text="Add / Edit User"
                             Grid.Row="0" Grid.Column="1"
-                            TextColor="Black"
                             FontSize="16"                            
                             VerticalOptions="Center"
 HorizontalOptions="Start"/>
@@ -206,7 +204,7 @@ Margin="20,10,20,0"
  RadiusX="10"
  RadiusY="10" />
 
-                        <Rectangle x:Name="frmActivityUpper"   Fill="white"                      
+                        <Rectangle x:Name="frmActivityUpper"   Style="{StaticResource CardUpper}"                      
 Margin="20,0,20,0"  
 
  HeightRequest="90"                      
@@ -234,7 +232,6 @@ Margin="0,0,20,0"
                         <Label x:Name="lblActivity"   
     Text="User Activity"
                             Grid.Row="0" Grid.Column="1"
-                            TextColor="Black"
                             FontSize="16"                            
                             VerticalOptions="Center"
 HorizontalOptions="Start"/>

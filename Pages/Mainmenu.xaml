@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="eMRBCS.Pages.Mainmenu"
@@ -21,7 +21,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <BoxView Color="Transparent"
+                        <BoxView Color="#CC000000" CornerRadius="10"
                              
       HorizontalOptions="FillAndExpand"
       VerticalOptions="FillAndExpand"
@@ -127,7 +127,7 @@ WidthRequest="50" >
                     <HorizontalStackLayout Margin="10,10,0,0"
                         Grid.Row="0"
                         Grid.Column="0">
-                        <Label TextColor="Black"       
+                        <Label       
                                FontAttributes="Bold"
                                VerticalOptions="Center"
                                  Text="Status"
@@ -221,7 +221,7 @@ Grid.Column="0"
                   Grid.Column="0" />
 
                     <Rectangle x:Name="recMRUpper" 
-                    Fill="white"                      
+                    Style="{StaticResource CardUpper}"                      
                   Margin="20,0,20,0"                 
                   HeightRequest="90"                      
                   Stroke="Gray"
@@ -252,7 +252,6 @@ Grid.Column="0"
                         <Label x:Name="lblMR"  Grid.Row="0"
  Grid.Column="1"
 Text="Meter Reading"
-TextColor="Black"
                       
 FontSize="18"   
 VerticalOptions="Center"
@@ -292,7 +291,7 @@ Grid.Column="0">
                   Grid.Column="0" />
 
                     <Rectangle x:Name="recCollectUpper"  
-                    Fill="white"      
+                    Style="{StaticResource CardUpper}"      
                   Margin="20,0,20,0"
                   
                   HeightRequest="90"      
@@ -324,7 +323,6 @@ Grid.Column="0">
                         <Label  x:Name="lblCollection"  Grid.Row="0"
  Grid.Column="1"
 Text="Collection"
-TextColor="Black"
                        
 FontSize="18"   
 VerticalOptions="Center"
@@ -367,7 +365,7 @@ Grid.Column="0">
                    Grid.Column="0" />
 
                     <Rectangle x:Name="recReportsUpper"   
-                    Fill="white"      
+                    Style="{StaticResource CardUpper}"      
                    Margin="20,0,20,0"            
                    
                    HeightRequest="90"      
@@ -399,8 +397,7 @@ Grid.Column="0">
                         </Image>
                         <Label  x:Name="lblReports"    Grid.Row="0"
  Grid.Column="1"
-Text="Reports"
-TextColor="Black"                      
+Text="Reports"                      
 FontSize="18"   
 VerticalOptions="Center"
 HorizontalOptions="Start"/>
@@ -441,7 +438,7 @@ Grid.Column="0">
         Grid.Column="0" />
 
                     <Rectangle x:Name="recUtilitiesUpper"    
-         Fill="white"      
+         Style="{StaticResource CardUpper}"      
         Margin="20,0,20,0"   
         
         HeightRequest="90"      
@@ -473,8 +470,7 @@ Grid.Column="0">
                         </Image>
                         <Label x:Name="lblUtilities"   
                       Text="Utilities"    Grid.Row="0"
- Grid.Column="1"
-TextColor="Black"                      
+ Grid.Column="1"                      
 FontSize="18"   
 VerticalOptions="Center"
 HorizontalOptions="Start"/>
@@ -514,7 +510,7 @@ Grid.Column="0">
          Grid.Column="0" />
 
                     <Rectangle x:Name="recProductKeyUpper"    
-          Fill="white"      
+          Style="{StaticResource CardUpper}"      
          Margin="20,0,20,0"      
          HeightRequest="90"      
          Stroke="Gray"
@@ -547,8 +543,7 @@ Grid.Column="0">
                       Text="Product Activation"    
                            WidthRequest="100"
                            Grid.Row="0"
- Grid.Column="1"
-TextColor="Black"                      
+ Grid.Column="1"                      
 FontSize="18"   
 VerticalOptions="Center"
 HorizontalOptions="Start"/>
@@ -571,8 +566,7 @@ Grid.Column="0">
 
                 <Label Grid.Row="11"
                    Grid.Column="0"
-                 Text="Powered by MLS Consultancy Co." 
-                   TextColor="Black"
+                 Text="Powered by MLS Consultancy Co."
                    Margin="20"
                    FontSize="14"
                    

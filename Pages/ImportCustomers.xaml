@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="eMRBCS.Pages.ImportCustomers"
@@ -161,7 +161,7 @@
             VerticalOptions="Start"
             HorizontalOptions="Start"/>
 
-                <ListView x:Name="FilesListView" 
+                <ListView ItemTemplate="{StaticResource StringItemTemplate}" x:Name="FilesListView" 
             Grid.Row="6"
             Grid.Column="0" />
 
@@ -190,7 +190,7 @@
             VerticalOptions="Start"
             HorizontalOptions="Start"/>
 
-                <ListView x:Name="FilesListView1" 
+                <ListView ItemTemplate="{StaticResource StringItemTemplate}" x:Name="FilesListView1" 
             Grid.Row="9"
             Grid.Column="0" />
 

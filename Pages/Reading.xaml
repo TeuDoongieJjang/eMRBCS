@@ -1,482 +1,406 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Reading.xaml  -  single-screen layout (no page scrolling) tuned for 480x800 devices
+    (Honeywell EDA51K) and scaled up automatically for bigger phones.
+    All x:Names / event handlers are unchanged, so Reading.xaml.cs keeps working.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:pages="clr-namespace:eMRBCS.Pages"
              x:Class="eMRBCS.Pages.Reading"
              NavigationPage.HasNavigationBar="False"
-             BackgroundColor="{AppThemeBinding Light=White, Dark=#121212}"
              Title="Reading">
 
-    <!-- ===================== THEME STYLES (follow phone light/dark mode) ===================== -->
     <ContentPage.Resources>
         <ResourceDictionary>
-            <!-- normal text -->
-            <Style x:Key="LblText" TargetType="Label">
-                <Setter Property="TextColor" Value="{AppThemeBinding Light=Black, Dark=White}" />
-            </Style>
-            <!-- bold caption (Name:, Address:, ...) -->
-            <Style x:Key="LblCaption" TargetType="Label" BasedOn="{StaticResource LblText}">
+
+            <!-- Sizes. Reading.xaml.cs (ApplyScreenScale) multiplies these by a screen factor at start-up. -->
+            <x:Double x:Key="FsCaption">11</x:Double>
+            <x:Double x:Key="FsBody">13</x:Double>
+            <x:Double x:Key="FsValue">16</x:Double>
+            <x:Double x:Key="FsTotal">20</x:Double>
+            <x:Double x:Key="FsPad">22</x:Double>
+            <x:Double x:Key="FieldH">32</x:Double>
+            <x:Double x:Key="PadH">46</x:Double>
+            <x:Double x:Key="CmdH">42</x:Double>
+
+            <!-- Text -->
+            <Style x:Key="Cap" TargetType="Label">
+                <Setter Property="FontSize" Value="{DynamicResource FsCaption}" />
                 <Setter Property="FontAttributes" Value="Bold" />
-                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontAutoScalingEnabled" Value="False" />
+                <Setter Property="LineBreakMode" Value="NoWrap" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
             </Style>
-            <!-- yellow tappable field (Account No, Name, Meter No) -->
-            <Style x:Key="FieldBox" TargetType="BoxView">
-                <Setter Property="Color" Value="{AppThemeBinding Light=Yellow, Dark=#8A7300}" />
-                <Setter Property="CornerRadius" Value="5" />
+            <Style x:Key="Body" TargetType="Label">
+                <Setter Property="FontSize" Value="{DynamicResource FsBody}" />
+                <Setter Property="FontAutoScalingEnabled" Value="False" />
+                <Setter Property="VerticalOptions" Value="Center" />
             </Style>
-            <!-- white card (dark card in dark mode) -->
-            <Style x:Key="CardBox" TargetType="BoxView">
-                <Setter Property="Color" Value="{AppThemeBinding Light=White, Dark=#1E1E1E}" />
-                <Setter Property="CornerRadius" Value="10" />
+            <Style x:Key="Val" TargetType="Label">
+                <Setter Property="FontSize" Value="{DynamicResource FsValue}" />
+                <Setter Property="FontAutoScalingEnabled" Value="False" />
+                <Setter Property="VerticalTextAlignment" Value="Center" />
+                <Setter Property="LineBreakMode" Value="NoWrap" />
             </Style>
-            <!-- numeric pad button -->
-            <Style x:Key="PadBtn" TargetType="Button">
-                <Setter Property="BackgroundColor" Value="LightSlateGray" />
+
+            <!-- Tappable / read-out boxes -->
+            <Style x:Key="FieldBase" TargetType="Border">
+                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderLightBrush}, Dark={StaticResource BorderDarkBrush}}" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="MinimumHeightRequest" Value="{DynamicResource FieldH}" />
+                <Setter Property="StrokeShape">
+                    <Setter.Value>
+                        <RoundRectangle CornerRadius="6" />
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <!-- yellow in light mode, dark amber in dark mode (text stays theme colour) -->
+            <Style x:Key="Field" TargetType="Border" BasedOn="{StaticResource FieldBase}">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource FieldLight}, Dark={StaticResource FieldDark}}" />
+            </Style>
+            <Style x:Key="FieldBrand" TargetType="Border" BasedOn="{StaticResource FieldBase}">
+                <Setter Property="BackgroundColor" Value="{StaticResource Brand}" />
+            </Style>
+            <Style x:Key="FieldBlack" TargetType="Border" BasedOn="{StaticResource FieldBase}">
+                <Setter Property="BackgroundColor" Value="Black" />
+            </Style>
+
+            <!-- Buttons -->
+            <Style x:Key="CmdBtn" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SoftBtnLight}, Dark={StaticResource SoftBtnDark}}" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource BorderLightBrush}, Dark={StaticResource BorderDarkBrush}}" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HeightRequest" Value="{DynamicResource CmdH}" />
+            </Style>
+            <Style x:Key="SaveBtn" TargetType="Button" BasedOn="{StaticResource CmdBtn}">
+                <Setter Property="BackgroundColor" Value="{StaticResource Brand}" />
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="BorderWidth" Value="0" />
+            </Style>
+            <Style x:Key="PadBtn" TargetType="Button" BasedOn="{StaticResource BtnBase}">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PadLight}, Dark={StaticResource PadDark}}" />
+                <Setter Property="FontSize" Value="{DynamicResource FsPad}" />
                 <Setter Property="FontAttributes" Value="Bold" />
-                <Setter Property="FontSize" Value="32" />
-                <Setter Property="Margin" Value="5" />
-                <Setter Property="HeightRequest" Value="70" />
-                <Setter Property="WidthRequest" Value="70" />
+                <Setter Property="Margin" Value="3" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HeightRequest" Value="{DynamicResource PadH}" />
             </Style>
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <AbsoluteLayout>
+    <Grid>
 
-        <!-- ===================== NUMERIC PAD ===================== -->
-        <Grid x:Name="gridNumericPad"
-              IsVisible="False"
-              AbsoluteLayout.LayoutBounds="0.5,0.2,1,1"
-              AbsoluteLayout.LayoutFlags="SizeProportional"
-              ZIndex="3">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+        <!-- ============================== MAIN SCREEN ============================== -->
+        <Grid RowDefinitions="Auto,Auto,*">
 
-            <Frame x:Name="frmNumericLower" BackgroundColor="#3269cd"
-                   Grid.Row="0" Margin="10" CornerRadius="10" />
-            <Frame x:Name="frmNumericUpper"
-                   BackgroundColor="{AppThemeBinding Light=White, Dark=#1E1E1E}"
-                   Grid.Row="0" Margin="20" CornerRadius="10" />
+            <!-- Top bar -->
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6" Padding="10,4"
+                  MinimumHeightRequest="40"
+                  BackgroundColor="{AppThemeBinding Light={StaticResource Brand}, Dark={StaticResource BrandDark}}">
+                <Label x:Name="lblSummaryCount" Grid.Column="0" Text="0 / 0" TextColor="White"
+                       FontSize="16" FontAttributes="Bold" FontAutoScalingEnabled="False"
+                       VerticalOptions="Center" LineBreakMode="NoWrap" MaxLines="1" />
+                <Label x:Name="lblListTitle" Grid.Column="1" Text="Unbilled Consumer List" TextColor="White"
+                       FontSize="13" FontAttributes="Bold" FontAutoScalingEnabled="False"
+                       HorizontalOptions="Center" HorizontalTextAlignment="Center"
+                       VerticalOptions="Center" MaxLines="2" LineBreakMode="TailTruncation" />
+                <Image x:Name="imgoption" Grid.Column="2" Source="menuicons/options1.png"
+                       HeightRequest="32" WidthRequest="32" VerticalOptions="Center">
+                    <Image.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="TapShowOPtions" />
+                    </Image.GestureRecognizers>
+                </Image>
+            </Grid>
 
-            <Grid x:Name="gridButtons" Grid.Row="0" Margin="25">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <!-- Options (hidden until the user taps the icon) -->
+            <Grid x:Name="gridOptions" Grid.Row="1" IsVisible="False" ColumnDefinitions="*,Auto" Padding="6,0">
+                <Picker x:Name="pickerBillingFilter" Grid.Column="0" FontSize="14"
+                        SelectedIndexChanged="OnConsumerTypeChanged" Title="Choose Consumer Status" />
+                <HorizontalStackLayout Grid.Column="1" VerticalOptions="Center">
+                    <CheckBox x:Name="chkPrintOn" IsChecked="False" CheckedChanged="OnCheckPrint" />
+                    <Label Text="Auto Print" FontSize="13" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Grid>
 
-                <Frame x:Name="frmNumeric" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4"
-                       BackgroundColor="{AppThemeBinding Light=LightGray, Dark=#3A3A3A}"
-                       HeightRequest="60" Margin="0,0,0,5" />
-                <Entry x:Name="txtCustomEntry" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4"
-                       Text="0.00" FontSize="32" FontAttributes="Bold" MinimumHeightRequest="55"
-                       HorizontalTextAlignment="End" IsReadOnly="True"
-                       TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+            <!-- Details + commands -->
+            <Grid x:Name="gridDetails" Grid.Row="2" RowDefinitions="*,Auto" RowSpacing="4" Padding="4,4,4,4">
 
-                <Button x:Name="btnNumber7" Style="{StaticResource PadBtn}" Grid.Row="1" Grid.Column="0" Clicked="OnClickB7" Text="7" />
-                <Button x:Name="btnNumber8" Style="{StaticResource PadBtn}" Grid.Row="1" Grid.Column="1" Clicked="OnClickB8" Text="8" />
-                <Button x:Name="btnNumber9" Style="{StaticResource PadBtn}" Grid.Row="1" Grid.Column="2" Clicked="OnClickB9" Text="9" />
-                <Button x:Name="btnClear"   Style="{StaticResource PadBtn}" Grid.Row="1" Grid.Column="3" Clicked="OnClickClear" Text="C" />
+                <Border Grid.Row="0" Style="{StaticResource Card}" Padding="0">
+                    <!-- ScrollView is only a safety net for extreme font settings; on the EDA51K nothing scrolls -->
+                    <ScrollView VerticalScrollBarVisibility="Never">
+                        <VerticalStackLayout Spacing="3" Padding="0,4,0,0">
 
-                <Button x:Name="btnNumber4" Style="{StaticResource PadBtn}" Grid.Row="2" Grid.Column="0" Clicked="OnClickB4" Text="4" />
-                <Button x:Name="btnNumber5" Style="{StaticResource PadBtn}" Grid.Row="2" Grid.Column="1" Clicked="OnClickB5" Text="5" />
-                <Button x:Name="btnNumber6" Style="{StaticResource PadBtn}" Grid.Row="2" Grid.Column="2" Clicked="OnClickB6" Text="6" />
-                <Button x:Name="btnDel"     Style="{StaticResource PadBtn}" Grid.Row="2" Grid.Column="3" Clicked="OnClickBackSpace" Text="⌫" />
+                            <!-- Seq no + record navigation -->
+                            <Grid Margin="4,0" ColumnDefinitions="Auto,*">
+                                <Label x:Name="lblRecordNo" Text="SeqNo: 0" FontAttributes="Bold" FontSize="14"
+                       FontAutoScalingEnabled="False" VerticalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource Brand}, Dark={StaticResource BrandSoft}}" />
+                                <HorizontalStackLayout Grid.Column="1" HorizontalOptions="End" Spacing="10">
+                                    <Image x:Name="btnStartRecord" Source="menuicons/startrecord.png" HeightRequest="34" WidthRequest="34">
+                                        <Image.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnFirstRecordTapped" />
+                                        </Image.GestureRecognizers>
+                                    </Image>
+                                    <Image x:Name="btnPrevRecord" Source="menuicons/prev.png" HeightRequest="34" WidthRequest="34">
+                                        <Image.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnPrevRecordTapped" />
+                                        </Image.GestureRecognizers>
+                                    </Image>
+                                    <Image x:Name="btnNextRecord" Source="menuicons/next.png" HeightRequest="34" WidthRequest="34">
+                                        <Image.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnNextRecordTapped" />
+                                        </Image.GestureRecognizers>
+                                    </Image>
+                                    <Image x:Name="btnLastRecord" Source="menuicons/endrecord.png" HeightRequest="34" WidthRequest="34">
+                                        <Image.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnLastRecordTapped" />
+                                        </Image.GestureRecognizers>
+                                    </Image>
+                                </HorizontalStackLayout>
+                            </Grid>
 
-                <Button x:Name="btnNumber1" Style="{StaticResource PadBtn}" Grid.Row="3" Grid.Column="0" Clicked="OnClickB1" Text="1" />
-                <Button x:Name="btnNumber2" Style="{StaticResource PadBtn}" Grid.Row="3" Grid.Column="1" Clicked="OnClickB2" Text="2" />
-                <Button x:Name="btnNumber3" Style="{StaticResource PadBtn}" Grid.Row="3" Grid.Column="2" Clicked="OnClickB3" Text="3" />
-                <Button x:Name="btnok"      Style="{StaticResource PadBtn}" Grid.Row="3" Grid.Column="3" Clicked="OnClickOk" Text="OK" FontSize="24" />
+                            <!-- Identity -->
+                            <Grid Margin="4,0" ColumnDefinitions="66,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                  RowSpacing="2" ColumnSpacing="2">
 
-                <Button x:Name="btnNumber0" Style="{StaticResource PadBtn}" Grid.Row="4" Grid.Column="0" Clicked="OnClickB0" Text="0" />
-                <Button x:Name="btnPeriod"  Style="{StaticResource PadBtn}" Grid.Row="4" Grid.Column="1" Clicked="OnClickPeriod" Text="." />
-                <Button x:Name="btnDash"    Style="{StaticResource PadBtn}" Grid.Row="4" Grid.Column="2" Clicked="OnClickDash" Text="-" />
-                <Button x:Name="btnCancel"  Style="{StaticResource PadBtn}" Grid.Row="4" Grid.Column="3" Clicked="OnClickCancel" Text="Back" FontSize="12" />
+                                <Label Grid.Row="0" Grid.Column="0" Text="Acct No" Style="{StaticResource Cap}" />
+                                <Border Grid.Row="0" Grid.Column="1" Style="{StaticResource Field}">
+                                    <Label x:Name="txtConsumerAcctNo" Style="{StaticResource Val}" FontAttributes="Bold"
+                           HorizontalOptions="Fill" VerticalOptions="Fill" Padding="8,0" Text="">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnAcctNoTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+                                <Label x:Name="lblTypeSize" Grid.Row="0" Grid.Column="2" Style="{StaticResource Val}"
+                       FontAttributes="Bold" />
 
-                <Label x:Name="lblPadMode" Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="4"
-                       HorizontalOptions="Center" FontAttributes="Bold" FontSize="14"
-                       TextColor="{AppThemeBinding Light=#3269cd, Dark=#8FB4FF}"
-                       Margin="0,5,0,0" />
+                                <Label x:Name="lblPrevAcctNo" Grid.Row="1" Grid.Column="0" Text="Prev Acct"
+                       Style="{StaticResource Cap}" IsVisible="False" />
+                                <Label x:Name="txtConsumerPrevAcctNo" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                       Style="{StaticResource Body}" IsVisible="False" />
+
+                                <Label x:Name="lblName" Grid.Row="2" Grid.Column="0" Text="Name" Style="{StaticResource Cap}">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnNameTapped" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                                <Border Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource Field}">
+                                    <Label x:Name="txtConsumerName" Style="{StaticResource Body}" MaxLines="2"
+                           LineBreakMode="TailTruncation" HorizontalOptions="Fill" VerticalOptions="Fill"
+                           VerticalTextAlignment="Center" Padding="8,2" Text="">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnNameTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+
+                                <Label Grid.Row="3" Grid.Column="0" Text="Meter No" Style="{StaticResource Cap}" />
+                                <Border Grid.Row="3" Grid.Column="1" Style="{StaticResource Field}">
+                                    <Label x:Name="txtConsumerMeterNo" Style="{StaticResource Val}"
+                           HorizontalOptions="Fill" VerticalOptions="Fill" Padding="8,0" Text="">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnMeterNoTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+                                <Label x:Name="txtConsumerStatus" Grid.Row="3" Grid.Column="2" Style="{StaticResource Body}" Text="" />
+
+                                <Label x:Name="lbladdress" Grid.Row="4" Grid.Column="0" Text="Address" Style="{StaticResource Cap}" />
+                                <Label x:Name="txtConsumerAddress" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
+                       Style="{StaticResource Body}" MaxLines="2" LineBreakMode="TailTruncation" Text="" />
+                            </Grid>
+
+                            <!-- ===== READINGS & BILLING: rounded band, flush to housing card edges ===== -->
+                            <Border Margin="0,0,0,0" Padding="4,4,4,4"
+        Stroke="{AppThemeBinding Light={StaticResource BorderLightBrush}, Dark={StaticResource BorderDarkBrush}}"
+        StrokeThickness="1"
+        BackgroundColor="{AppThemeBinding Light=#F5F7FA, Dark=#1F242C}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="4">
+
+                                    <!-- Average | Prev | Pres | Usage — Auto fields, equal star gaps -->
+                                    <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto" ColumnSpacing="0">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                            <Label x:Name="lblAverage" Text="Average" Style="{StaticResource Cap}" />
+                                            <Border Style="{StaticResource FieldBlack}">
+                                                <Label x:Name="txtConsumerAverage" Style="{StaticResource Val}" Text="0"
+                           TextColor="Yellow" HorizontalTextAlignment="End"
+                           HorizontalOptions="Fill" VerticalOptions="Fill" Padding="4,0" />
+                                            </Border>
+                                        </VerticalStackLayout>
+
+                                        <VerticalStackLayout Grid.Column="2" Spacing="1">
+                                            <Label x:Name="lblprevreading" Text="Prev Rdg" Style="{StaticResource Cap}" />
+                                            <Label x:Name="txtConsumerPrevReading" Style="{StaticResource Val}" Text="0"
+                       HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
+                                        </VerticalStackLayout>
+
+                                        <VerticalStackLayout Grid.Column="4" Spacing="1">
+                                            <Label x:Name="lblpresreading" Text="Pres Rdg" Style="{StaticResource Cap}" />
+                                            <Border Style="{StaticResource FieldBrand}">
+                                                <Label x:Name="txtConsumerPresReading" Style="{StaticResource Val}" Text=" "
+                           TextColor="White" FontAttributes="Bold" HorizontalTextAlignment="End"
+                           HorizontalOptions="Fill" VerticalOptions="Fill" Padding="4,0">
+                                                    <Label.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnPresReadingTapped" />
+                                                    </Label.GestureRecognizers>
+                                                </Label>
+                                            </Border>
+                                        </VerticalStackLayout>
+
+                                        <VerticalStackLayout Grid.Column="6" Spacing="1">
+                                            <Label x:Name="lblusage" Text="Usage" Style="{StaticResource Cap}" />
+                                            <Label x:Name="txtConsumerUsage" Style="{StaticResource Val}" Text=" " FontAttributes="Bold"
+                       HeightRequest="{DynamicResource FieldH}" Padding="0,0" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+
+                                    <!--  Other | Current Bill | Arrears — Auto fields, equal star gaps -->
+                                    <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="0">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                            <Label x:Name="lblOthers" Text="Other" Style="{StaticResource Cap}" />
+                                            <Label x:Name="txtConsumerOthers" Style="{StaticResource Val}" Text="0.00"
+                       HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="2" Spacing="1">
+                                            <Label x:Name="lblArrears" Text="Arrears" Style="{StaticResource Cap}" />
+                                            <Label x:Name="txtConsumerArrears" Style="{StaticResource Val}" Text="0.00"
+HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="4" Spacing="1">
+                                            <Label x:Name="lblcurrentbill" Text="Current Bill" Style="{StaticResource Cap}" />
+                                            <Label x:Name="txtConsumerCurrentBill" Style="{StaticResource Val}" Text="0.00"
+FontAttributes="Bold" HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+
+                                    <!-- Total Bill: band footer -->
+                                    <Grid ColumnDefinitions="66,*" ColumnSpacing="4">
+                                        <Label x:Name="lbltotalbill" Grid.Column="0" Text="Total Bill" Style="{StaticResource Cap}" />
+                                        <Border Grid.Column="1" Style="{StaticResource FieldBlack}" MinimumHeightRequest="36">
+                                            <Label x:Name="txtConsumerTotalBill" Text="0.00" TextColor="Yellow" FontAttributes="Bold"
+                       FontSize="{DynamicResource FsTotal}" FontAutoScalingEnabled="False"
+                       HorizontalTextAlignment="End" VerticalTextAlignment="Center"
+                       HorizontalOptions="Fill" VerticalOptions="Fill" Padding="8,0" />
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Remarks (inside band) -->
+                                    <Grid ColumnDefinitions="66,*" ColumnSpacing="4">
+                                        <Label Grid.Column="0" Text="Remarks" Style="{StaticResource Cap}" />
+                                        <Border Grid.Column="1" Style="{StaticResource FieldBrand}">
+                                            <Grid>
+                                                <Label x:Name="txtRemarks" IsVisible="True" Text="Normal Reading" TextColor="White"
+                           FontAttributes="Bold" FontSize="{DynamicResource FsBody}" FontAutoScalingEnabled="False"
+                           VerticalTextAlignment="Center" HorizontalOptions="Fill" VerticalOptions="Fill"
+                           LineBreakMode="TailTruncation" Padding="8,0">
+                                                    <Label.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnRemarkTapped" />
+                                                    </Label.GestureRecognizers>
+                                                </Label>
+                                                <Picker x:Name="pickerRemarks" IsVisible="False" Title="Choose Remarks"
+                            TextColor="White" TitleColor="White" FontSize="13" Margin="4,0"
+                            SelectedIndexChanged="OnRemarkChanged"
+                            Focused="OnRemarkFocus" Unfocused="OnRemarkUnFocus" />
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+
+                                </VerticalStackLayout>
+                            </Border>
+
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Border>
+
+                <!-- Commands -->
+                <Grid x:Name="gridCommands" Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="6">
+                    <Button x:Name="btnCloseDetails" Grid.Column="0" Text="Back" Style="{StaticResource CmdBtn}"
+                            Clicked="OnCloseDetails" Focused="OnSaveFocus" Unfocused="OnSaveUnFocus" />
+                    <Button x:Name="btnPrint" Grid.Column="1" Text="Print" Style="{StaticResource CmdBtn}"
+                            Clicked="OnPrintBill" Focused="OnSaveFocus" Unfocused="OnSaveUnFocus" />
+                    <Button x:Name="btnSave" Grid.Column="2" Text="Save" Style="{StaticResource SaveBtn}"
+                            Clicked="OnSaveReading" Focused="OnSaveFocus" Unfocused="OnSaveUnFocus" />
+                </Grid>
             </Grid>
         </Grid>
 
-        <!-- ===================== MAIN CONTENT ===================== -->
-        <ScrollView ZIndex="1" AbsoluteLayout.LayoutBounds="0.5,0,1,1"
-                    AbsoluteLayout.LayoutFlags="SizeProportional">
-            <Grid x:Name="dataGrid">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+        <!-- ============================== NUMERIC PAD (overlay) ============================== -->
+        <Grid x:Name="gridNumericPad" IsVisible="False" BackgroundColor="#B3000000" ZIndex="5">
+            <Border Style="{StaticResource Card}" Stroke="{StaticResource Brand}" StrokeThickness="2"
+                    HorizontalOptions="Fill" VerticalOptions="Center" Margin="10" Padding="6">
+                <Grid x:Name="gridButtons" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto"
+                      ColumnDefinitions="*,*,*,*">
 
-                <!-- Top bar -->
-                <Grid Grid.Row="0"
-                      BackgroundColor="{AppThemeBinding Light=#3269cd, Dark=#26498F}"
-                      MinimumHeightRequest="50"
-                      ColumnDefinitions="Auto,*,Auto"
-                      ColumnSpacing="6">
-                    <Label x:Name="lblSummaryCount" Grid.Column="0" Text="0 / 0" TextColor="White"
-                           FontSize="17" FontAttributes="Bold" FontAutoScalingEnabled="False"
-                           VerticalOptions="Center" HorizontalOptions="Start"
-                           LineBreakMode="NoWrap" MaxLines="1" Margin="10,0,0,0" />
-                    <Label x:Name="lblListTitle" Grid.Column="1" Text="Unbilled Consumer List" TextColor="White"
-                           FontSize="14" FontAttributes="Bold" FontAutoScalingEnabled="False"
+                    <Label x:Name="lblPadMode" Grid.Row="0" Grid.ColumnSpan="4"
                            HorizontalOptions="Center" HorizontalTextAlignment="Center"
-                           VerticalOptions="Center" MaxLines="2" LineBreakMode="WordWrap" />
-                    <Image x:Name="imgoption" Grid.Column="2" Source="menuicons/options1.png"
-                           HeightRequest="40" WidthRequest="40" VerticalOptions="Center"
-                           HorizontalOptions="End" Margin="0,5,10,5">
-                        <Image.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="TapShowOPtions" />
-                        </Image.GestureRecognizers>
-                    </Image>
+                           FontAttributes="Bold" FontSize="14" FontAutoScalingEnabled="False" Margin="0,2,0,4"
+                           TextColor="{AppThemeBinding Light={StaticResource Brand}, Dark={StaticResource BrandSoft}}" />
+
+                    <Border Grid.Row="1" Grid.ColumnSpan="4" Margin="3,0,3,3" Style="{StaticResource FieldBase}"
+                            BackgroundColor="{AppThemeBinding Light=#EEEEEE, Dark=#2E2E2E}">
+                        <Entry x:Name="txtCustomEntry" Text="0.00" FontSize="26" FontAttributes="Bold"
+                               HorizontalTextAlignment="End" IsReadOnly="True" MinimumHeightRequest="46" />
+                    </Border>
+
+                    <Button x:Name="btnNumber7" Style="{StaticResource PadBtn}" Grid.Row="2" Grid.Column="0" Clicked="OnClickB7" Text="7" />
+                    <Button x:Name="btnNumber8" Style="{StaticResource PadBtn}" Grid.Row="2" Grid.Column="1" Clicked="OnClickB8" Text="8" />
+                    <Button x:Name="btnNumber9" Style="{StaticResource PadBtn}" Grid.Row="2" Grid.Column="2" Clicked="OnClickB9" Text="9" />
+                    <Button x:Name="btnClear"   Style="{StaticResource PadBtn}" Grid.Row="2" Grid.Column="3" Clicked="OnClickClear" Text="C" BackgroundColor="#C0392B" />
+
+                    <Button x:Name="btnNumber4" Style="{StaticResource PadBtn}" Grid.Row="3" Grid.Column="0" Clicked="OnClickB4" Text="4" />
+                    <Button x:Name="btnNumber5" Style="{StaticResource PadBtn}" Grid.Row="3" Grid.Column="1" Clicked="OnClickB5" Text="5" />
+                    <Button x:Name="btnNumber6" Style="{StaticResource PadBtn}" Grid.Row="3" Grid.Column="2" Clicked="OnClickB6" Text="6" />
+                    <Button x:Name="btnDel"     Style="{StaticResource PadBtn}" Grid.Row="3" Grid.Column="3" Clicked="OnClickBackSpace" Text="⌫" />
+
+                    <Button x:Name="btnNumber1" Style="{StaticResource PadBtn}" Grid.Row="4" Grid.Column="0" Clicked="OnClickB1" Text="1" />
+                    <Button x:Name="btnNumber2" Style="{StaticResource PadBtn}" Grid.Row="4" Grid.Column="1" Clicked="OnClickB2" Text="2" />
+                    <Button x:Name="btnNumber3" Style="{StaticResource PadBtn}" Grid.Row="4" Grid.Column="2" Clicked="OnClickB3" Text="3" />
+                    <Button x:Name="btnok"      Style="{StaticResource PadBtn}" Grid.Row="4" Grid.Column="3" Clicked="OnClickOk" Text="OK" FontSize="18"
+                            BackgroundColor="{StaticResource Brand}" />
+
+                    <Button x:Name="btnNumber0" Style="{StaticResource PadBtn}" Grid.Row="5" Grid.Column="0" Clicked="OnClickB0" Text="0" />
+                    <Button x:Name="btnPeriod"  Style="{StaticResource PadBtn}" Grid.Row="5" Grid.Column="1" Clicked="OnClickPeriod" Text="." />
+                    <Button x:Name="btnDash"    Style="{StaticResource PadBtn}" Grid.Row="5" Grid.Column="2" Clicked="OnClickDash" Text="-" />
+                    <Button x:Name="btnCancel"  Style="{StaticResource PadBtn}" Grid.Row="5" Grid.Column="3" Clicked="OnClickCancel" Text="Back" FontSize="13" />
                 </Grid>
+            </Border>
+        </Grid>
 
-                <!-- Options -->
-                <Grid x:Name="gridOptions" Grid.Row="1" IsVisible="False">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Picker x:Name="pickerBillingFilter" SelectedIndexChanged="OnConsumerTypeChanged"
-                            HorizontalOptions="Start" Grid.Row="0" Grid.Column="0"
-                            Margin="10,0,10,0" Title="Choose Consumer Status" />
-                    <HorizontalStackLayout Grid.Row="0" Grid.Column="1" HorizontalOptions="End">
-                        <CheckBox x:Name="chkPrintOn" CheckedChanged="OnCheckPrint" IsChecked="false"
-                                  Color="{AppThemeBinding Light=Black, Dark=White}" />
-                        <Label Text="Auto Print" Margin="0,0,10,0" Style="{StaticResource LblText}"
-                               VerticalOptions="Center" FontSize="14" />
-                    </HorizontalStackLayout>
-                </Grid>
-
-                <!-- Details -->
-                <Grid x:Name="gridDetails" Grid.Row="2" IsVisible="True">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <!-- 0: SeqNo + record buttons -->
-                        <RowDefinition Height="Auto" />
-                        <!-- 1: details card -->
-                        <RowDefinition Height="Auto" />
-                        <!-- 2: spacer -->
-                        <RowDefinition Height="Auto" />
-                        <!-- 3: commands -->
-                    </Grid.RowDefinitions>
-
-                    <BoxView x:Name="boxConsumerType"
-                             Color="{AppThemeBinding Light=#3269cd, Dark=#26498F}"
-                             CornerRadius="10" Grid.Row="0" Grid.RowSpan="4" />
-                    <BoxView x:Name="boxWhite" Style="{StaticResource CardBox}"
-                             Margin="10,0,10,10" Grid.Row="1" Grid.RowSpan="2" />
-
-                    <!-- Row 0: SeqNo (left)  +  first/prev/next/last (right of SeqNo) -->
-                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*" Margin="20,8,20,8">
-                        <Label x:Name="lblRecordNo" Grid.Column="0" Text="SeqNo: 0"
-                               FontAttributes="Bold" TextColor="White" FontSize="14"
-                               VerticalOptions="Center" />
-                        <HorizontalStackLayout Grid.Column="1" HorizontalOptions="End" Spacing="8">
-                            <Image x:Name="btnStartRecord" Source="menuicons/startrecord.png" HeightRequest="30" WidthRequest="30">
-                                <Image.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnFirstRecordTapped" />
-                                </Image.GestureRecognizers>
-                            </Image>
-                            <Image x:Name="btnPrevRecord" Source="menuicons/prev.png" HeightRequest="30" WidthRequest="30">
-                                <Image.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnPrevRecordTapped" />
-                                </Image.GestureRecognizers>
-                            </Image>
-                            <Image x:Name="btnNextRecord" Source="menuicons/next.png" HeightRequest="30" WidthRequest="30">
-                                <Image.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnNextRecordTapped" />
-                                </Image.GestureRecognizers>
-                            </Image>
-                            <Image x:Name="btnLastRecord" Source="menuicons/endrecord.png" HeightRequest="30" WidthRequest="30">
-                                <Image.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnLastRecordTapped" />
-                                </Image.GestureRecognizers>
-                            </Image>
-                        </HorizontalStackLayout>
-                    </Grid>
-
-                    <!-- Row 1: consumer details -->
-                    <Grid x:Name="gridConsumerDetails" Grid.Row="1" Padding="0,10,5,5">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <!-- 0 Account No + Type/Size -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 1 Prev Acct No -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 2 Name -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 3 Status | Meter No -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 4 Address -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 5 Prev Reading | Pres Reading -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 6 Average | Usage -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 7 Current Bill -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 8 Arrears | Others -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 9 Total Bill -->
-                            <RowDefinition Height="Auto" />
-                            <!-- 10 Remarks -->
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <!-- 0: Account No (above Name) + Type/Size (plain display, like Address) -->
-                        <Label Grid.Row="0" Grid.Column="0" Style="{StaticResource LblCaption}"
-                               Text="Account No:" Margin="10,10,10,0" HorizontalOptions="End" VerticalOptions="Center" />
-                        <HorizontalStackLayout Grid.Row="0" Grid.Column="1" Spacing="8"
-                                               Margin="0,5,10,0" VerticalOptions="Center">
-                            <Grid>
-                                <BoxView Style="{StaticResource FieldBox}">
-                                    <BoxView.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnAcctNoTapped" />
-                                    </BoxView.GestureRecognizers>
-                                </BoxView>
-                                <Label x:Name="txtConsumerAcctNo" Style="{StaticResource LblText}"
-                                       Text="" FontSize="18" Margin="10,6" VerticalOptions="Center">
-                                    <Label.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnAcctNoTapped" />
-                                    </Label.GestureRecognizers>
-                                </Label>
-                            </Grid>
-                            <Label x:Name="lblTypeSize" Style="{StaticResource LblText}"
-                                   FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
-                        </HorizontalStackLayout>
-
-                        <!-- 1: Prev Acct No (same look as Address, only visible when it has a value) -->
-                        <Label x:Name="lblPrevAcctNo" Grid.Row="1" Grid.Column="0"
-                               Style="{StaticResource LblCaption}" Text="Prev. Acct No:"
-                               Margin="10" HorizontalOptions="End" IsVisible="False" />
-                        <Label x:Name="txtConsumerPrevAcctNo" Grid.Row="1" Grid.Column="1"
-                               Style="{StaticResource LblText}" FontSize="14"
-                               Margin="10,5,10,0" HorizontalOptions="Fill" IsVisible="False" />
-
-                        <!-- 2: Name -->
-                        <Label x:Name="lblName" Grid.Row="2" Grid.Column="0" Style="{StaticResource LblCaption}"
-                               Text="Name:" Margin="10,5,10,0" HorizontalOptions="End">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnNameTapped" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                        <BoxView Style="{StaticResource FieldBox}" Grid.Row="2" Grid.Column="1"
-                                 Margin="0,3,10,0" MinimumHeightRequest="44">
-                            <BoxView.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnNameTapped" />
-                            </BoxView.GestureRecognizers>
-                        </BoxView>
-                        <Label x:Name="txtConsumerName" Grid.Row="2" Grid.Column="1" Style="{StaticResource LblText}"
-                               Text="Juan dela Cruz" MaxLines="2" FontSize="14"
-                               Margin="10,5,15,5" VerticalOptions="Center" HorizontalOptions="Fill">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnNameTapped" />
-                            </Label.GestureRecognizers>
-                        </Label>
-
-                        <!-- 3: Status (left)  |  Meter No (right) -->
-                        <Grid Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
-                              ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="6" Margin="10,8,10,0">
-                            <Label Grid.Column="0" Style="{StaticResource LblCaption}" Text="Status:" VerticalOptions="Center" />
-                            <Label x:Name="txtConsumerStatus" Grid.Column="1" Style="{StaticResource LblText}"
-                                   FontSize="14" Text="" VerticalOptions="Center" />
-                            <Label Grid.Column="2" Style="{StaticResource LblCaption}" Text="Meter No:"
-                                   Margin="10,0,0,0" VerticalOptions="Center" />
-                            <Grid Grid.Column="3">
-                                <BoxView Style="{StaticResource FieldBox}" MinimumHeightRequest="44">
-                                    <BoxView.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnMeterNoTapped" />
-                                    </BoxView.GestureRecognizers>
-                                </BoxView>
-                                <Label x:Name="txtConsumerMeterNo" Style="{StaticResource LblText}"
-                                       Text="4567890" FontSize="16" Margin="10,5" VerticalOptions="Center"
-                                       HorizontalOptions="Fill">
-                                    <Label.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnMeterNoTapped" />
-                                    </Label.GestureRecognizers>
-                                </Label>
-                            </Grid>
-                        </Grid>
-
-                        <!-- 4: Address -->
-                        <Label x:Name="lbladdress" Grid.Row="4" Grid.Column="0" Style="{StaticResource LblCaption}"
-                               Text="Address:" Margin="10" HorizontalOptions="End" />
-                        <Label x:Name="txtConsumerAddress" Grid.Row="4" Grid.Column="1" Style="{StaticResource LblText}"
-                               Text="#23 Mang David Rd. Baesa, Q.C." MaxLines="4"
-                               Margin="10,5,10,0" FontSize="14" HorizontalOptions="Fill" />
-
-                        <!-- 5: Prev Reading (left)  |  Pres Reading (right) -->
-                        <Grid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
-                              ColumnDefinitions="*,*" ColumnSpacing="10" Margin="10,8,10,0">
-                            <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                <Label x:Name="lblprevreading" Style="{StaticResource LblCaption}" Text="Prev. Reading:" />
-                                <Label x:Name="txtConsumerPrevReading" Style="{StaticResource LblText}"
-                                       Text="0" FontSize="18" Margin="0,8,0,0" />
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                <Label x:Name="lblpresreading" Style="{StaticResource LblCaption}" Text="Pres. Reading:" />
-                                <Grid>
-                                    <BoxView Color="#3269cd" CornerRadius="5" HeightRequest="44">
-                                        <BoxView.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnPresReadingTapped" />
-                                        </BoxView.GestureRecognizers>
-                                    </BoxView>
-                                    <Label x:Name="txtConsumerPresReading" Text=" " TextColor="White" FontSize="18"
-                                           HorizontalTextAlignment="End" VerticalOptions="Center"
-                                           Margin="10,5,15,5" HorizontalOptions="Fill">
-                                        <Label.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnPresReadingTapped" />
-                                        </Label.GestureRecognizers>
-                                    </Label>
-                                </Grid>
-                            </VerticalStackLayout>
-                        </Grid>
-
-                        <!-- 6: Average (left, black bg / yellow text like Total Bill)  |  Usage (right) -->
-                        <Grid Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2"
-                              ColumnDefinitions="*,*" ColumnSpacing="10" Margin="10,8,10,0">
-                            <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                <Label x:Name="lblAverage" Style="{StaticResource LblCaption}" Text="Average:" />
-                                <Grid>
-                                    <BoxView Color="Black" CornerRadius="5" HeightRequest="44" />
-                                    <Label x:Name="txtConsumerAverage" Text="0" TextColor="Yellow" FontSize="18"
-                                           HorizontalTextAlignment="End" VerticalOptions="Center"
-                                           Margin="10,5,15,5" HorizontalOptions="Fill" />
-                                </Grid>
-                            </VerticalStackLayout>
-                            <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                <Label x:Name="lblusage" Style="{StaticResource LblCaption}" Text="Usage:" />
-                                <Label x:Name="txtConsumerUsage" Style="{StaticResource LblText}"
-                                       Text=" " FontSize="18" Margin="0,8,0,0" />
-                            </VerticalStackLayout>
-                        </Grid>
-
-                        <!-- 7: Current Bill -->
-                        <Label x:Name="lblcurrentbill" Grid.Row="7" Grid.Column="0" Style="{StaticResource LblCaption}"
-                               Text="Current Bill:" Margin="10,10,10,0" HorizontalOptions="End" />
-                        <Label x:Name="txtConsumerCurrentBill" Grid.Row="7" Grid.Column="1" Style="{StaticResource LblText}"
-                               Text="0.00" FontAttributes="Bold" HorizontalTextAlignment="End"
-                               Margin="10,10,13,0" FontSize="16" HorizontalOptions="Fill" />
-
-                        <!-- 8: Arrears | Others -->
-                        <Grid Grid.Row="8" Grid.Column="0" Grid.ColumnSpan="2"
-                              ColumnDefinitions="Auto,*,Auto,*" Margin="0,5,0,0">
-                            <Label x:Name="lblArrears" Grid.Column="0" Style="{StaticResource LblCaption}"
-                                   Text="Arrears:" Margin="10,5,0,0" />
-                            <Label x:Name="txtConsumerArrears" Grid.Column="1" Style="{StaticResource LblText}"
-                                   Text="0.00" HorizontalTextAlignment="End" Margin="0,5,0,0" FontSize="16" />
-                            <Label x:Name="lblOthers" Grid.Column="2" Style="{StaticResource LblCaption}"
-                                   Text="Other:" FontSize="13" Margin="10,5,0,0" />
-                            <Label x:Name="txtConsumerOthers" Grid.Column="3" Style="{StaticResource LblText}"
-                                   Text="0.00" HorizontalTextAlignment="End" Margin="0,5,13,0" FontSize="16" />
-                        </Grid>
-
-                        <!-- 9: Total Bill -->
-                        <Label x:Name="lbltotalbill" Grid.Row="9" Grid.Column="0" Style="{StaticResource LblCaption}"
-                               Text="Total Bill:" Margin="10" HorizontalOptions="End" />
-                        <BoxView Color="Black" Grid.Row="9" Grid.Column="1" Margin="0,3,10,0" CornerRadius="5" />
-                        <Label x:Name="txtConsumerTotalBill" Grid.Row="9" Grid.Column="1"
-                               Text="0.00" TextColor="Yellow" FontSize="18"
-                               HorizontalTextAlignment="End" VerticalOptions="Center"
-                               Margin="10,5,15,3" HorizontalOptions="Fill" />
-
-                        <!-- 10: Remarks -->
-                        <Label Grid.Row="10" Grid.Column="0" Style="{StaticResource LblCaption}"
-                               Text="Remarks:" Margin="10,10,10,0" HorizontalOptions="End" />
-                        <BoxView Color="#3269cd" Grid.Row="10" Grid.Column="1"
-                                 Margin="0,3,10,0" CornerRadius="5" MinimumHeightRequest="44">
-                            <BoxView.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnRemarkTapped" />
-                            </BoxView.GestureRecognizers>
-                        </BoxView>
-                        <Label x:Name="txtRemarks" Grid.Row="10" Grid.Column="1" IsVisible="True"
-                               Text="Normal Reading" FontAttributes="Bold" FontSize="14" TextColor="White"
-                               Margin="10,5,15,5" VerticalOptions="Center" HorizontalOptions="Fill">
-                            <Label.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnRemarkTapped" />
-                            </Label.GestureRecognizers>
-                        </Label>
-                        <Picker x:Name="pickerRemarks" Grid.Row="10" Grid.Column="1" IsVisible="False"
-                                TextColor="White" TitleColor="White" Margin="10,0,15,0" FontSize="14"
-                                Title="Choose Remarks" SelectedIndexChanged="OnRemarkChanged"
-                                Focused="OnRemarkFocus" Unfocused="OnRemarkUnFocus" />
-                    </Grid>
-
-                    <!-- Row 2: spacer -->
-                    <BoxView Grid.Row="2" HeightRequest="15" BackgroundColor="Transparent" />
-
-                    <!-- Row 3: commands -->
-                    <Grid x:Name="gridCommands" Grid.Row="3" Margin="0,0,0,20">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="btnCloseDetails" Clicked="OnCloseDetails"
-                                Focused="OnSaveFocus" Unfocused="OnSaveUnFocus"
-                                Grid.Column="0" BackgroundColor="White" Text="Back"
-                                TextColor="Black" FontSize="18" Margin="10,0,10,0" />
-                        <Button x:Name="btnPrint" Grid.Column="1" Clicked="OnPrintBill"
-                                BackgroundColor="White" Text="Print" TextColor="Black"
-                                FontSize="18" Margin="10,0,10,0" />
-                        <Button x:Name="btnSave" Grid.Column="2" Clicked="OnSaveReading"
-                                Focused="OnSaveFocus" Unfocused="OnSaveUnFocus"
-                                BackgroundColor="White" Text="Save" TextColor="Black"
-                                FontSize="18" Margin="10,0,10,0" />
-                    </Grid>
-                </Grid>
-            </Grid>
-        </ScrollView>
-
-        <!-- ===================== BUSY OVERLAY ===================== -->
-        <Grid x:Name="busyOverlay" IsVisible="False" BackgroundColor="#99000000" ZIndex="10"
-              AbsoluteLayout.LayoutBounds="0,0,1,1" AbsoluteLayout.LayoutFlags="All">
+        <!-- ============================== BUSY OVERLAY ============================== -->
+        <Grid x:Name="busyOverlay" IsVisible="False" BackgroundColor="#99000000" ZIndex="10">
             <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="12">
-                <ActivityIndicator IsRunning="True" Color="White" WidthRequest="60" HeightRequest="60" />
-                <Label x:Name="lblBusy" Text="Please wait..." TextColor="White"
-                       FontSize="16" HorizontalTextAlignment="Center" />
+                <ActivityIndicator IsRunning="True" Color="White" WidthRequest="56" HeightRequest="56" />
+                <Label x:Name="lblBusy" Text="Please wait..." TextColor="White" FontSize="16"
+                       HorizontalTextAlignment="Center" />
             </VerticalStackLayout>
         </Grid>
 
-        <!-- ===================== SEARCH RESULTS ===================== -->
-        <Grid x:Name="gridSearchResults" IsVisible="False" BackgroundColor="#99000000" ZIndex="11"
-              AbsoluteLayout.LayoutBounds="0,0,1,1" AbsoluteLayout.LayoutFlags="All">
-            <Border BackgroundColor="{AppThemeBinding Light=White, Dark=#1E1E1E}"
-                    StrokeThickness="0" Margin="20,60,20,60" Padding="0">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="10" />
-                </Border.StrokeShape>
+        <!-- ============================== SEARCH RESULTS ============================== -->
+        <Grid x:Name="gridSearchResults" IsVisible="False" BackgroundColor="#99000000" ZIndex="11">
+            <Border Style="{StaticResource Card}" StrokeThickness="0" Margin="14,40" Padding="0">
                 <Grid RowDefinitions="Auto,Auto,*,Auto">
-                    <Label x:Name="lblSearchMode" Grid.Row="0"
-                           BackgroundColor="#3269cd" TextColor="White"
-                           FontAttributes="Bold" FontSize="16" Padding="12,10" />
-                    <Label x:Name="lblSearchSubtitle" Grid.Row="1" FontSize="12"
-                           TextColor="{AppThemeBinding Light=Gray, Dark=#BBBBBB}" Margin="12,6" />
+                    <Label x:Name="lblSearchMode" Grid.Row="0" BackgroundColor="{StaticResource Brand}" TextColor="White"
+                           FontAttributes="Bold" FontSize="15" Padding="12,8" />
+                    <Label x:Name="lblSearchSubtitle" Grid.Row="1" FontSize="12" Margin="12,6"
+                           TextColor="{AppThemeBinding Light={StaticResource MutedLight}, Dark={StaticResource MutedDark}}" />
 
                     <CollectionView x:Name="lstSearchResults" Grid.Row="2" SelectionMode="None">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="pages:SearchResultItem">
                                 <VerticalStackLayout>
-                                    <Label Text="{Binding Text}" Style="{StaticResource LblText}"
-                                           FontSize="14" Padding="12,12" />
+                                    <Label Text="{Binding Text}" FontSize="14" Padding="12,10" />
                                     <BoxView HeightRequest="1"
-                                             Color="{AppThemeBinding Light=LightGray, Dark=#444444}" />
+                                             Color="{AppThemeBinding Light={StaticResource FrameBorderLight}, Dark={StaticResource FrameBorderDark}}" />
                                     <VerticalStackLayout.GestureRecognizers>
                                         <TapGestureRecognizer Tapped="OnSearchResultTapped" />
                                     </VerticalStackLayout.GestureRecognizers>
@@ -485,11 +409,9 @@
                         </CollectionView.ItemTemplate>
                     </CollectionView>
 
-                    <Button Grid.Row="3" Text="Cancel" BackgroundColor="#3269cd"
-                            Margin="10" Clicked="OnSearchResultsCancel" />
+                    <Button Grid.Row="3" Text="Cancel" Margin="10" Clicked="OnSearchResultsCancel" />
                 </Grid>
             </Border>
         </Grid>
-    </AbsoluteLayout>
-
+    </Grid>
 </ContentPage>
