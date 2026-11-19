@@ -5,6 +5,7 @@ using eMRBCS.Services;
 using SQLite;
 using System.Globalization;
 using System.Text.RegularExpressions;
+
 //using System.Collections.Generic;
 //using System.IO;
 //using System.Threading.Tasks;
@@ -264,19 +265,66 @@ public partial class Reading : ContentPage
         double h = MyDeviceInfo.device_height;   // dp
         if (w <= 0 || h <= 0) return;
 
-        // designed for 320 x 533 dp (Honeywell EDA51K); other screens scale automatically
-        double k = Math.Clamp(Math.Min(w / 320.0, h / 533.0), 0.85, 1.35) * TextBoost;
+        // designed for 320 x 533 dp (Honeywell EDA51K)
+        double raw = Math.Min(w / 320.0, h / 533.0);
+
+        // text / control size factor (unchanged behaviour)
+        double k = Math.Clamp(raw, 0.85, 1.35) * TextBoost;
+
+        // spacing factor: 1.0 on small screens (spacing stays exactly as you like it),
+        // grows faster than the text on large screens so nothing looks tight
+        double rl = Math.Clamp(raw, 0.85, 1.8);
+        double g = rl <= 1.0 ? 1.0 : rl * rl;
 
         void Set(string key, double baseValue) => Resources[key] = Math.Round(baseValue * k, 1);
+        double S(double baseValue) => Math.Round(baseValue * g, 1);
 
-        Set("FsCaption", 11);   // small grey captions ("Prev. Reading", "Usage", ...)
-        Set("FsBody", 13);   // name, address, status
-        Set("FsValue", 16);   // account no, meter no, readings, amounts
-        Set("FsTotal", 20);   // Total Bill
-        Set("FsPad", 22);   // numeric pad digits
-        Set("FieldH", 32);   // height of the boxes / value rows
-        Set("PadH", 46);   // numeric pad button height
-        Set("CmdH", 42);   // Back / Print / Save height
+        // ---- sizes (DynamicResource in XAML) ----
+        Set("FsCaption", 11);
+        Set("FsBody", 13);
+        Set("FsValue", 16);
+        Set("FsTotal", 20);
+        Set("FsPad", 22);
+        Set("FieldH", 32);
+        Set("PadH", 46);
+        Set("CmdH", 42);
+
+        // NEW: top bar, seq no, navigation buttons, options icon
+        Set("FsTop", 16);
+        Set("FsTitle", 13);
+        Set("FsSeq", 13);
+        Set("FsPadMode", 14);
+        Set("NavIcon", 30);
+        Set("OptIcon", 32);
+        Set("TopH", 40);
+
+        // ---- spacing / padding / margin ----
+        double capCol = Math.Round(66 * k, 1);          // caption column grows with the caption font
+
+        topBar.Padding = new Thickness(S(10), S(4));
+        topBar.ColumnSpacing = S(6);
+
+        detailsStack.Spacing = S(3);
+        detailsStack.Padding = new Thickness(0, S(4), 0, 0);
+        seqGrid.Margin = new Thickness(S(4), 0);
+        navButtons.Spacing = S(10);
+
+        identityGrid.Margin = new Thickness(S(4), 0);
+        identityGrid.RowSpacing = S(2);
+        identityGrid.ColumnSpacing = S(2);
+        identityGrid.ColumnDefinitions[0].Width = new GridLength(capCol);
+
+        bandBorder.Padding = new Thickness(S(4));
+        bandStack.Spacing = S(4);
+
+        totalGrid.ColumnSpacing = S(4);
+        totalGrid.ColumnDefinitions[0].Width = new GridLength(capCol);
+        remarksGrid.ColumnSpacing = S(4);
+        remarksGrid.ColumnDefinitions[0].Width = new GridLength(capCol);
+
+        gridDetails.RowSpacing = S(4);
+        gridDetails.Padding = new Thickness(S(4));
+        gridCommands.ColumnSpacing = S(6);
     }
 
     //    protected override async void OnAppearing()

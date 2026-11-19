@@ -100,15 +100,15 @@ public partial class LoadingScreen : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        if (ApkInstaller.IsUpdateInProgress)
-            return;
+        //if (ApkInstaller.IsUpdateInProgress)
+        //    return;
 
         if (_loadStarted)
             return;
 
-        await CheckUpdateThenLoadAsync();
+        //await CheckUpdateThenLoadAsync();
 
-        ApkInstaller.UpdateFlowAborted -= OnUpdateFlowAborted;
+        //ApkInstaller.UpdateFlowAborted -= OnUpdateFlowAborted;
     }
 
     private async void OnUpdateFlowAborted()

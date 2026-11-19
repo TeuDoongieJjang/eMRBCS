@@ -73,7 +73,7 @@ public partial class Login : ContentPage
         if (passwordEntry != null) passwordEntry.IsPassword = true;
         if (btnTogglePassword != null) btnTogglePassword.Source = "menuicons/eye.png";
 
-        if (!s_updateChecked) { s_updateChecked = true; _ = CheckForUpdateAsync(); }   // non-blocking
+        //if (!s_updateChecked) { s_updateChecked = true; _ = CheckForUpdateAsync(); } 
     }
 
     private async Task CheckForUpdateAsync()

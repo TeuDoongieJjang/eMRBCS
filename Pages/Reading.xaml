@@ -2,7 +2,7 @@
 <!--
     Reading.xaml  -  single-screen layout (no page scrolling) tuned for 480x800 devices
     (Honeywell EDA51K) and scaled up automatically for bigger phones.
-    All x:Names / event handlers are unchanged, so Reading.xaml.cs keeps working.
+    Sizes AND spacing are now driven by ApplyScreenScale() in Reading.xaml.cs.
 -->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
@@ -14,7 +14,7 @@
     <ContentPage.Resources>
         <ResourceDictionary>
 
-            <!-- Sizes. Reading.xaml.cs (ApplyScreenScale) multiplies these by a screen factor at start-up. -->
+            <!-- Sizes. ApplyScreenScale() multiplies these by a screen factor at start-up. -->
             <x:Double x:Key="FsCaption">11</x:Double>
             <x:Double x:Key="FsBody">13</x:Double>
             <x:Double x:Key="FsValue">16</x:Double>
@@ -23,6 +23,14 @@
             <x:Double x:Key="FieldH">32</x:Double>
             <x:Double x:Key="PadH">46</x:Double>
             <x:Double x:Key="CmdH">42</x:Double>
+            <!-- NEW: top bar / seq no / navigation -->
+            <x:Double x:Key="FsTop">16</x:Double>
+            <x:Double x:Key="FsTitle">13</x:Double>
+            <x:Double x:Key="FsSeq">14</x:Double>
+            <x:Double x:Key="FsPadMode">14</x:Double>
+            <x:Double x:Key="NavIcon">34</x:Double>
+            <x:Double x:Key="OptIcon">32</x:Double>
+            <x:Double x:Key="TopH">40</x:Double>
 
             <!-- Text -->
             <Style x:Key="Cap" TargetType="Label">
@@ -57,7 +65,6 @@
                     </Setter.Value>
                 </Setter>
             </Style>
-            <!-- yellow in light mode, dark amber in dark mode (text stays theme colour) -->
             <Style x:Key="Field" TargetType="Border" BasedOn="{StaticResource FieldBase}">
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource FieldLight}, Dark={StaticResource FieldDark}}" />
             </Style>
@@ -78,10 +85,17 @@
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="HeightRequest" Value="{DynamicResource CmdH}" />
             </Style>
+            <!-- Brand colour. Back / Print / Save all use this now. -->
             <Style x:Key="SaveBtn" TargetType="Button" BasedOn="{StaticResource CmdBtn}">
                 <Setter Property="BackgroundColor" Value="{StaticResource Brand}" />
                 <Setter Property="TextColor" Value="White" />
                 <Setter Property="BorderWidth" Value="0" />
+                <Style.Triggers>
+                    <!-- Print is disabled for unbilled consumers: keep brand colour but dim it -->
+                    <Trigger TargetType="Button" Property="IsEnabled" Value="False">
+                        <Setter Property="Opacity" Value="0.45" />
+                    </Trigger>
+                </Style.Triggers>
             </Style>
             <Style x:Key="PadBtn" TargetType="Button" BasedOn="{StaticResource BtnBase}">
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource PadLight}, Dark={StaticResource PadDark}}" />
@@ -99,19 +113,19 @@
         <!-- ============================== MAIN SCREEN ============================== -->
         <Grid RowDefinitions="Auto,Auto,*">
 
-            <!-- Top bar -->
-            <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6" Padding="10,4"
-                  MinimumHeightRequest="40"
+            <!-- Top bar (now scales) -->
+            <Grid x:Name="topBar" Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6" Padding="10,4"
+                  MinimumHeightRequest="{DynamicResource TopH}"
                   BackgroundColor="{AppThemeBinding Light={StaticResource Brand}, Dark={StaticResource BrandDark}}">
                 <Label x:Name="lblSummaryCount" Grid.Column="0" Text="0 / 0" TextColor="White"
-                       FontSize="16" FontAttributes="Bold" FontAutoScalingEnabled="False"
+                       FontSize="{DynamicResource FsTop}" FontAttributes="Bold" FontAutoScalingEnabled="False"
                        VerticalOptions="Center" LineBreakMode="NoWrap" MaxLines="1" />
                 <Label x:Name="lblListTitle" Grid.Column="1" Text="Unbilled Consumer List" TextColor="White"
-                       FontSize="13" FontAttributes="Bold" FontAutoScalingEnabled="False"
+                       FontSize="{DynamicResource FsTitle}" FontAttributes="Bold" FontAutoScalingEnabled="False"
                        HorizontalOptions="Center" HorizontalTextAlignment="Center"
                        VerticalOptions="Center" MaxLines="2" LineBreakMode="TailTruncation" />
                 <Image x:Name="imgoption" Grid.Column="2" Source="menuicons/options1.png"
-                       HeightRequest="32" WidthRequest="32" VerticalOptions="Center">
+                       HeightRequest="{DynamicResource OptIcon}" WidthRequest="{DynamicResource OptIcon}" VerticalOptions="Center">
                     <Image.GestureRecognizers>
                         <TapGestureRecognizer Tapped="TapShowOPtions" />
                     </Image.GestureRecognizers>
@@ -120,11 +134,11 @@
 
             <!-- Options (hidden until the user taps the icon) -->
             <Grid x:Name="gridOptions" Grid.Row="1" IsVisible="False" ColumnDefinitions="*,Auto" Padding="6,0">
-                <Picker x:Name="pickerBillingFilter" Grid.Column="0" FontSize="14"
+                <Picker x:Name="pickerBillingFilter" Grid.Column="0" FontSize="{DynamicResource FsBody}"
                         SelectedIndexChanged="OnConsumerTypeChanged" Title="Choose Consumer Status" />
                 <HorizontalStackLayout Grid.Column="1" VerticalOptions="Center">
                     <CheckBox x:Name="chkPrintOn" IsChecked="False" CheckedChanged="OnCheckPrint" />
-                    <Label Text="Auto Print" FontSize="13" VerticalOptions="Center" />
+                    <Label Text="Auto Print" FontSize="{DynamicResource FsBody}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
             </Grid>
 
@@ -132,32 +146,35 @@
             <Grid x:Name="gridDetails" Grid.Row="2" RowDefinitions="*,Auto" RowSpacing="4" Padding="4,4,4,4">
 
                 <Border Grid.Row="0" Style="{StaticResource Card}" Padding="0">
-                    <!-- ScrollView is only a safety net for extreme font settings; on the EDA51K nothing scrolls -->
                     <ScrollView VerticalScrollBarVisibility="Never">
-                        <VerticalStackLayout Spacing="3" Padding="0,4,0,0">
+                        <VerticalStackLayout x:Name="detailsStack" Spacing="3" Padding="0,4,0,0">
 
-                            <!-- Seq no + record navigation -->
-                            <Grid Margin="4,0" ColumnDefinitions="Auto,*">
-                                <Label x:Name="lblRecordNo" Text="SeqNo: 0" FontAttributes="Bold" FontSize="14"
+                            <!-- Seq no + record navigation (now scales) -->
+                            <Grid x:Name="seqGrid" Margin="4,0" ColumnDefinitions="Auto,*">
+                                <Label x:Name="lblRecordNo" Text="SeqNo: 0" FontAttributes="Bold" FontSize="{DynamicResource FsSeq}"
                        FontAutoScalingEnabled="False" VerticalOptions="Center"
                        TextColor="{AppThemeBinding Light={StaticResource Brand}, Dark={StaticResource BrandSoft}}" />
-                                <HorizontalStackLayout Grid.Column="1" HorizontalOptions="End" Spacing="10">
-                                    <Image x:Name="btnStartRecord" Source="menuicons/startrecord.png" HeightRequest="34" WidthRequest="34">
+                                <HorizontalStackLayout x:Name="navButtons" Grid.Column="1" HorizontalOptions="End" Spacing="10">
+                                    <Image x:Name="btnStartRecord" Source="menuicons/startrecord.png"
+                                           HeightRequest="{DynamicResource NavIcon}" WidthRequest="{DynamicResource NavIcon}">
                                         <Image.GestureRecognizers>
                                             <TapGestureRecognizer Tapped="OnFirstRecordTapped" />
                                         </Image.GestureRecognizers>
                                     </Image>
-                                    <Image x:Name="btnPrevRecord" Source="menuicons/prev.png" HeightRequest="34" WidthRequest="34">
+                                    <Image x:Name="btnPrevRecord" Source="menuicons/prev.png"
+                                           HeightRequest="{DynamicResource NavIcon}" WidthRequest="{DynamicResource NavIcon}">
                                         <Image.GestureRecognizers>
                                             <TapGestureRecognizer Tapped="OnPrevRecordTapped" />
                                         </Image.GestureRecognizers>
                                     </Image>
-                                    <Image x:Name="btnNextRecord" Source="menuicons/next.png" HeightRequest="34" WidthRequest="34">
+                                    <Image x:Name="btnNextRecord" Source="menuicons/next.png"
+                                           HeightRequest="{DynamicResource NavIcon}" WidthRequest="{DynamicResource NavIcon}">
                                         <Image.GestureRecognizers>
                                             <TapGestureRecognizer Tapped="OnNextRecordTapped" />
                                         </Image.GestureRecognizers>
                                     </Image>
-                                    <Image x:Name="btnLastRecord" Source="menuicons/endrecord.png" HeightRequest="34" WidthRequest="34">
+                                    <Image x:Name="btnLastRecord" Source="menuicons/endrecord.png"
+                                           HeightRequest="{DynamicResource NavIcon}" WidthRequest="{DynamicResource NavIcon}">
                                         <Image.GestureRecognizers>
                                             <TapGestureRecognizer Tapped="OnLastRecordTapped" />
                                         </Image.GestureRecognizers>
@@ -165,8 +182,8 @@
                                 </HorizontalStackLayout>
                             </Grid>
 
-                            <!-- Identity -->
-                            <Grid Margin="4,0" ColumnDefinitions="66,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                            <!-- Identity (row/column spacing + caption column set in code) -->
+                            <Grid x:Name="identityGrid" Margin="4,0" ColumnDefinitions="66,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto"
                   RowSpacing="2" ColumnSpacing="2">
 
                                 <Label Grid.Row="0" Grid.Column="0" Text="Acct No" Style="{StaticResource Cap}" />
@@ -217,17 +234,16 @@
                        Style="{StaticResource Body}" MaxLines="2" LineBreakMode="TailTruncation" Text="" />
                             </Grid>
 
-                            <!-- ===== READINGS & BILLING: rounded band, flush to housing card edges ===== -->
-                            <Border Margin="0,0,0,0" Padding="4,4,4,4"
+                            <!-- ===== READINGS & BILLING band ===== -->
+                            <Border x:Name="bandBorder" Margin="0,0,0,0" Padding="4,4,4,4"
         Stroke="{AppThemeBinding Light={StaticResource BorderLightBrush}, Dark={StaticResource BorderDarkBrush}}"
         StrokeThickness="1"
         BackgroundColor="{AppThemeBinding Light=#F5F7FA, Dark=#1F242C}">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="10" />
                                 </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="4">
+                                <VerticalStackLayout x:Name="bandStack" Spacing="4">
 
-                                    <!-- Average | Prev | Pres | Usage — Auto fields, equal star gaps -->
                                     <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto" ColumnSpacing="0">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                                             <Label x:Name="lblAverage" Text="Average" Style="{StaticResource Cap}" />
@@ -264,7 +280,6 @@
                                         </VerticalStackLayout>
                                     </Grid>
 
-                                    <!--  Other | Current Bill | Arrears — Auto fields, equal star gaps -->
                                     <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="0">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                                             <Label x:Name="lblOthers" Text="Other" Style="{StaticResource Cap}" />
@@ -283,8 +298,8 @@ FontAttributes="Bold" HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
                                         </VerticalStackLayout>
                                     </Grid>
 
-                                    <!-- Total Bill: band footer -->
-                                    <Grid ColumnDefinitions="66,*" ColumnSpacing="4">
+                                    <!-- Total Bill -->
+                                    <Grid x:Name="totalGrid" ColumnDefinitions="66,*" ColumnSpacing="4">
                                         <Label x:Name="lbltotalbill" Grid.Column="0" Text="Total Bill" Style="{StaticResource Cap}" />
                                         <Border Grid.Column="1" Style="{StaticResource FieldBlack}" MinimumHeightRequest="36">
                                             <Label x:Name="txtConsumerTotalBill" Text="0.00" TextColor="Yellow" FontAttributes="Bold"
@@ -294,8 +309,8 @@ FontAttributes="Bold" HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
                                         </Border>
                                     </Grid>
 
-                                    <!-- Remarks (inside band) -->
-                                    <Grid ColumnDefinitions="66,*" ColumnSpacing="4">
+                                    <!-- Remarks -->
+                                    <Grid x:Name="remarksGrid" ColumnDefinitions="66,*" ColumnSpacing="4">
                                         <Label Grid.Column="0" Text="Remarks" Style="{StaticResource Cap}" />
                                         <Border Grid.Column="1" Style="{StaticResource FieldBrand}">
                                             <Grid>
@@ -308,7 +323,7 @@ FontAttributes="Bold" HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
                                                     </Label.GestureRecognizers>
                                                 </Label>
                                                 <Picker x:Name="pickerRemarks" IsVisible="False" Title="Choose Remarks"
-                            TextColor="White" TitleColor="White" FontSize="13" Margin="4,0"
+                            TextColor="White" TitleColor="White" FontSize="{DynamicResource FsBody}" Margin="4,0"
                             SelectedIndexChanged="OnRemarkChanged"
                             Focused="OnRemarkFocus" Unfocused="OnRemarkUnFocus" />
                                             </Grid>
@@ -322,11 +337,11 @@ FontAttributes="Bold" HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
                     </ScrollView>
                 </Border>
 
-                <!-- Commands -->
+                <!-- Commands: Back / Print / Save all use the brand colour -->
                 <Grid x:Name="gridCommands" Grid.Row="1" ColumnDefinitions="*,*,*" ColumnSpacing="6">
-                    <Button x:Name="btnCloseDetails" Grid.Column="0" Text="Back" Style="{StaticResource CmdBtn}"
+                    <Button x:Name="btnCloseDetails" Grid.Column="0" Text="Back" Style="{StaticResource SaveBtn}"
                             Clicked="OnCloseDetails" Focused="OnSaveFocus" Unfocused="OnSaveUnFocus" />
-                    <Button x:Name="btnPrint" Grid.Column="1" Text="Print" Style="{StaticResource CmdBtn}"
+                    <Button x:Name="btnPrint" Grid.Column="1" Text="Print" Style="{StaticResource SaveBtn}"
                             Clicked="OnPrintBill" Focused="OnSaveFocus" Unfocused="OnSaveUnFocus" />
                     <Button x:Name="btnSave" Grid.Column="2" Text="Save" Style="{StaticResource SaveBtn}"
                             Clicked="OnSaveReading" Focused="OnSaveFocus" Unfocused="OnSaveUnFocus" />
@@ -343,7 +358,7 @@ FontAttributes="Bold" HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
 
                     <Label x:Name="lblPadMode" Grid.Row="0" Grid.ColumnSpan="4"
                            HorizontalOptions="Center" HorizontalTextAlignment="Center"
-                           FontAttributes="Bold" FontSize="14" FontAutoScalingEnabled="False" Margin="0,2,0,4"
+                           FontAttributes="Bold" FontSize="{DynamicResource FsPadMode}" FontAutoScalingEnabled="False" Margin="0,2,0,4"
                            TextColor="{AppThemeBinding Light={StaticResource Brand}, Dark={StaticResource BrandSoft}}" />
 
                     <Border Grid.Row="1" Grid.ColumnSpan="4" Margin="3,0,3,3" Style="{StaticResource FieldBase}"
