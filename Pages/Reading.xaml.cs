@@ -28,7 +28,6 @@ public partial class Reading : ContentPage
     int selected_field = 0; //0 - Pres Reading, 1 - Acct No, 2 - Meter No, 3 - Name
 
     long selected_seqno;
-    private static string ShortSeqNo(long seqno) => (seqno % 1_000_000).ToString();
     int selected_idno;
 
     private static SQLiteConnection? Database;
@@ -226,7 +225,13 @@ public partial class Reading : ContentPage
             _ => $"0 / {total}"
         };
     }
-
+    private static string FormatQty(float v)
+    {
+        double r = Math.Round(v, 2);
+        return r == Math.Floor(r)
+            ? ((long)r).ToString(CultureInfo.InvariantCulture)
+            : r.ToString("0.##", CultureInfo.InvariantCulture);
+    }
     private void ClearConsumerDetails()
     {
         lblRecordNo.Text = "SeqNo: 0";
@@ -234,10 +239,15 @@ public partial class Reading : ContentPage
         selected_seqno = 0;
         txtConsumerAcctNo.Text = "";
         lblTypeSize.Text = "";
+        lblPrevAcctNo.IsVisible = false;
+        txtConsumerPrevAcctNo.IsVisible = false;
+        txtConsumerPrevAcctNo.Text = "";
         txtConsumerName.Text = "";
         txtConsumerMeterNo.Text = "";
+        txtConsumerStatus.Text = "";
         txtConsumerAddress.Text = "";
         txtConsumerPrevReading.Text = "0";
+        txtConsumerAverage.Text = "0";
         txtConsumerArrears.Text = "0.00";
         txtConsumerUsage.Text = " ";
         txtConsumerCurrentBill.Text = "0.00";
@@ -249,77 +259,37 @@ public partial class Reading : ContentPage
     {
         if (MyDeviceInfo.device_heightpix > 2000)
         {
-
-
             txtConsumerAcctNo.FontSize = 22;
             lblTypeSize.FontSize = 22;
-            int defaultsize = 40;
-            btnStartRecord.HeightRequest = defaultsize;
-            btnStartRecord.WidthRequest = defaultsize;
 
-            btnPrevRecord.HeightRequest = defaultsize;
-            btnPrevRecord.WidthRequest = defaultsize;
-
-            btnNextRecord.HeightRequest = defaultsize;
-            btnNextRecord.WidthRequest = defaultsize;
-
-            btnLastRecord.HeightRequest = defaultsize;
-            btnLastRecord.WidthRequest = defaultsize;
-
-            //scrollDetails.HeightRequest = 430;
-
-            int defaultfont = 14;
-
-            lblName.Margin = new Thickness(10);
-            txtConsumerName.Margin = new Thickness(10);
-            txtConsumerAddress.Margin = new Thickness(10, 5, 10, 0);
+            int s = 40;
+            foreach (var img in new Image[] { btnStartRecord, btnPrevRecord, btnNextRecord, btnLastRecord })
+            {
+                img.HeightRequest = s;
+                img.WidthRequest = s;
+            }
 
             txtConsumerMeterNo.FontSize = 18;
-            lbladdress.FontSize = defaultfont;
-
-            lblpresreading.FontSize = defaultfont;
             txtConsumerPresReading.FontSize = 22;
-
-            lblprevreading.FontSize = defaultfont;
-            lblprevreading.Margin = new Thickness(20, 10, 0, 0);
             txtConsumerPrevReading.FontSize = 20;
-
-            lblusage.FontSize = defaultfont;
-            lblusage.Margin = new Thickness(10, 10, 0, 0);
             txtConsumerUsage.FontSize = 20;
-
-            lblcurrentbill.FontSize = defaultfont;
-            lblcurrentbill.Margin = new Thickness(0, 10, 10, 0);
+            txtConsumerAverage.FontSize = 20;
             txtConsumerCurrentBill.FontSize = 20;
-
-            lblArrears.FontSize = defaultfont;
-            lblArrears.Margin = new Thickness(55, 10, 0, 0);
-
             txtConsumerArrears.FontSize = 20;
-
-            lblOthers.FontSize = defaultfont;
-            lblOthers.Margin = new Thickness(10, 10, 0, 0);
             txtConsumerOthers.FontSize = 20;
-
-            lbltotalbill.FontSize = defaultfont;
             txtConsumerTotalBill.FontSize = 24;
         }
         else if (MyDeviceInfo.device_heightpix < 900 && MyDeviceInfo.device_widthpix < 500)
         {
             lblTypeSize.FontSize = 16;
             btnok.FontSize = 16;
-
             txtConsumerAcctNo.FontSize = 16;
 
             foreach (var child in gridButtons.Children)
             {
                 if (child is Button btn)
-                {
                     btn.WidthRequest = 60;
-                }
             }
-
-
         }
     }
 
@@ -695,54 +665,53 @@ public partial class Reading : ContentPage
     {
         try
         {
-            if (consumer != null)
-            {
-                lblRecordNo.Text = "SeqNo: " + ShortSeqNo(consumer.seqno);
-                selected_idno = consumer.accountID;
-                selected_seqno = consumer.seqno;
-                txtConsumerAcctNo.Text = consumer.accountNo;
-                txtConsumerName.Text = consumer.consumer_name;
-                txtConsumerMeterNo.Text = consumer.meterno;
-                _averageCons = consumer.average_usage;
-                lblTypeSize.Text = $"{consumer.consumer_type}{consumer.metersize}";
+            if (consumer == null) return;
 
-                bool isSaved = consumer.status != 0;     // NEW: unsaved consumers must not show leftover values
+            lblRecordNo.Text = "SeqNo: " + consumer.seqno;
+            selected_idno = consumer.accountID;
+            selected_seqno = consumer.seqno;
 
-                string printAddress = (consumer.address ?? "").Trim();
-                string statusText = (consumer.consumer_status ?? "").Trim().ToUpper() == "A" ? "Active" : "Inactive";
-                txtConsumerAddress.Text = MOA.Left(printAddress, 42) + "\nSTATUS: " + statusText + "\nAVERAGE: " + consumer.average_usage.ToString();
+            txtConsumerAcctNo.Text = consumer.accountNo;
+            lblTypeSize.Text = $"{consumer.consumer_type}{consumer.metersize}";
 
-                txtConsumerPrevReading.Text = consumer.prevreading.ToString();
-                txtConsumerUsage.Text = isSaved ? consumer.usage.ToString() : " ";
-                txtConsumerCurrentBill.Text = isSaved ? consumer.currentbill.ToString("#,##0.00") : "0.00";
+            // Prev. Acct No: only visible when there is a value
+            string prevAcct = (consumer.prev_account_no ?? "").Trim();
+            txtConsumerPrevAcctNo.Text = prevAcct;
+            bool hasPrevAcct = prevAcct.Length > 0;
+            lblPrevAcctNo.IsVisible = hasPrevAcct;
+            txtConsumerPrevAcctNo.IsVisible = hasPrevAcct;
 
-                if (consumer.arrears < 0)
-                {
-                    lblArrears.Text = "Advance:";
-                    lblArrears.Margin = new Thickness(50, 10, 0, 0);
-                }
-                else
-                {
-                    lblArrears.Text = "Arrears:";
-                    lblArrears.Margin = new Thickness(55, 10, 0, 0);
-                }
-                txtConsumerArrears.Text = consumer.arrears.ToString("0.00");
-                txtConsumerOthers.Text = consumer.othercharges.ToString("0.00");
+            txtConsumerName.Text = consumer.consumer_name;
+            txtConsumerMeterNo.Text = consumer.meterno;
+            _averageCons = consumer.average_usage;
 
-                txtConsumerPresReading.Text = " ";
-                txtConsumerTotalBill.Text = "0.00";
-                pickerRemarks.SelectedIndex = -1;
-                txtRemarks.Text = isSaved && !string.IsNullOrWhiteSpace(consumer.remarks)
-                                    ? consumer.remarks
-                                    : "Normal Reading";                       // NEW
+            txtConsumerStatus.Text = (consumer.consumer_status ?? "").Trim().ToUpper() == "A" ? "Active" : "Inactive";
+            txtConsumerAddress.Text = MOA.Left((consumer.address ?? "").Trim(), 42);
+            txtConsumerAverage.Text = FormatQty(consumer.average_usage);
 
-                if (isSaved && consumer.presreading > 0)
-                    txtConsumerPresReading.Text = consumer.presreading.ToString();
-                if (isSaved && consumer.total_bill > 0)
-                    txtConsumerTotalBill.Text = consumer.total_bill.ToString("#,##0.00");
+            bool isSaved = consumer.status != 0;     // unsaved consumers must not show leftover values
 
-                _currentIsLessUsage = consumer.less_usage;
-            }
+            txtConsumerPrevReading.Text = consumer.prevreading.ToString();
+            txtConsumerUsage.Text = isSaved ? FormatQty(consumer.usage) : " ";
+            txtConsumerCurrentBill.Text = isSaved ? consumer.currentbill.ToString("#,##0.00") : "0.00";
+
+            lblArrears.Text = consumer.arrears < 0 ? "Advance:" : "Arrears:";
+            txtConsumerArrears.Text = consumer.arrears.ToString("0.00");
+            txtConsumerOthers.Text = consumer.othercharges.ToString("0.00");
+
+            txtConsumerPresReading.Text = " ";
+            txtConsumerTotalBill.Text = "0.00";
+            pickerRemarks.SelectedIndex = -1;
+            txtRemarks.Text = isSaved && !string.IsNullOrWhiteSpace(consumer.remarks)
+                                ? consumer.remarks
+                                : "Normal Reading";
+
+            if (isSaved && consumer.presreading > 0)
+                txtConsumerPresReading.Text = consumer.presreading.ToString();
+            if (isSaved && consumer.total_bill > 0)
+                txtConsumerTotalBill.Text = consumer.total_bill.ToString("#,##0.00");
+
+            _currentIsLessUsage = consumer.less_usage;
         }
         catch (Exception ex)
         {
@@ -1422,7 +1391,7 @@ public partial class Reading : ContentPage
     {
         gridDetails.IsEnabled = false;
         selected_field = 0;
-        SetPadMode("ENTER PRESENT READING", " ");
+        SetPadMode("Prev. Reading : " + (txtConsumerPrevReading.Text ?? "").Trim(), " ");
         gridNumericPad.IsVisible = true;
         gridNumericPad.IsEnabled = true;
         txtCustomEntry.Text = txtConsumerPresReading.Text;
@@ -1474,7 +1443,7 @@ public partial class Reading : ContentPage
         consumer = await OnInitialComputation(consumer);
         txtConsumerCurrentBill.Text = consumer.currentbill.ToString("#,##0.00");
         txtConsumerTotalBill.Text = consumer.total_bill.ToString("#,##0.00");
-        txtConsumerUsage.Text = consumer.usage.ToString("0.00");
+        txtConsumerUsage.Text = FormatQty(consumer.usage);
     }
     private readonly record struct ChargeResult(float CurrentBill, float Total, float Penalty);
 
@@ -2143,6 +2112,10 @@ public partial class Reading : ContentPage
                 ? "AccountNo   : " + consumer.accountNo + "-" + consumer.consumer_type + consumer.metersize
                 : "AccountNo   : " + consumer.accountNo;
             await printer.PrintTextAsync(accountNoText, PrintAlign.Left, new PrintStyle(High: true));
+
+            string prevAcctNo = (consumer.prev_account_no ?? "").Trim();
+            if (prevAcctNo.Length > 0)
+                await printer.PrintTextAsync("Prev AcctNo : " + prevAcctNo, PrintAlign.Left, new PrintStyle(High: true));
 
             if (d.SJWD && typeDesc.Length > 0)
                 await printer.PrintTextAsync(typeDesc, PrintAlign.Left);

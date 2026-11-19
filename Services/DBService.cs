@@ -223,6 +223,7 @@ namespace eMRBCS.Services
                 while ((line = await reader.ReadLineAsync()) != null)
                 {
                     string[] items = line.Split('~');
+                    bool hasPrevAcct = items.Length > 29;
                     accountNo = items[0].Trim();
 
                     if (!string.IsNullOrWhiteSpace(accountNo))
@@ -257,7 +258,8 @@ namespace eMRBCS.Services
                             unpaidmonths = int.Parse(items[25].Trim()),
                             waterbill_details = items[26].Trim(),
                             sewerage = ParseFloat(items[27].Trim()),
-                            parameters = items[28].Trim(),
+                            prev_account_no = hasPrevAcct ? items[28].Trim() : "",
+                            parameters = (hasPrevAcct ? items[29] : items[28]).Trim(),
                             status = 0 //Default for Unbilled
                         };
 

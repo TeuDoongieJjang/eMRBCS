@@ -8,6 +8,7 @@ namespace eMRBCS
         public App()
         {
             InitializeComponent();
+            UserAppTheme = AppTheme.Unspecified;
             StartupService.CaptureDeviceInfo();                 // cheap, needed by Login layout
             MainPage = new NavigationPage(new Login());         // was LoadingScreen
             StartupService.Instance.Start();                    // parallel background loading
