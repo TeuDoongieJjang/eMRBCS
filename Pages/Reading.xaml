@@ -146,7 +146,6 @@
                 <Border Grid.Row="0" Style="{StaticResource Card}" Padding="0">
                     <ScrollView VerticalScrollBarVisibility="Never">
                         <VerticalStackLayout x:Name="detailsStack" Spacing="3" Padding="0,4,0,0">
-
                             <!-- Seq no + record navigation (now scales) -->
                             <Grid x:Name="seqGrid" Margin="4,0" ColumnDefinitions="Auto,*">
                                 <Label x:Name="lblRecordNo" Text="SeqNo: 0" FontAttributes="Bold" FontSize="{DynamicResource FsSeq}"
