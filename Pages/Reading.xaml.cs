@@ -286,7 +286,7 @@ public partial class Reading : ContentPage
         Set("FsTotal", 20);
         Set("FsPad", 22);
         Set("FieldH", 32);
-        Set("PadH", 46);
+        Set("PadH", 44);
         Set("CmdH", 42);
 
         // NEW: top bar, seq no, navigation buttons, options icon
@@ -301,30 +301,30 @@ public partial class Reading : ContentPage
         // ---- spacing / padding / margin ----
         double capCol = Math.Round(66 * k, 1);          // caption column grows with the caption font
 
-        topBar.Padding = new Thickness(S(10), S(4));
-        topBar.ColumnSpacing = S(6);
+        topBar.Padding = new Thickness(S(10), S(3));
+        topBar.ColumnSpacing = S(5);
 
         detailsStack.Spacing = S(3);
-        detailsStack.Padding = new Thickness(0, S(4), 0, 0);
-        seqGrid.Margin = new Thickness(S(4), 0);
+        detailsStack.Padding = new Thickness(0, S(3), 0, 0);
+        seqGrid.Margin = new Thickness(S(3), 0);
         navButtons.Spacing = S(10);
 
-        identityGrid.Margin = new Thickness(S(4), 0);
+        identityGrid.Margin = new Thickness(S(3), 0);
         identityGrid.RowSpacing = S(2);
         identityGrid.ColumnSpacing = S(2);
         identityGrid.ColumnDefinitions[0].Width = new GridLength(capCol);
 
-        bandBorder.Padding = new Thickness(S(4));
-        bandStack.Spacing = S(4);
+        bandBorder.Padding = new Thickness(S(3));
+        bandStack.Spacing = S(3);
 
-        totalGrid.ColumnSpacing = S(4);
+        totalGrid.ColumnSpacing = S(3);
         totalGrid.ColumnDefinitions[0].Width = new GridLength(capCol);
-        remarksGrid.ColumnSpacing = S(4);
+        remarksGrid.ColumnSpacing = S(3);
         remarksGrid.ColumnDefinitions[0].Width = new GridLength(capCol);
 
-        gridDetails.RowSpacing = S(4);
-        gridDetails.Padding = new Thickness(S(4));
-        gridCommands.ColumnSpacing = S(6);
+        gridDetails.RowSpacing = S(3);
+        gridDetails.Padding = new Thickness(S(3));
+        gridCommands.ColumnSpacing = S(5);
     }
 
     //    protected override async void OnAppearing()
