@@ -2148,6 +2148,9 @@ public partial class Reading : ContentPage
                 d.PLAWD ? "Account Number : " + prevAcctNo :
                 "AccountNo   : " + consumer.accountNo, PrintAlign.Left, new PrintStyle(High: true));
 
+            if (d.PLAWD)
+                await printer.PrintTextAsync("Other Acct No. : " + consumer.accountNo, PrintAlign.Left);
+
             if (!d.PLAWD && prevAcctNo.Length > 0)
                 await printer.PrintTextAsync("Prev AcctNo : " + prevAcctNo, PrintAlign.Left);
 
