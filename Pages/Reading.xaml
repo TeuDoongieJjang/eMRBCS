@@ -271,8 +271,11 @@
 
                                         <VerticalStackLayout Grid.Column="6" Spacing="1">
                                             <Label x:Name="lblusage" Text="Usage" Style="{StaticResource Cap}" />
-                                            <Label x:Name="txtConsumerUsage" Style="{StaticResource Val}" Text=" " FontAttributes="Bold"
-                       HeightRequest="{DynamicResource FieldH}" Padding="0,0" />
+                                            <Border Style="{StaticResource FieldBlack}">
+                                                <Label x:Name="txtConsumerUsage" Style="{StaticResource Val}" Text=" "
+                                                        TextColor="Yellow" HorizontalTextAlignment="End"
+                                                        HorizontalOptions="Fill" VerticalOptions="Fill" Padding="4,0" />
+                                            </Border>
                                         </VerticalStackLayout>
                                     </Grid>
 

@@ -2114,7 +2114,6 @@ public partial class Reading : ContentPage
 
             // ================= LOGO + HEADER =================
             await printer.WriteLogoAsync(logoBytes, widthFraction: 1.0);
-            await printer.FeedAsync(1);
 
             var header = CompanyHeaders.FirstOrDefault(h => parameters.Contains(h.Tag)).Lines;
             if (header != null)
