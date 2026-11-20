@@ -131,7 +131,6 @@
                     </Image.GestureRecognizers>
                 </Image>
             </Grid>
-
             <!-- Options (hidden until the user taps the icon) -->
             <Grid x:Name="gridOptions" Grid.Row="1" IsVisible="False" ColumnDefinitions="*,Auto" Padding="6,0">
                 <Picker x:Name="pickerBillingFilter" Grid.Column="0" FontSize="{DynamicResource FsBody}"
