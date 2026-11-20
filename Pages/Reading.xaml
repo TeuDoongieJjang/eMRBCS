@@ -141,7 +141,6 @@
                     <Label Text="Auto Print" FontSize="{DynamicResource FsBody}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
             </Grid>
-
             <!-- Details + commands -->
             <Grid x:Name="gridDetails" Grid.Row="2" RowDefinitions="*,Auto" RowSpacing="4" Padding="4,4,4,4">
 
