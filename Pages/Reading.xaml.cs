@@ -2142,19 +2142,20 @@ public partial class Reading : ContentPage
             if (d.PLAWD && typeDesc.Length > 0)
                 await printer.PrintTextAsync(typeDesc, PrintAlign.Left);
 
-            string accountNoText = (d.MVWD || d.SJWD)
-                ? "AccountNo   : " + consumer.accountNo + "-" + consumer.consumer_type + consumer.metersize
-                : "AccountNo   : " + consumer.accountNo;
-            await printer.PrintTextAsync(accountNoText, PrintAlign.Left, new PrintStyle(High: true));
-
             string prevAcctNo = (consumer.prev_account_no ?? "").Trim();
-            if (prevAcctNo.Length > 0)
+            await printer.PrintTextAsync(
+                (d.MVWD || d.SJWD) ? "AccountNo   : " + consumer.accountNo + "-" + consumer.consumer_type + consumer.metersize :
+                d.PLAWD ? "Account Number : " + prevAcctNo :
+                "AccountNo   : " + consumer.accountNo, PrintAlign.Left, new PrintStyle(High: true));
+
+
+            if (!d.PLAWD && prevAcctNo.Length > 0)
                 await printer.PrintTextAsync("Prev AcctNo : " + prevAcctNo, PrintAlign.Left);
 
             if (d.SJWD && typeDesc.Length > 0)
                 await printer.PrintTextAsync(typeDesc, PrintAlign.Left);
 
-            await printer.PrintTextAsync("Meter No.   : " + consumer.meterno, PrintAlign.Left);
+            await printer.PrintTextAsync("Meter No.      : " + consumer.meterno, PrintAlign.Left);
             if (d.SJWD)
                 await printer.PrintTextAsync("Seq. No.    : " + consumer.seqno, PrintAlign.Left);
 
