@@ -192,12 +192,24 @@
                                     </Label>
                                 </Border>
                                 <Label x:Name="lblTypeSize" Grid.Row="0" Grid.Column="2" Style="{StaticResource Val}"
-                       FontAttributes="Bold" />
+                       FontAttributes="Bold" HorizontalTextAlignment="Center"/>
 
                                 <Label x:Name="lblPrevAcctNo" Grid.Row="1" Grid.Column="0" Text="Prev Acct"
-                       Style="{StaticResource Cap}" IsVisible="False" />
-                                <Label x:Name="txtConsumerPrevAcctNo" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                       Style="{StaticResource Body}" IsVisible="False" />
+                                        Style="{StaticResource Cap}" IsVisible="False">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPrevAcctNoTapped" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                                <Border Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource Field}">
+                                    <Label x:Name="txtConsumerPrevAcctNo" Style="{StaticResource Val}" MaxLines="2"
+                                            LineBreakMode="TailTruncation" HorizontalOptions="Fill" VerticalOptions="Fill"
+                                            VerticalTextAlignment="Center" Padding="8,2" Text="" FontAttributes="Bold">   
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnPrevAcctNoTapped" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                </Border>
+                                
 
                                 <Label x:Name="lblName" Grid.Row="2" Grid.Column="0" Text="Name" Style="{StaticResource Cap}">
                                     <Label.GestureRecognizers>
@@ -205,9 +217,9 @@
                                     </Label.GestureRecognizers>
                                 </Label>
                                 <Border Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource Field}">
-                                    <Label x:Name="txtConsumerName" Style="{StaticResource Body}" MaxLines="2"
-                           LineBreakMode="TailTruncation" HorizontalOptions="Fill" VerticalOptions="Fill"
-                           VerticalTextAlignment="Center" Padding="8,2" Text="">
+                                    <Label x:Name="txtConsumerName" Style="{StaticResource Body}"
+                                           HorizontalOptions="Fill" VerticalOptions="Fill"
+                                           VerticalTextAlignment="Center" Padding="8,2" Text="">        
                                         <Label.GestureRecognizers>
                                             <TapGestureRecognizer Tapped="OnNameTapped" />
                                         </Label.GestureRecognizers>
@@ -217,7 +229,7 @@
                                 <Label Grid.Row="3" Grid.Column="0" Text="Meter No" Style="{StaticResource Cap}" />
                                 <Border Grid.Row="3" Grid.Column="1" Style="{StaticResource Field}">
                                     <Label x:Name="txtConsumerMeterNo" Style="{StaticResource Val}"
-                           HorizontalOptions="Fill" VerticalOptions="Fill" Padding="8,0" Text="">
+                                            HorizontalOptions="Fill" VerticalOptions="Fill" Padding="8,0" Text="">
                                         <Label.GestureRecognizers>
                                             <TapGestureRecognizer Tapped="OnMeterNoTapped" />
                                         </Label.GestureRecognizers>
@@ -227,7 +239,7 @@
 
                                 <Label x:Name="lbladdress" Grid.Row="4" Grid.Column="0" Text="Address" Style="{StaticResource Cap}" />
                                 <Label x:Name="txtConsumerAddress" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2"
-                       Style="{StaticResource Body}" MaxLines="2" LineBreakMode="TailTruncation" Text="" />
+                       Style="{StaticResource Body}" Text="" />
                             </Grid>
 
                             <!-- ===== READINGS & BILLING band ===== -->
@@ -242,26 +254,26 @@
 
                                     <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto" ColumnSpacing="0">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
-                                            <Label x:Name="lblAverage" Text="Average" Style="{StaticResource Cap}" />
+                                            <Label x:Name="lblAverage" Text="Average" Style="{StaticResource Cap}" HorizontalTextAlignment="Center"/>
                                             <Border Style="{StaticResource FieldBlack}">
                                                 <Label x:Name="txtConsumerAverage" Style="{StaticResource Val}" Text="0"
-                           TextColor="Yellow" HorizontalTextAlignment="End"
+                           TextColor="Yellow" HorizontalTextAlignment="Center"
                            HorizontalOptions="Fill" VerticalOptions="Fill" Padding="4,0" />
                                             </Border>
                                         </VerticalStackLayout>
 
                                         <VerticalStackLayout Grid.Column="2" Spacing="1">
-                                            <Label x:Name="lblprevreading" Text="Prev Rdg" Style="{StaticResource Cap}" />
+                                            <Label x:Name="lblprevreading" Text="Prev Rdg" Style="{StaticResource Cap}" HorizontalTextAlignment="Center"/>
                                             <Label x:Name="txtConsumerPrevReading" Style="{StaticResource Val}" Text="0"
-                       HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
+                       HeightRequest="{DynamicResource FieldH}" Padding="4,0" HorizontalTextAlignment="Center"/>
                                         </VerticalStackLayout>
 
                                         <VerticalStackLayout Grid.Column="4" Spacing="1">
-                                            <Label x:Name="lblpresreading" Text="Pres Rdg" Style="{StaticResource Cap}" />
+                                            <Label x:Name="lblpresreading" Text="Pres Rdg" Style="{StaticResource Cap}" HorizontalTextAlignment="Center"/>
                                             <Border Style="{StaticResource FieldBrand}">
                                                 <Label x:Name="txtConsumerPresReading" Style="{StaticResource Val}" Text=" "
-                           TextColor="White" FontAttributes="Bold" HorizontalTextAlignment="End"
-                           HorizontalOptions="Fill" VerticalOptions="Fill" Padding="4,0">
+                           TextColor="White" FontAttributes="Bold" HorizontalTextAlignment="Center"
+                           HorizontalOptions="Fill" VerticalOptions="Fill" Padding="6,0">
                                                     <Label.GestureRecognizers>
                                                         <TapGestureRecognizer Tapped="OnPresReadingTapped" />
                                                     </Label.GestureRecognizers>
@@ -270,10 +282,10 @@
                                         </VerticalStackLayout>
 
                                         <VerticalStackLayout Grid.Column="6" Spacing="1">
-                                            <Label x:Name="lblusage" Text="Usage" Style="{StaticResource Cap}" />
+                                            <Label x:Name="lblusage" Text="Usage" Style="{StaticResource Cap}" HorizontalTextAlignment="Center"/>
                                             <Border Style="{StaticResource FieldBlack}">
                                                 <Label x:Name="txtConsumerUsage" Style="{StaticResource Val}" Text=" "
-                                                        TextColor="Yellow" HorizontalTextAlignment="End"
+                                                        TextColor="Yellow" HorizontalTextAlignment="Center"
                                                         HorizontalOptions="Fill" VerticalOptions="Fill" Padding="4,0" />
                                             </Border>
                                         </VerticalStackLayout>
@@ -281,19 +293,19 @@
 
                                     <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="0">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
-                                            <Label x:Name="lblOthers" Text="Other" Style="{StaticResource Cap}" />
+                                            <Label x:Name="lblOthers" Text="Other" Style="{StaticResource Cap}" HorizontalTextAlignment="Center"/>
                                             <Label x:Name="txtConsumerOthers" Style="{StaticResource Val}" Text="0.00"
-                       HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
+                                                    HeightRequest="{DynamicResource FieldH}" Padding="4,0" HorizontalTextAlignment="Center"/>
                                         </VerticalStackLayout>
                                         <VerticalStackLayout Grid.Column="2" Spacing="1">
-                                            <Label x:Name="lblArrears" Text="Arrears" Style="{StaticResource Cap}" />
+                                            <Label x:Name="lblArrears" Text="Arrears" Style="{StaticResource Cap}" HorizontalTextAlignment="Center"/>
                                             <Label x:Name="txtConsumerArrears" Style="{StaticResource Val}" Text="0.00"
-HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
+                                                    HeightRequest="{DynamicResource FieldH}" Padding="4,0" HorizontalTextAlignment="Center"/>
                                         </VerticalStackLayout>
                                         <VerticalStackLayout Grid.Column="4" Spacing="1">
-                                            <Label x:Name="lblcurrentbill" Text="Current Bill" Style="{StaticResource Cap}" />
+                                            <Label x:Name="lblcurrentbill" Text="Current Bill" Style="{StaticResource Cap}" HorizontalTextAlignment="Center"/>
                                             <Label x:Name="txtConsumerCurrentBill" Style="{StaticResource Val}" Text="0.00"
-FontAttributes="Bold" HeightRequest="{DynamicResource FieldH}" Padding="4,0" />
+                                                    FontAttributes="Bold" HeightRequest="{DynamicResource FieldH}" Padding="4,0" HorizontalTextAlignment="Center"/>
                                         </VerticalStackLayout>
                                     </Grid>
 

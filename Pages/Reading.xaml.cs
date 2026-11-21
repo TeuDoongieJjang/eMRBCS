@@ -26,7 +26,7 @@ public partial class Reading : ContentPage
         _ => "Collected Consumer"
     };
     private enum RoundingRule { Truncate, Nearest }
-    int selected_field = 0; //0 - Pres Reading, 1 - Acct No, 2 - Meter No, 3 - Name
+    int selected_field = 0; //0 - Pres Reading, 1 - Acct No, 2 - Meter No, 3 - Name, 4 - Prev Acct No
 
     long selected_seqno;
     int selected_idno;
@@ -116,7 +116,7 @@ public partial class Reading : ContentPage
         chkPrintOn.IsChecked = false;
 
         ScreenAdjustment();
-
+        HookFitLabels();
     }
     // ---------- numeric pad ----------
     private void AppendDigit(char d)
@@ -255,6 +255,7 @@ public partial class Reading : ContentPage
         txtConsumerPresReading.Text = " ";
         txtConsumerTotalBill.Text = "0.00";
         pickerRemarks.SelectedIndex = -1;
+        UpdateNavButtons();
     }
     private void ScreenAdjustment() => ApplyScreenScale();
     private const double TextBoost = 1.10;
@@ -285,9 +286,9 @@ public partial class Reading : ContentPage
         Set("FsValue", 16);
         Set("FsTotal", 20);
         Set("FsPad", 22);
-        Set("FieldH", 32);
+        Set("FieldH", 30);
         Set("PadH", 44);
-        Set("CmdH", 42);
+        Set("CmdH", 38);
 
         // NEW: top bar, seq no, navigation buttons, options icon
         Set("FsTop", 16);
@@ -326,7 +327,67 @@ public partial class Reading : ContentPage
         gridDetails.Padding = new Thickness(S(3));
         gridCommands.ColumnSpacing = S(5);
     }
+    private const double SmallScreenDp = 360;       // <= this width (dp) = "small screen". Adjust to taste.
+    private static bool IsSmallScreen => MyDeviceInfo.device_width > 0 && MyDeviceInfo.device_width <= SmallScreenDp;
 
+    private double _nameFitW, _addrFitW;
+
+    private double BodyFont() =>
+        Resources.TryGetValue("FsBody", out var v) && v is double d ? d : 13;
+
+    private void HookFitLabels()
+    {
+        // refit when the real width becomes known / changes (first layout, rotation)
+        txtConsumerName.SizeChanged += (_, _) =>
+        {
+            if (Math.Abs(txtConsumerName.Width - _nameFitW) > 0.5) Dispatcher.Dispatch(FitName);
+        };
+        txtConsumerAddress.SizeChanged += (_, _) =>
+        {
+            if (Math.Abs(txtConsumerAddress.Width - _addrFitW) > 0.5) Dispatcher.Dispatch(FitAddress);
+        };
+    }
+
+    private void FitName()
+    {
+        _nameFitW = txtConsumerName.Width;
+        FitLabel(txtConsumerName, BodyFont());
+    }
+
+    private void FitAddress()
+    {
+        _addrFitW = txtConsumerAddress.Width;
+        FitLabel(txtConsumerAddress, BodyFont());
+    }
+
+    /// Small screens: wrap to 2 lines, shrink the font until it fits (floor = 72%),
+    /// below that it simply wraps to more lines. Big screens: normal font, unlimited lines.
+    /// Text is never truncated.
+    private static void FitLabel(Label lbl, double baseSize)
+    {
+        lbl.LineBreakMode = LineBreakMode.WordWrap;
+        lbl.MaxLines = -1;
+        lbl.FontSize = baseSize;
+
+        if (!IsSmallScreen) return;
+
+        double w = lbl.Width;
+        if (w <= 0 || string.IsNullOrEmpty(lbl.Text)) return;
+
+        double min = Math.Floor(baseSize * 0.72);
+        for (double size = baseSize; ; size -= 0.5)
+        {
+            lbl.FontSize = size;
+
+            lbl.MaxLines = 2;
+            double h2 = ((IView)lbl).Measure(w, double.PositiveInfinity).Height;
+            lbl.MaxLines = -1;
+            double hAll = ((IView)lbl).Measure(w, double.PositiveInfinity).Height;
+
+            if (hAll <= h2 + 1 || size <= min) break;   // fits in 2 lines, or smallest allowed size reached
+        }
+        // MaxLines stays -1, so at the minimum size any overflow goes to a 3rd line instead of being cut
+    }
     //    protected override async void OnAppearing()
     //    {
     //        base.OnAppearing();
@@ -546,7 +607,6 @@ public partial class Reading : ContentPage
         lblPadMode.Text = text;
         txtCustomEntry.Placeholder = placeholder;
     }
-    private const int MaxPickerItems = 30;
     private async void OnFilterNameSearch(string parameter)
     {
         string term = (parameter ?? "").Trim();
@@ -558,21 +618,28 @@ public partial class Reading : ContentPage
         List<Consumers> matches;
         Func<Consumers, string> label;
 
-        if (selected_field == 1)            // account no -> sorted by account no
+        if (selected_field == 1)            // account no
         {
             searchName = "Account No: ";
             matches = source.Where(c => (c.accountNo ?? "").Contains(term, StringComparison.OrdinalIgnoreCase))
                             .OrderBy(c => c.accountNo, cmp).ToList();
             label = c => $"{c.accountNo} - {(c.consumer_name ?? "").Trim()}";
         }
-        else if (selected_field == 2)       // meter no -> sorted by meter no
+        else if (selected_field == 2)       // meter no
         {
             searchName = "Meter No: ";
             matches = source.Where(c => (c.meterno ?? "").Contains(term, StringComparison.OrdinalIgnoreCase))
                             .OrderBy(c => c.meterno, cmp).ThenBy(c => c.accountNo, cmp).ToList();
             label = c => $"{c.meterno} - {(c.consumer_name ?? "").Trim()} ({c.accountNo})";
         }
-        else                                // name -> sorted alphabetically by name
+        else if (selected_field == 4)       // prev account no
+        {
+            searchName = "Prev Acct No: ";
+            matches = source.Where(c => (c.prev_account_no ?? "").Contains(term, StringComparison.OrdinalIgnoreCase))
+                            .OrderBy(c => c.prev_account_no, cmp).ThenBy(c => c.accountNo, cmp).ToList();
+            label = c => $"{(c.prev_account_no ?? "").Trim()} - {(c.consumer_name ?? "").Trim()} ({c.accountNo})";
+        }
+        else                                // name
         {
             searchName = "Name: ";
             var tokens = term.Split(new[] { ' ', ',', '.' },
@@ -590,16 +657,20 @@ public partial class Reading : ContentPage
         }
         else if (matches.Count > 1)
         {
-            var shown = matches.Take(MaxPickerItems).ToList();
-            var labels = shown.Select(label).ToArray();
-            string title = matches.Count > MaxPickerItems
-                ? $"{matches.Count} matches (showing first {MaxPickerItems}). Type more to narrow down."
-                : $"{matches.Count} matches found";
+            // ALL matches are shown (the CollectionView virtualizes, so large lists stay smooth)
+            var labels = matches.Select(label).ToArray();
+            string title = $"{matches.Count} matches found";
 
-            string modeText = selected_field == 1 ? "Account No" : selected_field == 2 ? "Meter No" : "Name";
+            string modeText = selected_field switch
+            {
+                1 => "Account No",
+                2 => "Meter No",
+                4 => "Prev Acct No",
+                _ => "Name"
+            };
             int idx = await PickSearchResultAsync($"Search by {modeText}\n{ListTitle(pickerBillingFilter.SelectedIndex)}", title, labels);
             if (idx < 0) return;
-            result = shown[idx];
+            result = matches[idx];
         }
 
         if (result != null) OnLoadConsumerDetails(result);
@@ -607,11 +678,12 @@ public partial class Reading : ContentPage
 
         gridDetails.IsVisible = true;
     }
-    private void OnNextRecordTapped(object sender, EventArgs e) => OnNextRecord(pickerBillingFilter.SelectedIndex);
-
-    private void OnPrevRecordTapped(object sender, EventArgs e) => OnPrevRecord(pickerBillingFilter.SelectedIndex);
-
-    private void OnLastRecordTapped(object sender, EventArgs e) => OnFirstLastRecord(0, pickerBillingFilter.SelectedIndex);
+    private void OnNextRecordTapped(object sender, EventArgs e)
+    { if (_hasNext) OnNextRecord(pickerBillingFilter.SelectedIndex); }
+    private void OnPrevRecordTapped(object sender, EventArgs e)
+    { if (_hasPrev) OnPrevRecord(pickerBillingFilter.SelectedIndex); }
+    private void OnLastRecordTapped(object sender, EventArgs e)
+    { if (_hasNext) OnFirstLastRecord(0, pickerBillingFilter.SelectedIndex); }
     private List<Consumers> Ordered(int status)
     {
         var src = ConsumerRecords.lstconsumers.Where(c => c.status == status);
@@ -625,46 +697,67 @@ public partial class Reading : ContentPage
 
         return src.OrderBy(c => c.seqno).ThenBy(c => c.accountID).ToList();
     }
-    private async void OnNextRecord(int isBilled)
-    {
-        var list = Ordered(isBilled);
-        Consumers? result;
+    private bool _hasPrev, _hasNext;
 
-        if (isBilled == 1)   // billed: next = one step down the newest-first list
+    private static void SetNavEnabled(Image img, bool enabled)
+    {
+        img.IsEnabled = enabled;
+        img.Opacity = enabled ? 1.0 : 0.3;   // greyed out when disabled
+    }
+
+    private void UpdateNavButtons()
+    {
+        _hasPrev = _hasNext = false;
+
+        int filter = pickerBillingFilter.SelectedIndex;
+        if (filter >= 0 && !string.IsNullOrEmpty(txtConsumerAcctNo.Text))
+        {
+            var list = Ordered(filter);
+            _hasPrev = FindPrev(list, filter) != null;
+            _hasNext = FindNext(list, filter) != null;
+        }
+
+        SetNavEnabled(btnStartRecord, _hasPrev);
+        SetNavEnabled(btnPrevRecord, _hasPrev);
+        SetNavEnabled(btnNextRecord, _hasNext);
+        SetNavEnabled(btnLastRecord, _hasNext);
+    }
+
+    // Shared "what is next / previous" logic (used by the buttons, the nav state, and after-save)
+    private Consumers? FindNext(List<Consumers> list, int filter)
+    {
+        if (filter == 1)   // billed: newest first, next = one step down
         {
             int i = list.FindIndex(c => c.accountID == selected_idno);
-            result = i < 0 ? list.FirstOrDefault() : (i + 1 < list.Count ? list[i + 1] : null);
+            return i < 0 ? list.FirstOrDefault() : (i + 1 < list.Count ? list[i + 1] : null);
         }
-        else
-        {
-            result = list.FirstOrDefault(c =>
-                c.seqno > selected_seqno || (c.seqno == selected_seqno && c.accountID > selected_idno));
-        }
+        return list.FirstOrDefault(c =>
+            c.seqno > selected_seqno || (c.seqno == selected_seqno && c.accountID > selected_idno));
+    }
 
+    private Consumers? FindPrev(List<Consumers> list, int filter)
+    {
+        if (filter == 1)   // billed: prev = one step up (newer)
+        {
+            int i = list.FindIndex(c => c.accountID == selected_idno);
+            return i > 0 ? list[i - 1] : null;
+        }
+        return list.LastOrDefault(c =>
+            c.seqno < selected_seqno || (c.seqno == selected_seqno && c.accountID < selected_idno));
+    }
+    private async void OnNextRecord(int isBilled)
+    {
+        var result = FindNext(Ordered(isBilled), isBilled);
         if (result != null) OnLoadConsumerDetails(result);
         else await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
     }
 
     private async void OnPrevRecord(int isBilled)
     {
-        var list = Ordered(isBilled);
-        Consumers? result;
-
-        if (isBilled == 1)   // billed: prev = one step up (newer)
-        {
-            int i = list.FindIndex(c => c.accountID == selected_idno);
-            result = i > 0 ? list[i - 1] : null;
-        }
-        else
-        {
-            result = list.LastOrDefault(c =>
-                c.seqno < selected_seqno || (c.seqno == selected_seqno && c.accountID < selected_idno));
-        }
-
+        var result = FindPrev(Ordered(isBilled), isBilled);
         if (result != null) OnLoadConsumerDetails(result);
         else await DisplayAlertAsync("Notice", "No record(s) available to display.", "Ok");
     }
-
     private async void OnFirstLastRecord(int isFirst, int isBilled)
     {
         var list = Ordered(isBilled);
@@ -720,7 +813,7 @@ public partial class Reading : ContentPage
             _averageCons = consumer.average_usage;
 
             txtConsumerStatus.Text = (consumer.consumer_status ?? "").Trim().ToUpper() == "A" ? "Active" : "Inactive";
-            txtConsumerAddress.Text = MOA.Left((consumer.address ?? "").Trim(), 42);
+            txtConsumerAddress.Text = (consumer.address ?? "").Trim();
             txtConsumerAverage.Text = FormatQty(consumer.average_usage);
 
             bool isSaved = consumer.status != 0;     // unsaved consumers must not show leftover values
@@ -746,11 +839,36 @@ public partial class Reading : ContentPage
                 txtConsumerTotalBill.Text = consumer.total_bill.ToString("#,##0.00");
 
             _currentIsLessUsage = consumer.less_usage;
+            UpdateNavButtons();
+            FitName();
+            FitAddress();
+            UpdateNavButtons();
         }
         catch (Exception ex)
         {
             await DisplayAlertAsync("Error", "Error loading record.\nError: " + ex.Message, "Ok");
         }
+    }
+    private async Task MoveAfterSaveAsync(Consumers saved, int filter)
+    {
+        var list = Ordered(filter);
+        Consumers? target = FindNext(list, filter) ?? FindPrev(list, filter);   // next, else the one to the left
+
+        if (target != null)
+        {
+            OnLoadConsumerDetails(target);
+            return;
+        }
+
+        // nothing else in this list
+        if (saved.status == filter)          // e.g. re-saving the only billed record: stay on it
+        {
+            OnLoadConsumerDetails(saved);
+            return;
+        }
+
+        ClearConsumerDetails();
+        await DisplayAlertAsync("Notice", "No more record(s) to display.", "Ok");
     }
     private static float ParseFloat(string value)
     {
@@ -1402,7 +1520,15 @@ public partial class Reading : ContentPage
         gridNumericPad.IsEnabled = true;
         txtCustomEntry.Text = "";
     }
-
+    private void OnPrevAcctNoTapped(object sender, EventArgs e)
+    {
+        gridDetails.IsEnabled = false;
+        selected_field = 4;
+        SetPadMode("SEARCH BY: PREV ACCT NO\n" + ListTitle(pickerBillingFilter.SelectedIndex), "Enter Prev Acct No");
+        gridNumericPad.IsVisible = true;
+        gridNumericPad.IsEnabled = true;
+        txtCustomEntry.Text = "";
+    }
     private void OnMeterNoTapped(object sender, EventArgs e)
     {
         gridDetails.IsEnabled = false;
@@ -1432,9 +1558,7 @@ public partial class Reading : ContentPage
     }
 
     private void OnFirstRecordTapped(object sender, EventArgs e)
-    {
-        OnFirstLastRecord(1, pickerBillingFilter.SelectedIndex);
-    }
+    { if (_hasPrev) OnFirstLastRecord(1, pickerBillingFilter.SelectedIndex); }
 
     private void OnConsumerTypeChanged(object sender, EventArgs e)
     {
@@ -2481,7 +2605,7 @@ public partial class Reading : ContentPage
                         MyDeviceInfo.currentPrintConfig = null;
                 }
             }
-            OnNextRecord(pickerBillingFilter.SelectedIndex);
+            await MoveAfterSaveAsync(consumer, pickerBillingFilter.SelectedIndex);
         }
         else
         {
