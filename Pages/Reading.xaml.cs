@@ -233,6 +233,16 @@ public partial class Reading : ContentPage
             ? ((long)r).ToString(CultureInfo.InvariantCulture)
             : r.ToString("0.##", CultureInfo.InvariantCulture);
     }
+    private void SetPrevAcctNo(string? value)
+    {
+        string v = (value ?? "").Trim();
+        bool has = v.Length > 0;
+
+        txtConsumerPrevAcctNo.Text = v;
+        lblPrevAcctNo.IsVisible = has;
+        borderPrevAcct.IsVisible = has;
+        txtConsumerPrevAcctNo.IsVisible = has;
+    }
     private void ClearConsumerDetails()
     {
         lblRecordNo.Text = "SeqNo: 0";
@@ -240,9 +250,7 @@ public partial class Reading : ContentPage
         selected_seqno = 0;
         txtConsumerAcctNo.Text = "";
         lblTypeSize.Text = "";
-        lblPrevAcctNo.IsVisible = false;
-        txtConsumerPrevAcctNo.IsVisible = false;
-        txtConsumerPrevAcctNo.Text = "";
+        SetPrevAcctNo(null);
         txtConsumerName.Text = "";
         txtConsumerMeterNo.Text = "";
         txtConsumerStatus.Text = "";
@@ -281,19 +289,19 @@ public partial class Reading : ContentPage
         double S(double baseValue) => Math.Round(baseValue * g, 1);
 
         // ---- sizes (DynamicResource in XAML) ----
-        Set("FsCaption", 11);
+        Set("FsCaption", 13);
         Set("FsBody", 13);
         Set("FsValue", 16);
         Set("FsTotal", 20);
         Set("FsPad", 22);
-        Set("FieldH", 30);
+        Set("FieldH", 28);
         Set("PadH", 44);
         Set("CmdH", 38);
 
         // NEW: top bar, seq no, navigation buttons, options icon
         Set("FsTop", 16);
-        Set("FsTitle", 13);
-        Set("FsSeq", 13);
+        Set("FsTitle", 14);
+        Set("FsSeq", 14);
         Set("FsPadMode", 14);
         Set("NavIcon", 30);
         Set("OptIcon", 32);
@@ -802,11 +810,7 @@ public partial class Reading : ContentPage
             lblTypeSize.Text = $"{consumer.consumer_type}{consumer.metersize}";
 
             // Prev. Acct No: only visible when there is a value
-            string prevAcct = (consumer.prev_account_no ?? "").Trim();
-            txtConsumerPrevAcctNo.Text = prevAcct;
-            bool hasPrevAcct = prevAcct.Length > 0;
-            lblPrevAcctNo.IsVisible = hasPrevAcct;
-            txtConsumerPrevAcctNo.IsVisible = hasPrevAcct;
+            SetPrevAcctNo(consumer.prev_account_no);
 
             txtConsumerName.Text = consumer.consumer_name;
             txtConsumerMeterNo.Text = consumer.meterno;

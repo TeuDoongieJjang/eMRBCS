@@ -64,7 +64,7 @@
 
         <!-- Virtualized list -->
         <CollectionView Grid.Row="3" ItemsSource="{Binding Items}" SelectionMode="None"
-                        ItemSizingStrategy="MeasureFirstItem"
+                        ItemSizingStrategy="MeasureAllItems"
                         ItemsUpdatingScrollMode="KeepScrollOffset">
             <CollectionView.EmptyView>
                 <Label Text="{Binding EmptyText}" HorizontalOptions="Center" Margin="20" />
@@ -110,8 +110,8 @@
                                 <Label Grid.Column="2" Grid.Row="0"
                                        Text="{Binding Name}" FontAttributes="Bold"
                                        helpers:ResponsiveFont.BaseSize="14"
-                                       MaxLines="2" LineBreakMode="TailTruncation"
-                                       VerticalOptions="Start" />   
+                                       LineBreakMode="WordWrap"
+                                       VerticalOptions="Start" />  
 
                                 <!-- Row 1 : Meter No. + Address -->
                                 <VerticalStackLayout Grid.Column="0" Grid.Row="1" Spacing="0">
@@ -129,8 +129,8 @@
                                 <Label Grid.Column="2" Grid.Row="1"
                                        Text="{Binding Address}"
                                        helpers:ResponsiveFont.BaseSize="12"
-                                       MaxLines="2" LineBreakMode="TailTruncation"
-                                       VerticalOptions="Start" />
+                                       LineBreakMode="WordWrap"
+                                       VerticalOptions="Start" />       
                             </Grid>
                         </Border>
                     </Grid>

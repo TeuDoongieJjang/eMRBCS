@@ -20,12 +20,12 @@
             <x:Double x:Key="FsValue">16</x:Double>
             <x:Double x:Key="FsTotal">20</x:Double>
             <x:Double x:Key="FsPad">22</x:Double>
-            <x:Double x:Key="FieldH">32</x:Double>
-            <x:Double x:Key="PadH">46</x:Double>
-            <x:Double x:Key="CmdH">42</x:Double>
+            <x:Double x:Key="FieldH">28</x:Double>
+            <x:Double x:Key="PadH">44</x:Double>
+            <x:Double x:Key="CmdH">38</x:Double>
             <!-- NEW: top bar / seq no / navigation -->
             <x:Double x:Key="FsTop">16</x:Double>
-            <x:Double x:Key="FsTitle">13</x:Double>
+            <x:Double x:Key="FsTitle">14</x:Double>
             <x:Double x:Key="FsSeq">14</x:Double>
             <x:Double x:Key="FsPadMode">14</x:Double>
             <x:Double x:Key="NavIcon">34</x:Double>
@@ -200,16 +200,16 @@
                                         <TapGestureRecognizer Tapped="OnPrevAcctNoTapped" />
                                     </Label.GestureRecognizers>
                                 </Label>
-                                <Border Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource Field}">
+                                <Border x:Name="borderPrevAcct" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                         Style="{StaticResource Field}" IsVisible="False">
                                     <Label x:Name="txtConsumerPrevAcctNo" Style="{StaticResource Val}" MaxLines="2"
                                             LineBreakMode="TailTruncation" HorizontalOptions="Fill" VerticalOptions="Fill"
-                                            VerticalTextAlignment="Center" Padding="8,2" Text="" FontAttributes="Bold">   
+                                            VerticalTextAlignment="Center" Padding="8,2" Text="" FontAttributes="Bold">     
                                         <Label.GestureRecognizers>
                                             <TapGestureRecognizer Tapped="OnPrevAcctNoTapped" />
                                         </Label.GestureRecognizers>
                                     </Label>
                                 </Border>
-                                
 
                                 <Label x:Name="lblName" Grid.Row="2" Grid.Column="0" Text="Name" Style="{StaticResource Cap}">
                                     <Label.GestureRecognizers>
