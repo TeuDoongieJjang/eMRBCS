@@ -6,23 +6,41 @@
              x:Class="eMRBCS.Pages.ReadingConsumers"
              x:DataType="vm:ReadingConsumersViewModel"
              NavigationPage.HasNavigationBar="False"
-             Title="ReadingConsumers"
-             xmlns:helpers="clr-namespace:eMRBCS.Helpers">
+             Title="ReadingConsumers">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <!-- Defaults. ApplyScreenScale() in the code-behind replaces these with scaled values. -->
+            <x:Double x:Key="LcFsHeader">18</x:Double>
+            <x:Double x:Key="LcFsCap">12</x:Double>
+            <x:Double x:Key="LcFsVal">16</x:Double>
+            <x:Double x:Key="LcFsName">14</x:Double>
+            <x:Double x:Key="LcFsAddr">12</x:Double>
+            <x:Double x:Key="LcFsBody">14</x:Double>
+            <x:Double x:Key="LcFsStatus">13</x:Double>
+            <x:Double x:Key="LcFsSummary">22</x:Double>
+            <x:Double x:Key="LcIcon">25</x:Double>
+            <x:Double x:Key="LcHdrIcon">50</x:Double>
+            <x:Double x:Key="LcCardH">86</x:Double>
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,Auto,Auto,*">
 
         <!-- Header -->
         <Grid Grid.Row="0" BackgroundColor="#3269cd" Padding="10" ColumnDefinitions="Auto,*,Auto">
-            <Image Grid.Column="0" Source="menuicons/prev.png" HeightRequest="50" WidthRequest="50">
+            <Image Grid.Column="0" Source="menuicons/prev.png"
+                   HeightRequest="{DynamicResource LcHdrIcon}" WidthRequest="{DynamicResource LcHdrIcon}">
                 <Image.GestureRecognizers>
                     <TapGestureRecognizer Tapped="TapImgBack" />
                 </Image.GestureRecognizers>
             </Image>
             <Label Grid.Column="1" Text="{Binding TitleText}" TextColor="White"
-           helpers:ResponsiveFont.BaseSize="18"
-           HorizontalOptions="Center" HorizontalTextAlignment="Center"
-           VerticalOptions="Center" LineBreakMode="TailTruncation" />
-            <Image Grid.Column="2" Source="{Binding OptionsIcon}" HeightRequest="50" WidthRequest="50">
+                   FontSize="{DynamicResource LcFsHeader}" FontAutoScalingEnabled="False"
+                   HorizontalOptions="Center" HorizontalTextAlignment="Center"
+                   VerticalOptions="Center" LineBreakMode="TailTruncation" />
+            <Image Grid.Column="2" Source="{Binding OptionsIcon}"
+                   HeightRequest="{DynamicResource LcHdrIcon}" WidthRequest="{DynamicResource LcHdrIcon}">
                 <Image.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding ToggleOptionsCommand}" />
                 </Image.GestureRecognizers>
@@ -32,33 +50,41 @@
         <ProgressBar Grid.Row="2" Progress="{Binding Store.LoadProgress}" ProgressColor="#3269cd"
                      IsVisible="{Binding Store.IsLoading}" />
 
-        <!-- Row 1 : Summary + filters + search in ONE tight stack -->
+        <!-- Row 1 : filter picker + summary on ONE row, then search -->
         <VerticalStackLayout Grid.Row="1" IsVisible="{Binding ShowOptions}"
-                         Spacing="0" Margin="5,5,5,5">
+                             Spacing="0" Margin="5,5,5,5">
 
-            <!-- Summary row: no bottom padding, text centered vertically -->
-            <Grid ColumnDefinitions="*,Auto" Padding="5,0,5,0">
-                <Label Text="{Binding Store.StatusText}" FontSize="13" TextColor="Gray"
-                   VerticalOptions="Center" />
-                <Label Grid.Column="1" Text="{Binding SummaryText}"
-                   TextColor="{Binding SummaryColor}"
-                   FontSize="22" FontAttributes="Bold"
-                   VerticalOptions="Center" />
+            <!-- Picker (left) and summary count (right) in the same row -->
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" Padding="5,0,5,0" ColumnSpacing="8">
+                <Picker Grid.Row="0" Grid.Column="0"
+                        ItemsSource="{Binding BillingFilters}"
+                        SelectedIndex="{Binding SelectedFilterIndex}"
+                        FontSize="{DynamicResource LcFsBody}"
+                        VerticalOptions="Center"
+                        Title="Choose Consumer Status" />
+                <Label Grid.Row="0" Grid.Column="1" Text="{Binding SummaryText}"
+                       TextColor="{Binding SummaryColor}"
+                       FontSize="{DynamicResource LcFsSummary}" FontAttributes="Bold"
+                       FontAutoScalingEnabled="False"
+                       VerticalOptions="Center" />
+                <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                       Text="{Binding Store.StatusText}"
+                       FontSize="{DynamicResource LcFsStatus}" FontAutoScalingEnabled="False"
+                       TextColor="Gray" />
             </Grid>
-
-            <Picker ItemsSource="{Binding BillingFilters}"
-                SelectedIndex="{Binding SelectedFilterIndex}"
-                Title="Choose Consumer Status" />
 
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Picker ItemsSource="{Binding SearchFields}"
-                    SelectedIndex="{Binding SelectedSearchFieldIndex}"
-                    Title="Choose Filter" />
+                        SelectedIndex="{Binding SelectedSearchFieldIndex}"
+                        FontSize="{DynamicResource LcFsBody}"
+                        Title="Choose Filter" />
                 <SearchBar Grid.Column="1" Text="{Binding SearchText}" TextColor="Red"
-                       SearchCommand="{Binding SearchCommand}"
-                       Placeholder="Search consumer" />
+                           FontSize="{DynamicResource LcFsBody}"
+                           SearchCommand="{Binding SearchCommand}"
+                           Placeholder="Search consumer" />
                 <Button Grid.Column="2" Text="Go" BackgroundColor="#3269cd" Margin="5,0"
-                    Command="{Binding SearchCommand}" />
+                        FontSize="{DynamicResource LcFsBody}"
+                        Command="{Binding SearchCommand}" />
             </Grid>
         </VerticalStackLayout>
 
@@ -67,7 +93,8 @@
                         ItemSizingStrategy="MeasureAllItems"
                         ItemsUpdatingScrollMode="KeepScrollOffset">
             <CollectionView.EmptyView>
-                <Label Text="{Binding EmptyText}" HorizontalOptions="Center" Margin="20" />
+                <Label Text="{Binding EmptyText}" HorizontalOptions="Center" Margin="20"
+                       FontSize="{DynamicResource LcFsBody}" />
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="models:ConsumerRow">
@@ -82,7 +109,7 @@
 
                         <!-- Card layer -->
                         <Border BackgroundColor="{AppThemeBinding Light=White, Dark=#1E1E1E}" StrokeThickness="0"
-                                Padding="12,8" MinimumHeightRequest="86"
+                                Padding="12,8" MinimumHeightRequest="{DynamicResource LcCardH}"
                                 Margin="5,1,5,5">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="8" />
@@ -97,40 +124,40 @@
                                 <!-- Row 0 : Account No. + Name -->
                                 <VerticalStackLayout Grid.Column="0" Grid.Row="0" Spacing="0">
                                     <Label Text="Account No:" FontAttributes="Bold"
-                                           helpers:ResponsiveFont.BaseSize="12" />
+                                           FontSize="{DynamicResource LcFsCap}" FontAutoScalingEnabled="False" />
                                     <Label Text="{Binding AccountNo}" FontAttributes="Bold"
-                                           helpers:ResponsiveFont.BaseSize="16" />
+                                           FontSize="{DynamicResource LcFsVal}" FontAutoScalingEnabled="False" />
                                 </VerticalStackLayout>
 
                                 <Image Grid.Column="1" Grid.Row="0"
                                        Source="menuicons/person.png"
-                                       HeightRequest="25" WidthRequest="25"
+                                       HeightRequest="{DynamicResource LcIcon}" WidthRequest="{DynamicResource LcIcon}"
                                        VerticalOptions="Start" />
 
                                 <Label Grid.Column="2" Grid.Row="0"
                                        Text="{Binding Name}" FontAttributes="Bold"
-                                       helpers:ResponsiveFont.BaseSize="14"
+                                       FontSize="{DynamicResource LcFsName}" FontAutoScalingEnabled="False"
                                        LineBreakMode="WordWrap"
-                                       VerticalOptions="Start" />  
+                                       VerticalOptions="Start" />
 
                                 <!-- Row 1 : Meter No. + Address -->
                                 <VerticalStackLayout Grid.Column="0" Grid.Row="1" Spacing="0">
                                     <Label Text="Meter No:" FontAttributes="Bold"
-                                           helpers:ResponsiveFont.BaseSize="12" />
+                                           FontSize="{DynamicResource LcFsCap}" FontAutoScalingEnabled="False" />
                                     <Label Text="{Binding MeterNo}" FontAttributes="Bold"
-                                           helpers:ResponsiveFont.BaseSize="16" />
+                                           FontSize="{DynamicResource LcFsVal}" FontAutoScalingEnabled="False" />
                                 </VerticalStackLayout>
 
                                 <Image Grid.Column="1" Grid.Row="1"
                                        Source="menuicons/address.png"
-                                       HeightRequest="25" WidthRequest="25"
+                                       HeightRequest="{DynamicResource LcIcon}" WidthRequest="{DynamicResource LcIcon}"
                                        VerticalOptions="Start" />
 
                                 <Label Grid.Column="2" Grid.Row="1"
                                        Text="{Binding Address}"
-                                       helpers:ResponsiveFont.BaseSize="12"
+                                       FontSize="{DynamicResource LcFsAddr}" FontAutoScalingEnabled="False"
                                        LineBreakMode="WordWrap"
-                                       VerticalOptions="Start" />       
+                                       VerticalOptions="Start" />
                             </Grid>
                         </Border>
                     </Grid>
