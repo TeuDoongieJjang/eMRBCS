@@ -2602,11 +2602,14 @@ public partial class Reading : ContentPage
                 {
                     string output;
                     SetBusy(true, "Printing, please wait...");
-                    try { output = await DoPrintBill(consumer); }
+                    try
+                    {
+                        output = await DoPrintBill(consumer);
+                    }
                     finally { SetBusy(false); }
 
                     if (output != "Done printing.")
-                        MyDeviceInfo.currentPrintConfig = null;
+                        await DisplayAlertAsync("Print Notice", output, "Ok");
                 }
             }
             await MoveAfterSaveAsync(consumer, pickerBillingFilter.SelectedIndex);
