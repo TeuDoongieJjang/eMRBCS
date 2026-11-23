@@ -60,7 +60,7 @@ HorizontalOptions="CenterAndExpand"
     Grid.Row="1"/>
 
                 <Label x:Name="lblversion" 
-                       Text="v6.5.105"
+                       Text="v6.5.106"
                        FontAttributes="Bold"               
                        Margin="10"
                        FontSize="12" 
@@ -79,6 +79,9 @@ HorizontalOptions="CenterAndExpand"
                         3. Loading Performance.
                      v6.5.105
                         1. Redesign the Reading UI.
+                     v6.5.105
+                        1. Redesign the Reading UI.
+                        2. Added Previous Account Search.
                 -->
                 <Grid Grid.Row="3" Grid.Column="0" Margin="10">
                     <Grid.RowDefinitions>

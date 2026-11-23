@@ -301,7 +301,7 @@ public partial class Reading : ContentPage
         // NEW: top bar, seq no, navigation buttons, options icon
         Set("FsTop", 16);
         Set("FsTitle", 14);
-        Set("FsSeq", 14);
+        Set("FsSeq", 13);
         Set("FsPadMode", 14);
         Set("NavIcon", 30);
         Set("OptIcon", 32);
