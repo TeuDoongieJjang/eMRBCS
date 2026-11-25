@@ -177,7 +177,7 @@ public partial class Reading : ContentPage
 
     private void OnHardwareKey(object sender, Android.Views.Keycode keyCode)
     {
-        if (_searchPromptOpen) return;
+        if (_searchPromptOpen || _warningOpen) return;
         string key = keyCode.ToString();
 
         if (gridNumericPad.IsVisible)
@@ -2518,7 +2518,106 @@ public partial class Reading : ContentPage
         }
     }
 
+    // =========================================================================
+    // Warning alert (yellow on black) + optional sound
+    // =========================================================================
+    private enum WarnLevel { Warning, Critical }
 
+    private TaskCompletionSource<bool>? _warnTcs;
+    private CancellationTokenSource? _blinkCts;
+    private bool _warningOpen;
+
+    private static void PlayAlertSound(WarnLevel level)
+    {
+#if ANDROID
+        int beeps = level == WarnLevel.Critical ? 3 : 1;
+        int toneMs = level == WarnLevel.Critical ? 400 : 250;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var tone = new global::Android.Media.ToneGenerator(global::Android.Media.Stream.Alarm, 100);
+                for (int i = 0; i < beeps; i++)
+                {
+                    tone.StartTone(global::Android.Media.Tone.PropBeep2, toneMs);
+                    await Task.Delay(toneMs + 150);
+                }
+            }
+            catch { }
+        });
+
+        try { Vibration.Default.Vibrate(TimeSpan.FromMilliseconds(level == WarnLevel.Critical ? 700 : 250)); }
+        catch { }
+#endif
+    }
+
+    /// <summary>
+    /// Yellow-on-black alert.
+    /// level = null              -> NO beep, NO vibration (silent).
+    /// level = WarnLevel.Warning  -> 1 short beep.
+    /// level = WarnLevel.Critical -> 3 beeps + longer vibration.
+    /// cancel = null -> single button (notice). cancel != null -> Yes/No question.
+    /// </summary>
+    private async Task<bool> ShowWarningAsync(string title, string message,
+        string accept = "Ok", string? cancel = null, WarnLevel? level = null)
+    {
+        // never stack two warnings: close any previous one and stop its blink loop
+        _blinkCts?.Cancel();
+        if (_warnTcs != null && !_warnTcs.Task.IsCompleted) _warnTcs.TrySetResult(false);
+
+        lblWarnTitle.Text = title.ToUpper();
+        lblWarnMessage.Text = message;
+        btnWarnAccept.Text = accept;
+
+        bool hasCancel = !string.IsNullOrEmpty(cancel);
+        btnWarnCancel.IsVisible = hasCancel;
+        if (hasCancel) btnWarnCancel.Text = cancel;
+        Grid.SetColumn(btnWarnAccept, hasCancel ? 1 : 0);
+        Grid.SetColumnSpan(btnWarnAccept, hasCancel ? 1 : 2);
+
+        var tcs = _warnTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cts = _blinkCts = new CancellationTokenSource();
+
+        _warningOpen = true;              // blocks the hardware keys while the alert is open
+        lblWarnIcon.Opacity = 1;
+        gridWarning.IsVisible = true;
+
+        if (level.HasValue) PlayAlertSound(level.Value);   // silent when no level
+        _ = BlinkWarningIconAsync(cts.Token);
+
+        try { return await tcs.Task; }
+        finally
+        {
+            cts.Cancel();                 // stop THIS alert's blink loop
+                                          // only hide if a newer alert has not already taken over
+            if (ReferenceEquals(_warnTcs, tcs))
+            {
+                gridWarning.IsVisible = false;
+                _warningOpen = false;
+            }
+        }
+    }
+
+    // Task.Delay always waits, so this loop can never spin the UI thread.
+    private async Task BlinkWarningIconAsync(CancellationToken token)
+    {
+        try
+        {
+            bool on = false;
+            while (!token.IsCancellationRequested)
+            {
+                lblWarnIcon.Opacity = on ? 1.0 : 0.15;
+                on = !on;
+                await Task.Delay(400, token);
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally { lblWarnIcon.Opacity = 1; }
+    }
+
+    private void OnWarnAccept(object? sender, EventArgs e) => _warnTcs?.TrySetResult(true);
+    private void OnWarnCancel(object? sender, EventArgs e) => _warnTcs?.TrySetResult(false);
 
     #region newlogic
     private async void OnSaveReading(object sender, EventArgs e)
@@ -2532,7 +2631,7 @@ public partial class Reading : ContentPage
 
         if (decimal.TryParse(txtConsumerCurrentBill.Text, out decimal bill) && bill == 0)
         {
-            await DisplayAlertAsync("Notice", "Please enter the present reading first.", "Ok");   // NEW
+            await ShowWarningAsync("Notice", "Please enter the present reading first.");
             return;
         }
 
@@ -2544,10 +2643,12 @@ public partial class Reading : ContentPage
         bool isPresentLess = present < previous;
         if ((decimal.TryParse(txtConsumerUsage.Text, out decimal Usage) && Usage < 0) || isPresentLess)
         {
-            bool confirmUsage = await DisplayAlertAsync("NEGATIVE CONSUMPTION!", "Present reading is less than the Previous reading!\n\nDo you want to continue?", "Yes", "No");
+            bool confirmUsage = await ShowWarningAsync("NEGATIVE CONSUMPTION!",
+                                                        "Present reading is less than the Previous reading!\n\nDo you want to continue?",
+                                                        "Yes", "No", WarnLevel.Critical);
             if (!confirmUsage) return;
 
-            bool confirmUsage2x = await DisplayAlertAsync("NEGATIVE CONSUMPTION!",
+            bool confirmUsage2x = await ShowWarningAsync("NEGATIVE CONSUMPTION!",
                 $"Present   = {present}\n" +
                 $"Previous = {previous}\n" +
                 $"----------------------\n" +
@@ -2561,8 +2662,9 @@ public partial class Reading : ContentPage
             strRemarks = UsageAnalysisHelper.GstrUsageAnalysisRemarks(usageNow, Fld2Dob(_averageCons));
             if (strRemarks != "")
             {
-                bool continueEntry = await DisplayAlertAsync("VALIDATE CONSUMPTION!",
-                    "Current usage is " + strRemarks + "!\n\nDo you want to continue?", "Yes", "No");
+                bool continueEntry = await ShowWarningAsync("VALIDATE CONSUMPTION!",
+                                                                "Current usage is " + strRemarks + "!\n\nDo you want to continue?",
+                                                                "Yes", "No", WarnLevel.Critical);
                 if (!continueEntry) return;
             }
         }
@@ -2609,14 +2711,14 @@ public partial class Reading : ContentPage
                     finally { SetBusy(false); }
 
                     if (output != "Done printing.")
-                        await DisplayAlertAsync("Print Notice", output, "Ok");
+                        await ShowWarningAsync("Print Notice", output, level: WarnLevel.Critical);
                 }
             }
             await MoveAfterSaveAsync(consumer, pickerBillingFilter.SelectedIndex);
         }
         else
         {
-            await DisplayAlertAsync("Error", "Failed to saved ", "Ok");
+            await ShowWarningAsync("Error", "Failed to save the reading.", level: WarnLevel.Critical);
         }
     }
     #endregion

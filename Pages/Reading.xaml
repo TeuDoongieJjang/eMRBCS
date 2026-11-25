@@ -439,5 +439,33 @@
                 </Grid>
             </Border>
         </Grid>
+        <!-- ============================== WARNING ALERT (yellow on black) ============================== -->
+        <Grid x:Name="gridWarning" IsVisible="False" BackgroundColor="#CC000000" ZIndex="20">
+            <Border BackgroundColor="Black" Stroke="Yellow" StrokeThickness="4"
+            Margin="16" Padding="0" VerticalOptions="Center">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="10" Padding="16">
+                    <Label x:Name="lblWarnIcon" Text="⚠" TextColor="Yellow" FontSize="44"
+                   HorizontalOptions="Center" FontAutoScalingEnabled="False" />
+                    <Label x:Name="lblWarnTitle" TextColor="Yellow" FontSize="20" FontAttributes="Bold"
+                   HorizontalOptions="Center" HorizontalTextAlignment="Center"
+                   FontAutoScalingEnabled="False" />
+                    <BoxView HeightRequest="2" Color="Yellow" />
+                    <Label x:Name="lblWarnMessage" TextColor="Yellow" FontSize="16"
+                   HorizontalTextAlignment="Center" FontAutoScalingEnabled="False" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,6,0,0">
+                        <Button x:Name="btnWarnCancel" Grid.Column="0" Text="No"
+                        BackgroundColor="#333333" TextColor="Yellow"
+                        BorderColor="Yellow" BorderWidth="2" FontAttributes="Bold"
+                        Clicked="OnWarnCancel" />
+                        <Button x:Name="btnWarnAccept" Grid.Column="1" Text="Yes"
+                        BackgroundColor="Yellow" TextColor="Black" FontAttributes="Bold"
+                        Clicked="OnWarnAccept" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 </ContentPage>
