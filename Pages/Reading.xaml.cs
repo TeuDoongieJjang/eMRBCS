@@ -2284,9 +2284,11 @@ public partial class Reading : ContentPage
             if (d.SJWD && typeDesc.Length > 0)
                 await printer.PrintTextAsync(typeDesc, PrintAlign.Left);
 
-            await printer.PrintTextAsync((d.MVWD || d.SJWD) ? "Meter No.   : " :
-                                               d.PLAWD ? "Meter No.      : " :
-                                               "Meter No.   : " + consumer.meterno, PrintAlign.Left);
+            string meterLabel = (d.MVWD || d.SJWD) ? "Meter No.   : " :
+                                d.PLAWD ? "Meter No.      : " :
+                                "Meter No.   : ";
+            await printer.PrintTextAsync(meterLabel + consumer.meterno, PrintAlign.Left);
+
             if (d.SJWD)
                 await printer.PrintTextAsync("Seq. No.    : " + consumer.seqno, PrintAlign.Left);
 
