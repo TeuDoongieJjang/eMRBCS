@@ -34,13 +34,16 @@ public partial class Utilities : ContentPage
 
         }
     }
-
+    private async void TapLicense(object sender, TappedEventArgs e)
+    => await Navigation.PushOnceAsync(() => new ProductActivation());
     private void AccessCheck()
     {
+        cmdLicense.IsVisible = LoginUser.role == 1;
         int role = LoginUser.role;
         switch (role)
         {
             case 1:
+
                 cmdSettings.IsVisible = true;
                 cmdRestore.IsVisible = true;
                 cmdUserAccess.IsVisible = true;

@@ -113,6 +113,7 @@
                     HorizontalOptions="Start"/>
 
                 <!-- Row 4-->
+
                 <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="3"
                         Grid.Column="0">
                     <Entry  x:Name="txtproduct_id"                            
@@ -122,6 +123,12 @@
                         VerticalOptions="Start"                        
                         HorizontalOptions="Fill"/>
                 </Frame>
+                
+                <Label x:Name="lblLicenseStatus" Grid.Row="4" Grid.Column="0"
+                       Margin="10,5,0,0" FontSize="14" FontAttributes="Bold"
+                       VerticalOptions="Start" HorizontalOptions="Start" />     
+
+
                 <!--#End IP Address -->
 
                 <Label  Grid.Row="5"
@@ -156,11 +163,8 @@
 
                 
                 <!--#End Pass -->
-                <Button Text="Activate Product"
-                    Clicked="OnSaveChanges"
-                    BackgroundColor="#3269cd"
-                    Grid.Row="20"
-                    Grid.Column="0" />
+                <Button x:Name="btnActivate" Text="Activate Product" Clicked="OnSaveChanges"
+                        BackgroundColor="#3269cd" Grid.Row="20" Grid.Column="0" />
             </Grid>
         </VerticalStackLayout>
     </ScrollView>

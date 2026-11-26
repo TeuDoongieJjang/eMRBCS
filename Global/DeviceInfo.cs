@@ -15,7 +15,11 @@ namespace eMRBCS.Global
 
         public static string activation_file { get; set; } = "eMRBCS.key";
 
-        public static bool isActivated { get; set; }
+        public static bool isActivated
+        {
+            get => eMRBCS.Services.LicenseService.Instance.IsUsable;   // Demo or Activated
+            set { }                                                    // ignored: state comes from LicenseService
+        }
 
         public static Printerconfig currentPrintConfig { get; set; }
 

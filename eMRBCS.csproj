@@ -55,6 +55,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<AssemblyMetadata Include="BuildUtc" Value="$([System.DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<!--<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />-->
 		<MauiIcon Include="Resources\Images\mlsappicon.svg" />
 		

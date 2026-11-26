@@ -1,21 +1,31 @@
-
-using eMRBCS.Global;
 using eMRBCS.Services;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.RegularExpressions;
 
 namespace eMRBCS.Pages;
 
 public partial class ProductActivation : ContentPage
 {
-    string encryptedText;
-
     public ProductActivation()
     {
         InitializeComponent();
-        txtproduct_id.Text = MyDeviceInfo.device_AndroidID.ToUpper();
+        txtproduct_id.Text = LicenseService.Instance.DeviceId;
+        txtproduct_id.IsReadOnly = true;
+        RefreshStatus();
+    }
 
+    private void RefreshStatus()
+    {
+        var st = LicenseService.Instance.GetStatus();
+        bool activated = st.State == LicenseState.Activated;
+
+        lblLicenseStatus.Text = st.State switch
+        {
+            LicenseState.Activated => "License: ACTIVATED",
+            LicenseState.Demo => $"Demo mode: {st.DaysLeft} day(s) left (ends {st.ExpiresUtc.ToLocalTime():yyyy-MM-dd})",
+            _ => "License: EXPIRED"
+        };
+
+        txtactivation_key.IsEnabled = !activated;
+        btnActivate.IsEnabled = !activated;
     }
 
     private async void TapImgBack(object sender, TappedEventArgs e)
@@ -23,50 +33,25 @@ public partial class ProductActivation : ContentPage
         await Navigation.PopOnceAsync();
     }
 
-    private void OnSaveChanges(object sender, EventArgs e)
+    private async void OnSaveChanges(object sender, EventArgs e)
     {
-        string filePath = Path.Combine(FileSystem.AppDataDirectory, MyDeviceInfo.activation_file);
-        if (!File.Exists(filePath))
+        string key = (txtactivation_key.Text ?? "").Trim();
+        if (key.Length == 0)
         {
-
-            encryptedText = EncryptString(txtproduct_id.Text, "manny");
-            string alphanumericString = Regex.Replace(encryptedText, "[^a-zA-Z0-9]", "");
-            string comparetxt = alphanumericString.Length > 8 ? alphanumericString.Substring(0, 8) : alphanumericString;
-            //MgN6h2pZ
-            if (txtactivation_key.Text.ToUpper() == comparetxt.ToUpper())
-            {
-
-                File.WriteAllText(filePath, encryptedText);
-            }
-
+            await DisplayAlertAsync("Notice", "Please enter the activation key.", "Ok");
+            return;
         }
-    }
 
-    public static string EncryptString(string plainText, string passphrase)
-    {
-
-
-        using (var aes = Aes.Create())
+        bool ok = await Task.Run(() => LicenseService.Instance.TryActivate(key));
+        if (ok)
         {
-            var keyDerivationFunction = new Rfc2898DeriveBytes(passphrase, Encoding.UTF8.GetBytes(passphrase), 10000);
-            aes.Key = keyDerivationFunction.GetBytes(32); // 256-bit key
-            aes.IV = keyDerivationFunction.GetBytes(16);  // 128-bit IV
-
-
-            using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
-            using (var ms = new MemoryStream())
-            {
-                using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
-                using (var sw = new StreamWriter(cs))
-                {
-                    sw.Write(plainText);
-                }
-
-                var encryptedBytes = ms.ToArray();
-                return Convert.ToBase64String(encryptedBytes);
-            }
+            await DisplayAlertAsync("Notice", "Product activated. Thank you!", "Ok");
+            txtactivation_key.Text = "";
         }
+        else
+        {
+            await DisplayAlertAsync("Notice", "Invalid activation key.", "Ok");
+        }
+        RefreshStatus();
     }
-
-
 }

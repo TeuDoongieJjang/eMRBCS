@@ -585,9 +585,34 @@ Grid.Column="0">
                         </Frame.GestureRecognizers>
                     </Frame>
 
-                </Grid>           
-
-            </Grid>
+                </Grid>
+                    <Grid x:Name="cmdLicense" Margin="0,10,0,0" Grid.Row="10" Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Rectangle Fill="Gray" HeightRequest="90" Margin="20,10,20,0" RadiusX="10" RadiusY="10" />
+                        <Rectangle Style="{StaticResource CardUpper}" Margin="20,0,20,0" HeightRequest="90"
+               Stroke="Gray" StrokeThickness="1" RadiusX="10" RadiusY="10" />
+                        <Grid VerticalOptions="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Image Source="menuicons/product_key.png" VerticalOptions="Center" HorizontalOptions="End"
+               Margin="0,0,20,0" HeightRequest="75" WidthRequest="75" />
+                            <Label Grid.Column="1" Text="License Activation" FontSize="18"
+               VerticalOptions="Center" HorizontalOptions="Start" />
+                        </Grid>
+                        <Frame BackgroundColor="Transparent" Margin="20,0,20,0" HeightRequest="90">
+                            <Frame.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapLicense" />
+                            </Frame.GestureRecognizers>
+                        </Frame>
+                    </Grid>
+                </Grid>
 
             <BoxView x:Name="overlaybox" 
                     Color="Transparent"     

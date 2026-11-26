@@ -64,7 +64,8 @@ public partial class Login : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
+        //await LicenseDebug.ShowAsync(this);                 // DEBUG ONLY: delete this line when done
+        if (!await LicenseGate.EnsureAsync(this)) return;   // license check before login
         await StartupService.Instance.CoreReady;      // was Task.Delay(2000)
         if (Serverdetails.Validnetwork == 0)
             await DisplayAlertAsync("Notice", "Network address invalid.\nPlease contact your Administrator", "Ok");
@@ -116,6 +117,7 @@ public partial class Login : ContentPage
 
     private async Task LoginAsync()
     {
+        if (!await LicenseGate.EnsureAsync(this)) return;
         string username = usernameEntry.Text;
         string password = passwordEntry.Text;
 

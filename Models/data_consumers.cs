@@ -48,7 +48,7 @@ namespace eMRBCS.Models
         public int less_usage { get; set; }
         public int isflat_rate { get; set; }
         public int iszero_min { get; set; }
-        public string prev_account_no { get; set; }
+        public string? prev_account_no { get; set; }
         public string Notif { get; set; }
     }
 }
