@@ -171,6 +171,7 @@ public sealed class LicenseService
         Initialize();
         lock (_gate)
         {
+
             var rec = _rec!;
             var lastSeen = new DateTime(rec.LastSeenTicks, DateTimeKind.Utc);
             DateTime raw = DateTime.UtcNow;
@@ -187,9 +188,13 @@ public sealed class LicenseService
                 SaveAll();
             }
 
+            //var install = new DateTime(rec.InstallTicks, DateTimeKind.Utc);
+            //var expires = install.AddMonths(DemoMonths);
+            //int daysLeft = Math.Max(0, (int)Math.Ceiling((expires - now).TotalDays));
             var install = new DateTime(rec.InstallTicks, DateTimeKind.Utc);
-            var expires = install.AddMonths(DemoMonths);
+            var expires = install.AddSeconds(30);
             int daysLeft = Math.Max(0, (int)Math.Ceiling((expires - now).TotalDays));
+
 
             LicenseState state;
             if (rec.Activated) state = LicenseState.Activated;

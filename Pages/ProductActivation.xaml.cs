@@ -27,7 +27,17 @@ public partial class ProductActivation : ContentPage
         txtactivation_key.IsEnabled = !activated;
         btnActivate.IsEnabled = !activated;
     }
+    private async void TapCopyText(object sender, TappedEventArgs e)
+    {
+        string key = (txtproduct_id.Text ?? "").Trim();
+        if (key.Length == 0) return;
 
+        await Clipboard.Default.SetTextAsync(key);
+
+        lblCopied.IsVisible = true;
+        await Task.Delay(1500);
+        lblCopied.IsVisible = false;
+    }
     private async void TapImgBack(object sender, TappedEventArgs e)
     {
         await Navigation.PopOnceAsync();

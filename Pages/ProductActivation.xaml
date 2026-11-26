@@ -114,16 +114,41 @@
 
                 <!-- Row 4-->
 
+                <!-- Row 4-->
                 <Frame BorderColor="Gray" CornerRadius="2" Padding="0" Margin="10" Grid.Row="3"
-                        Grid.Column="0">
-                    <Entry  x:Name="txtproduct_id"                            
-                        Placeholder="#########"
-                        Margin="10,5,0,0"
-                        FontSize="12"
-                        VerticalOptions="Start"                        
-                        HorizontalOptions="Fill"/>
+       Grid.Column="0">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Entry x:Name="txtproduct_id"
+               Grid.Column="0"
+               Placeholder="#########"
+               Margin="10,5,0,0"
+               FontSize="12"
+               VerticalOptions="Center"
+               HorizontalOptions="Fill">
+                            <Entry.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapCopyText" />
+                            </Entry.GestureRecognizers>
+                        </Entry>
+                        <Image Grid.Column="1"
+               Source="menuicons/copy_text1.png"
+               HeightRequest="25"
+               WidthRequest="25"
+               Margin="5,0,10,0"
+               VerticalOptions="Center">
+                            <Image.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="TapCopyText" />
+                            </Image.GestureRecognizers>
+                        </Image>
+                    </Grid>
                 </Frame>
-                
+
+                <!-- Feedback label (Row 6 was unused) -->
+                <Label x:Name="lblCopied" Grid.Row="6" Grid.Column="0"
+       Text="Product Key copied to clipboard"
+       FontSize="12" TextColor="Green"
+       Margin="10,0,0,0"
+       IsVisible="False" />
+
                 <Label x:Name="lblLicenseStatus" Grid.Row="4" Grid.Column="0"
                        Margin="10,5,0,0" FontSize="14" FontAttributes="Bold"
                        VerticalOptions="Start" HorizontalOptions="Start" />     
