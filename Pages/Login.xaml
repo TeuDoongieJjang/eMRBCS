@@ -4,36 +4,24 @@
              x:Class="eMRBCS.Pages.Login"
              NavigationPage.HasNavigationBar="False"
              Title="Login">
-    <ScrollView>                  
-        <Grid>            
-            <VerticalStackLayout Margin="0,0,0,10" 
-                VerticalOptions="End" 
-HorizontalOptions="Center">
+    <ScrollView>
+        <Grid>
+            <VerticalStackLayout Margin="0,0,0,10"
+                VerticalOptions="End"
+                HorizontalOptions="Center">
                 <Label
-                Text="Powered by MLS Consultancy Co."                     
-                   FontAutoScalingEnabled="True"                 
-            HorizontalOptions="Center" 
-FontSize="14" 
- />
-                <Label 
-                Text="Copyright © 2024"             
-FontSize="14" 
-HorizontalOptions="Center"            
-/>
+                    Text="Powered by MLS Consultancy Co."
+                    FontAutoScalingEnabled="True"
+                    HorizontalOptions="Center"
+                    FontSize="14" />
+                <Label
+                    Text="Copyright © 2024"
+                    FontSize="14"
+                    HorizontalOptions="Center" />
             </VerticalStackLayout>
-           
+
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -43,160 +31,206 @@ HorizontalOptions="Center"
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Image Source="logo/msl_logo.png" 
+
+                <Image Source="logo/msl_logo.png"
                        Aspect="AspectFit"
-                         Grid.Column="0"
-  Grid.Row="0"
-HorizontalOptions="CenterAndExpand" 
-  />
+                       Grid.Column="0" Grid.Row="0"
+                       HorizontalOptions="CenterAndExpand" />
 
-                <Label x:Name="lblcompany" 
-                    Text="eMRBCS"                         
-                   FontAttributes="Bold"                   
-       Margin="0,10,0,0"
-    FontSize="24" 
-    HorizontalOptions="Center"                    
-    Grid.Column="0"
-    Grid.Row="1"/>
+                <Label x:Name="lblcompany"
+                       Text="eMRBCS"
+                       FontAttributes="Bold"
+                       Margin="0,10,0,0"
+                       FontSize="24"
+                       HorizontalOptions="Center"
+                       Grid.Column="0" Grid.Row="1" />
 
-                <Label x:Name="lblversion" 
+                <Label x:Name="lblversion"
                        Text="v6.5.106"
-                       FontAttributes="Bold"               
+                       FontAttributes="Bold"
                        Margin="10"
-                       FontSize="12" 
-                       HorizontalOptions="Center"                
-                       Grid.Column="0"
-                       Grid.Row="2"/>
-                <!-- WHAT'S NEW 
-                     v6.5.102 
-                        1. Added delete features in printer configuration.
-                        2. Auto select new printer config on save.
-                     v6.5.103
-                        1. Edit Printer Configuration Formats.
-                     v6.5.104
-                        1. Edit Printer Configuration Formats.
-                        2. Added Name Searching.
-                        3. Loading Performance.
-                     v6.5.105
-                        1. Redesign the Reading UI.
-                     v6.5.105
-                        1. Redesign the Reading UI.
-                        2. Added Previous Account Search.
-                -->
-                <Grid Grid.Row="3" Grid.Column="0" Margin="10">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                       FontSize="12"
+                       HorizontalOptions="Center"
+                       Grid.Column="0" Grid.Row="2" />
 
-                    <Label 
-            Text="Device Date"     
-  FontAttributes="Bold"
-FontSize="14" 
-HorizontalOptions="Center" 
-Grid.Column="0"
-Grid.Row="0"/>
+                <!-- ===================== NORMAL LOGIN (Device Date -> Login button) ===================== -->
+                <VerticalStackLayout x:Name="loginPanel" Grid.Row="3" Grid.Column="0">
 
-                    <Label x:Name="lbldatetime"  
-                Text="2024-07-20"     
-       Margin="10,15,10,10"
-    FontSize="14" 
-    HorizontalOptions="Center" 
-    Grid.Column="0"
-    Grid.Row="1"/>
+                    <Grid Margin="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                    <Label 
-            Text="Billing Date"     
-   FontAttributes="Bold"
-FontSize="14" 
-HorizontalOptions="Center" 
-Grid.Column="1"
-Grid.Row="0"/>
-                    <DatePicker x:Name="dpBillDate" 
-                    Grid.Row="1"
-                        Grid.Column="1"        
-                            Format="yyyy-MM-dd"
-                        HorizontalOptions="Center" />
-                </Grid>
+                        <Label Text="Device Date"
+                               FontAttributes="Bold"
+                               FontSize="14"
+                               HorizontalOptions="Center"
+                               Grid.Column="0" Grid.Row="0" />
 
-                <Label x:Name="lblcredentials"
-    Text="Please enter your credentials" 
-       Margin="10,20,10,10"
-    FontSize="14" 
-    HorizontalOptions="Center" 
-    Grid.Column="0"
-    Grid.Row="6"/>
-                <Grid  Grid.Row="7"
- Grid.Column="0"
-                       HorizontalOptions="Center">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>                       
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <HorizontalStackLayout Grid.Row="0" Grid.Column="0">
-                        <Image Source="menuicons/username.png" 
-                               Margin="0,0,10,0"
-                                HeightRequest="25" 
-                                WidthRequest="25" />
-                        <Entry x:Name="usernameEntry" 
-                                Text=""
-                                WidthRequest="200"
-                                AbsoluteLayout.LayoutBounds="40,5"
-                                Placeholder="Username" />
-                    </HorizontalStackLayout>
-                    
-                    <HorizontalStackLayout Grid.Row="1" Grid.Column="0">
-                        <Image Source="menuicons/password.png"                      
-                               Margin="0,0,10,0"
-                               HeightRequest="25" 
-                               WidthRequest="25" />
-                        <Entry x:Name="passwordEntry" 
-                                WidthRequest="200"   
-                                Placeholder="Password" 
-                                IsPassword="True" />
-                        <ImageButton x:Name="btnTogglePassword"
-                                     Source="menuicons/eye.png"
-                                     HeightRequest="25"
-                                     WidthRequest="25"
-                                     MinimumHeightRequest="25"
-                                     MinimumWidthRequest="25"
-                                     Margin="5,0,0,0"
-                                     Padding="0"
-                                     BackgroundColor="Transparent"
-                                     Aspect="AspectFit"
-                                     SemanticProperties.Description="Show or hide password"
-                                     Clicked="OnTogglePasswordClicked" />
-                    </HorizontalStackLayout>
-                </Grid>
-             
-                <Button Text="Login" 
-              BackgroundColor="#3269cd"
-                    Margin="20"
-                    Grid.Row="9"
-                    Grid.Column="0"
-              Clicked="OnLoginButtonClicked" />
+                        <Label x:Name="lbldatetime"
+                               Text="2024-07-20"
+                               Margin="10,15,10,10"
+                               FontSize="14"
+                               HorizontalOptions="Center"
+                               Grid.Column="0" Grid.Row="1" />
 
-                
-                <Label x:Name="messageLabel" 
-                    Text=""
-                    MaxLines="2"
-                    HeightRequest="70"
-                    WidthRequest="300"
-                    LineBreakMode="WordWrap"
-                    HorizontalTextAlignment="Center"
-                    TextColor="Red" 
-                    Grid.Row="12"
-                    Grid.Column="0" />
+                        <Label Text="Billing Date"
+                               FontAttributes="Bold"
+                               FontSize="14"
+                               HorizontalOptions="Center"
+                               Grid.Column="1" Grid.Row="0" />
+
+                        <DatePicker x:Name="dpBillDate"
+                                    Grid.Row="1" Grid.Column="1"
+                                    Format="yyyy-MM-dd"
+                                    HorizontalOptions="Center" />
+                    </Grid>
+
+                    <Label x:Name="lblcredentials"
+                           Text="Please enter your credentials"
+                           Margin="10,20,10,10"
+                           FontSize="14"
+                           HorizontalOptions="Center" />
+
+                    <Grid HorizontalOptions="Center">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <HorizontalStackLayout Grid.Row="0" Grid.Column="0">
+                            <Image Source="menuicons/username.png"
+                                   Margin="0,0,10,0"
+                                   HeightRequest="25"
+                                   WidthRequest="25" />
+                            <Entry x:Name="usernameEntry"
+                                   Text=""
+                                   WidthRequest="200"
+                                   Placeholder="Username" />
+                        </HorizontalStackLayout>
+
+                        <HorizontalStackLayout Grid.Row="1" Grid.Column="0">
+                            <Image Source="menuicons/password.png"
+                                   Margin="0,0,10,0"
+                                   HeightRequest="25"
+                                   WidthRequest="25" />
+                            <Entry x:Name="passwordEntry"
+                                   WidthRequest="200"
+                                   Placeholder="Password"
+                                   IsPassword="True" />
+                            <ImageButton x:Name="btnTogglePassword"
+                                         Source="menuicons/eye.png"
+                                         HeightRequest="25"
+                                         WidthRequest="25"
+                                         MinimumHeightRequest="25"
+                                         MinimumWidthRequest="25"
+                                         Margin="5,0,0,0"
+                                         Padding="0"
+                                         BackgroundColor="Transparent"
+                                         Aspect="AspectFit"
+                                         SemanticProperties.Description="Show or hide password"
+                                         Clicked="OnTogglePasswordClicked" />
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <Button Text="Login"
+                            BackgroundColor="#3269cd"
+                            Margin="20"
+                            Clicked="OnLoginButtonClicked" />
+                </VerticalStackLayout>
+
+                <!-- ===================== LICENSE PANEL (shown only when expired) ===================== -->
+                <VerticalStackLayout x:Name="licensePanel" Grid.Row="3" Grid.Column="0"
+                                     IsVisible="False" Margin="10,0,10,0" Spacing="6">
+
+                    <Label Text="License Required"
+                           FontAttributes="Bold"
+                           FontSize="18"
+                           TextColor="Red"
+                           HorizontalOptions="Center" />
+
+                    <Label x:Name="lblLicenseReason"
+                           FontSize="14"
+                           HorizontalTextAlignment="Center" />
+
+                    <Label Text="Product Key:"
+                           FontSize="14"
+                           Margin="0,10,0,0" />
+
+                    <Frame BorderColor="Gray" CornerRadius="2" Padding="0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Entry x:Name="txtLicProductKey"
+                                   Grid.Column="0"
+                                   IsReadOnly="True"
+                                   Margin="10,5,0,0"
+                                   FontSize="12"
+                                   VerticalOptions="Center"
+                                   HorizontalOptions="Fill">
+                                <Entry.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="TapCopyProductKey" />
+                                </Entry.GestureRecognizers>
+                            </Entry>
+                            <Image Grid.Column="1"
+                                   Source="menuicons/copy_text1.png"
+                                   HeightRequest="25"
+                                   WidthRequest="25"
+                                   Margin="5,0,10,0"
+                                   VerticalOptions="Center">
+                                <Image.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="TapCopyProductKey" />
+                                </Image.GestureRecognizers>
+                            </Image>
+                        </Grid>
+                    </Frame>
+
+                    <Label x:Name="lblLicCopied"
+                           Text="Product Key copied to clipboard"
+                           FontSize="12"
+                           TextColor="Green"
+                           IsVisible="False" />
+
+                    <Label Text="Enter the license key to continue:"
+                           FontSize="14"
+                           Margin="0,10,0,0" />
+
+                    <Frame BorderColor="Gray" CornerRadius="2" Padding="0">
+                        <Entry x:Name="txtLicKey"
+                               Placeholder="License key"
+                               MaxLength="32"
+                               Margin="10,5,0,0"
+                               FontSize="12"
+                               VerticalOptions="Start"
+                               HorizontalOptions="Fill" />
+                    </Frame>
+
+                    <Button Text="Activate"
+                            BackgroundColor="#3269cd"
+                            Margin="0,10,0,0"
+                            Clicked="OnActivateLicenseClicked" />
+                    <Button Text="Exit"
+                            BackgroundColor="#c0392b"
+                            Margin="0,0,0,10"
+                            Clicked="OnExitClicked" />
+                </VerticalStackLayout>
+
+                <Label x:Name="messageLabel"
+                       Text=""
+                       MaxLines="2"
+                       HeightRequest="70"
+                       WidthRequest="300"
+                       LineBreakMode="WordWrap"
+                       HorizontalTextAlignment="Center"
+                       TextColor="Red"
+                       Grid.Row="4" Grid.Column="0" />
             </Grid>
-        </Grid>   
+        </Grid>
     </ScrollView>
 </ContentPage>

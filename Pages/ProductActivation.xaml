@@ -189,7 +189,7 @@
                 
                 <!--#End Pass -->
                 <Button x:Name="btnActivate" Text="Activate Product" Clicked="OnSaveChanges"
-                        BackgroundColor="#3269cd" Grid.Row="20" Grid.Column="0" />
+                        BackgroundColor="#3269cd" Grid.Row="20" Grid.Column="0" Margin="10"/>
             </Grid>
         </VerticalStackLayout>
     </ScrollView>

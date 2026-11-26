@@ -64,17 +64,40 @@ public partial class Login : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-        //await LicenseDebug.ShowAsync(this);                 // DEBUG ONLY: delete this line when done
-        if (!await LicenseGate.EnsureAsync(this)) return;   // license check before login
-        await StartupService.Instance.CoreReady;      // was Task.Delay(2000)
+        if (!await ApplyLicenseStateAsync()) return;   // expired -> license panel is shown instead of login
+        await ContinueStartupAsync();
+    }
+
+    private async Task ContinueStartupAsync()
+    {
+        await StartupService.Instance.CoreReady;
         if (Serverdetails.Validnetwork == 0)
             await DisplayAlertAsync("Notice", "Network address invalid.\nPlease contact your Administrator", "Ok");
 
         _isPasswordVisible = false;
         if (passwordEntry != null) passwordEntry.IsPassword = true;
         if (btnTogglePassword != null) btnTogglePassword.Source = "menuicons/eye.png";
+    }
 
-        //if (!s_updateChecked) { s_updateChecked = true; _ = CheckForUpdateAsync(); } 
+    /// Shows the login panel (Demo/Activated) or the license panel (Expired). Returns true when login is allowed.
+    private async Task<bool> ApplyLicenseStateAsync()
+    {
+        var lic = LicenseService.Instance;
+        await lic.InitializeAsync();
+        var st = lic.GetStatus();
+        bool expired = st.State == LicenseState.Expired;
+
+        loginPanel.IsVisible = !expired;
+        licensePanel.IsVisible = expired;
+
+        if (expired)
+        {
+            lblLicenseReason.Text = LicenseGate.GetExpiredReason(st);
+            txtLicProductKey.Text = lic.DeviceId;
+            txtLicKey.Text = "";
+            messageLabel.Text = "";
+        }
+        return !expired;
     }
 
     private async Task CheckForUpdateAsync()
@@ -111,13 +134,46 @@ public partial class Login : ContentPage
             lbldatetime.Text = DateTime.Now.ToString("yyyy-MM-dd hh:mm:ss tt");
         });
     }
+    private async void TapCopyProductKey(object sender, TappedEventArgs e)
+    {
+        string key = (txtLicProductKey.Text ?? "").Trim();
+        if (key.Length == 0) return;
 
+        await Clipboard.Default.SetTextAsync(key);
+
+        lblLicCopied.IsVisible = true;
+        await Task.Delay(1500);
+        lblLicCopied.IsVisible = false;
+    }
+
+    private async void OnActivateLicenseClicked(object sender, EventArgs e)
+    {
+        string key = (txtLicKey.Text ?? "").Trim();
+        if (key.Length == 0)
+        {
+            await DisplayAlertAsync("Notice", "Please enter the license key.", "Ok");
+            return;
+        }
+
+        bool ok = await Task.Run(() => LicenseService.Instance.TryActivate(key));
+        if (!ok)
+        {
+            await DisplayAlertAsync("License", "Invalid license key. Please try again.", "Ok");
+            return;
+        }
+
+        await DisplayAlertAsync("License", "License activated. Thank you!", "Ok");
+        if (await ApplyLicenseStateAsync())      // swaps the login controls back in
+            await ContinueStartupAsync();
+    }
+
+    private void OnExitClicked(object sender, EventArgs e) => LicenseGate.ExitApp();
     private async void OnLoginButtonClicked(object sender, EventArgs e)
     => await UiGuard.RunAsync("login", LoginAsync, sender as VisualElement);
 
     private async Task LoginAsync()
     {
-        if (!await LicenseGate.EnsureAsync(this)) return;
+        if (!await ApplyLicenseStateAsync()) return;
         string username = usernameEntry.Text;
         string password = passwordEntry.Text;
 

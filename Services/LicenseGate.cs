@@ -4,7 +4,12 @@
 public static class LicenseGate
 {
     private static readonly SemaphoreSlim Sem = new(1, 1);
-
+    public static string GetExpiredReason(LicenseStatus st) =>
+    st.ClockRolledBack
+        ? "The device date/time appears to have been changed. Correct the date/time, or enter a license key."
+        : st.RecordTampered
+            ? "The license data is invalid. Please enter a license key."
+            : "The " + LicenseService.DemoMonths + "-month demo period has ended.";
     public static async Task<bool> EnsureAsync(Page page)
     {
         await Sem.WaitAsync();

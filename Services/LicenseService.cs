@@ -188,13 +188,9 @@ public sealed class LicenseService
                 SaveAll();
             }
 
-            //var install = new DateTime(rec.InstallTicks, DateTimeKind.Utc);
-            //var expires = install.AddMonths(DemoMonths);
-            //int daysLeft = Math.Max(0, (int)Math.Ceiling((expires - now).TotalDays));
             var install = new DateTime(rec.InstallTicks, DateTimeKind.Utc);
-            var expires = install.AddSeconds(30);
+            var expires = install.AddMonths(DemoMonths);
             int daysLeft = Math.Max(0, (int)Math.Ceiling((expires - now).TotalDays));
-
 
             LicenseState state;
             if (rec.Activated) state = LicenseState.Activated;

@@ -20,7 +20,7 @@ public partial class ProductActivation : ContentPage
         lblLicenseStatus.Text = st.State switch
         {
             LicenseState.Activated => "License: ACTIVATED",
-            LicenseState.Demo => $"Demo mode: {st.DaysLeft} day(s) left (ends {st.ExpiresUtc.ToLocalTime():yyyy-MM-dd})",
+            LicenseState.Demo => $"License: DEMO Version",
             _ => "License: EXPIRED"
         };
 
