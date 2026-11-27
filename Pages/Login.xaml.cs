@@ -65,7 +65,7 @@ public partial class Login : ContentPage
     {
         base.OnAppearing();
         await LicenseService.Instance.EnsureStorageAccessAsync(this);
-        await LicenseDebug.ShowAsync(this);
+        //await LicenseDebug.ShowAsync(this);
         if (!await ApplyLicenseStateAsync()) return;   // expired -> license panel is shown instead of login
         await ContinueStartupAsync();
     }

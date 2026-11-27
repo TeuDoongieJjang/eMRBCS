@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+
 #if ANDROID
 using Android.Content;
 using Android.Provider;
@@ -12,7 +13,12 @@ using Android.Provider;
 
 namespace eMRBCS.Services;
 
-public enum LicenseState { Demo, Activated, Expired }
+public enum LicenseState
+{
+    Demo,
+    Activated,
+    Expired
+}
 
 public sealed record LicenseStatus(
     LicenseState State,
@@ -23,51 +29,57 @@ public sealed record LicenseStatus(
     bool RecordTampered);
 
 /// <summary>
-/// 3-month demo + license activation. LOCAL storage only.
+/// Offline license persistence.
 ///
-/// One signed record is written to SEVERAL places and merged on every start
-/// (earliest install date wins, latest "last seen" wins, any valid activation wins):
-///   internal   AppDataDirectory                               survives UPDATE
-///   media      Android/media/com.mls.emrbcs/.sys              survives uninstall on most phones (Honeywell), NOT on Samsung
-///   mediastore Download/.emrbcs/emrbcs_lic.txt (MediaStore)   survives uninstall, no permission (Android 10+)
-///   root       /storage/emulated/0/.emrbcs_sys/cfg.dat        survives uninstall on EVERY phone, needs "All files access" (Android 11+)
+/// Copies are stored in multiple independent locations.
+/// Valid records are merged using:
+/// - Earliest InstallTicks
+/// - Latest LastSeenTicks
+/// - Any valid activation wins
 ///
-/// Android 11+ : the app asks ONCE for "All files access" (EnsureStorageAccessAsync, called from Login).
-/// That permission is what makes the license survive uninstall/reinstall on Samsung and other newer phones.
+/// When one valid copy survives, SaveAll repairs the other copies.
 /// </summary>
 public sealed class LicenseService
 {
     public static LicenseService Instance { get; } = new();
+
     private LicenseService() { }
 
     public const int DemoMonths = 3;
 
-    /// <summary>true = on Android 11+ a NEW install (no earlier license copy found) cannot start until "All files access" is granted.
-    /// This is what stops "uninstall + reinstall = new demo". Set false to make the permission optional.</summary>
     public static bool EnforceStorageAccess = true;
 
-    private static readonly TimeSpan SaveStep = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan ClockSlack = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan SaveStep =
+        TimeSpan.FromMinutes(10);
+
+    private static readonly TimeSpan ClockSlack =
+        TimeSpan.FromMinutes(5);
 
     private readonly object _gate = new();
     private readonly SemaphoreSlim _askGate = new(1, 1);
+
     private Rec? _rec;
-    private bool _tampered;                 // kept for API compatibility (always false)
-    private bool _foundExternal;            // a valid copy was found OUTSIDE the app's private storage
-    private bool _askedThisSession;
+    private bool _tampered;
+    private bool _foundExternal;
+
+    private readonly HashSet<string> _asked = new();
+
     private string _readInfo = "";
     private string _writeInfo = "";
 
-    /// <summary>Debug text: every storage location with its read / write result.</summary>
     public string StorageInfo =>
-        (_readInfo + _writeInfo + "all-files-access=" + HasAllFilesAccess).TrimEnd();
+        (_readInfo + _writeInfo +
+         "all-files-access=" + HasAllFilesAccess).TrimEnd();
 
     public string DeviceId
     {
         get
         {
             string id = MyDeviceInfo.device_AndroidID ?? "";
-            return string.IsNullOrWhiteSpace(id) ? "UNKNOWN" : id.Trim().ToUpperInvariant();
+
+            return string.IsNullOrWhiteSpace(id)
+                ? "UNKNOWN"
+                : id.Trim().ToUpperInvariant();
         }
     }
 
@@ -80,9 +92,25 @@ public sealed class LicenseService
         public string ActivationKey { get; set; } = "";
     }
 
-    // ------------------------------------------------------------------
-    //  Build-time floor
-    // ------------------------------------------------------------------
+    private sealed record Source(
+        string Label,
+        string? Text,
+        string Note,
+        bool External);
+
+#if ANDROID
+    private sealed record MediaLocation(
+        string Label,
+        global::Android.Net.Uri Collection,
+        string RelativePath,
+        string FileName,
+        string FilePrefix);
+#endif
+
+    // ------------------------------------------------------------
+    // Build-time floor
+    // ------------------------------------------------------------
+
     private static readonly DateTime BuildUtc = ReadBuildUtc();
 
     private static DateTime ReadBuildUtc()
@@ -92,33 +120,51 @@ public sealed class LicenseService
             var attr = typeof(LicenseService).Assembly
                 .GetCustomAttributes<AssemblyMetadataAttribute>()
                 .FirstOrDefault(a => a.Key == "BuildUtc");
+
             if (attr?.Value != null &&
-                DateTime.TryParseExact(attr.Value, "yyyyMMddHHmmss", CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var d))
+                DateTime.TryParseExact(
+                    attr.Value,
+                    "yyyyMMddHHmmss",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal |
+                    DateTimeStyles.AdjustToUniversal,
+                    out var d))
+            {
                 return d;
+            }
         }
         catch { }
+
         return DateTime.MinValue;
     }
 
-    // ------------------------------------------------------------------
-    //  Activation key (SAME algorithm as ProductActivation / ActivateProduct)
-    // ------------------------------------------------------------------
+    // ------------------------------------------------------------
+    // Activation key
+    // Keep the existing ProductActivation algorithm unchanged.
+    // ------------------------------------------------------------
+
     public static string ComputeActivationKey(string productKeyUpper)
     {
-        string encrypted = StartupService.EncryptString(productKeyUpper, "manny");
-        string alnum = Regex.Replace(encrypted, "[^a-zA-Z0-9]", "");
-        return (alnum.Length > 8 ? alnum.Substring(0, 8) : alnum).ToUpperInvariant();
+        string encrypted =
+            StartupService.EncryptString(productKeyUpper, "manny");
+
+        string alnum =
+            Regex.Replace(encrypted, "[^a-zA-Z0-9]", "");
+
+        return (alnum.Length > 8
+            ? alnum.Substring(0, 8)
+            : alnum).ToUpperInvariant();
     }
 
-    // ------------------------------------------------------------------
-    //  Public API
-    // ------------------------------------------------------------------
+    // ------------------------------------------------------------
+    // Public API
+    // ------------------------------------------------------------
+
     public Task InitializeAsync() => Task.Run(Initialize);
 
-    public bool IsUsable => GetStatus().State != LicenseState.Expired;
+    public bool IsUsable =>
+        GetStatus().State != LicenseState.Expired;
 
-    /// <summary>true on Android 10 and below, or when "All files access" is granted.</summary>
     public bool HasAllFilesAccess
     {
         get
@@ -127,238 +173,449 @@ public sealed class LicenseService
             try
             {
                 return !OperatingSystem.IsAndroidVersionAtLeast(30)
-                       || global::Android.OS.Environment.IsExternalStorageManager;
+                    || global::Android.OS.Environment
+                        .IsExternalStorageManager;
             }
-            catch { return false; }
+            catch
+            {
+                return false;
+            }
 #else
             return true;
 #endif
         }
     }
 
-    /// <summary>New install on Android 11+ with no earlier license copy and no "All files access".</summary>
-    public bool NeedsStorageAccess => EnforceStorageAccess && !HasAllFilesAccess && !_foundExternal;
+    // Retained as a compatibility property for any existing callers.
+    // Settings.System is no longer used by this service.
+    public bool HasFullProtection => HasAllFilesAccess;
+
+    public bool NeedsStorageAccess =>
+        EnforceStorageAccess &&
+        !_foundExternal &&
+        !HasAllFilesAccess;
+
+    // ------------------------------------------------------------
+    // Initialize and merge records
+    // ------------------------------------------------------------
 
     public void Initialize()
     {
         lock (_gate)
         {
-            if (_rec != null) return;
+            if (_rec != null)
+                return;
 
             string dev = DeviceId;
             string expectedKey = ComputeActivationKey(dev);
 
             var valid = new List<Rec>();
             var info = new StringBuilder();
+
             info.AppendLine("id=" + dev);
+
             _foundExternal = false;
 
-            foreach (var s in ReadSources())
+            foreach (var source in ReadSources())
             {
-                if (s.Text == null) { info.AppendLine(s.Label + ": " + s.Note); continue; }
-                var (r, note) = ParseText(s.Text, dev);
-                info.AppendLine(s.Label + ": " + note);
-                if (r != null)
+                if (source.Text == null)
                 {
-                    valid.Add(r);
-                    if (s.External) _foundExternal = true;
+                    info.AppendLine(
+                        source.Label + ": " + source.Note);
+
+                    continue;
                 }
+
+                var (record, note) =
+                    ParseText(source.Text, dev);
+
+                info.AppendLine(
+                    source.Label + ": " + note);
+
+                if (record == null)
+                    continue;
+
+                valid.Add(record);
+
+                if (source.External)
+                    _foundExternal = true;
             }
+
             _readInfo = info.ToString();
 
             DateTime raw = DateTime.UtcNow;
-            DateTime start = raw < BuildUtc ? BuildUtc : raw;
 
-            Rec rec;
+            DateTime start =
+                raw < BuildUtc ? BuildUtc : raw;
+
+            Rec merged;
+
             if (valid.Count > 0)
             {
-                rec = new Rec
+                // Earliest installation date wins.
+                // Latest last-seen date wins.
+                merged = new Rec
                 {
                     DeviceId = dev,
-                    InstallTicks = valid.Min(v => v.InstallTicks),
-                    LastSeenTicks = valid.Max(v => v.LastSeenTicks)
+
+                    InstallTicks =
+                        valid.Min(x => x.InstallTicks),
+
+                    LastSeenTicks =
+                        valid.Max(x => x.LastSeenTicks)
                 };
-                if (valid.Any(v => v.Activated &&
-                                   string.Equals(v.ActivationKey, expectedKey, StringComparison.OrdinalIgnoreCase)))
+
+                // Any valid activation wins.
+                if (valid.Any(x =>
+                    x.Activated &&
+                    string.Equals(
+                        x.ActivationKey,
+                        expectedKey,
+                        StringComparison.OrdinalIgnoreCase)))
                 {
-                    rec.Activated = true;
-                    rec.ActivationKey = expectedKey;
+                    merged.Activated = true;
+                    merged.ActivationKey = expectedKey;
                 }
             }
             else
             {
-                rec = new Rec { DeviceId = dev, InstallTicks = start.Ticks, LastSeenTicks = start.Ticks };
+                // No valid record survived.
+                // This is treated as a new installation.
+                merged = new Rec
+                {
+                    DeviceId = dev,
+                    InstallTicks = start.Ticks,
+                    LastSeenTicks = start.Ticks
+                };
+
                 if (LegacyKeyValid(dev))
                 {
-                    rec.Activated = true;
-                    rec.ActivationKey = expectedKey;
+                    merged.Activated = true;
+                    merged.ActivationKey = expectedKey;
                 }
             }
 
-            _rec = rec;
+            _rec = merged;
+
+            // Rebuild every storage copy from the merged record.
             SaveAll();
         }
     }
 
-    /// <summary>Forget the cached record and read every location again (after "All files access" was granted).</summary>
     public void Reload()
     {
-        lock (_gate) { _rec = null; }
+        lock (_gate)
+        {
+            _rec = null;
+        }
+
         Initialize();
     }
+
+    // ------------------------------------------------------------
+    // License status
+    // ------------------------------------------------------------
 
     public LicenseStatus GetStatus()
     {
         Initialize();
+
         lock (_gate)
         {
             var rec = _rec!;
-            var lastSeen = new DateTime(rec.LastSeenTicks, DateTimeKind.Utc);
+
+            var lastSeen =
+                new DateTime(
+                    rec.LastSeenTicks,
+                    DateTimeKind.Utc);
+
             DateTime raw = DateTime.UtcNow;
 
-            bool clockBeforeBuild = BuildUtc != DateTime.MinValue && raw < BuildUtc - ClockSlack;
-            bool rolledBack = clockBeforeBuild || raw < lastSeen - ClockSlack;
+            bool clockBeforeBuild =
+                BuildUtc != DateTime.MinValue &&
+                raw < BuildUtc - ClockSlack;
 
-            DateTime now = raw < lastSeen ? lastSeen : raw;
+            bool rolledBack =
+                clockBeforeBuild ||
+                raw < lastSeen - ClockSlack;
 
-            if (!rolledBack && raw - lastSeen >= SaveStep)
+            DateTime now =
+                raw < lastSeen ? lastSeen : raw;
+
+            if (!rolledBack &&
+                raw - lastSeen >= SaveStep)
             {
                 rec.LastSeenTicks = raw.Ticks;
                 SaveAll();
             }
 
-            var install = new DateTime(rec.InstallTicks, DateTimeKind.Utc);
-            var expires = install.AddMonths(DemoMonths);
-            int daysLeft = Math.Max(0, (int)Math.Ceiling((expires - now).TotalDays));
+            var install =
+                new DateTime(
+                    rec.InstallTicks,
+                    DateTimeKind.Utc);
+
+            var expires =
+                install.AddMonths(DemoMonths);
+
+            int daysLeft = Math.Max(
+                0,
+                (int)Math.Ceiling(
+                    (expires - now).TotalDays));
 
             LicenseState state;
-            if (rec.Activated) state = LicenseState.Activated;
-            else if (rolledBack) state = LicenseState.Expired;
-            else state = now < expires ? LicenseState.Demo : LicenseState.Expired;
 
-            return new LicenseStatus(state, install, expires, daysLeft, rolledBack, _tampered);
+            if (rec.Activated)
+            {
+                state = LicenseState.Activated;
+            }
+            else if (rolledBack)
+            {
+                state = LicenseState.Expired;
+            }
+            else
+            {
+                state = now < expires
+                    ? LicenseState.Demo
+                    : LicenseState.Expired;
+            }
+
+            return new LicenseStatus(
+                state,
+                install,
+                expires,
+                daysLeft,
+                rolledBack,
+                _tampered);
         }
     }
+
+    // ------------------------------------------------------------
+    // Activation
+    // ------------------------------------------------------------
 
     public bool TryActivate(string? key)
     {
         Initialize();
-        string k = (key ?? "").Trim().ToUpperInvariant();
-        if (k.Length == 0) return false;
-        if (!string.Equals(k, ComputeActivationKey(DeviceId), StringComparison.Ordinal)) return false;
+
+        string k =
+            (key ?? "").Trim().ToUpperInvariant();
+
+        if (k.Length == 0)
+            return false;
+
+        if (!string.Equals(
+            k,
+            ComputeActivationKey(DeviceId),
+            StringComparison.Ordinal))
+        {
+            return false;
+        }
 
         lock (_gate)
         {
             _rec!.Activated = true;
             _rec.ActivationKey = k;
+
             _tampered = false;
+
             SaveAll();
         }
+
         return true;
     }
 
-    // ------------------------------------------------------------------
-    //  "All files access" (Android 11+): call from Login.OnAppearing BEFORE the license state is applied
-    // ------------------------------------------------------------------
+    // ------------------------------------------------------------
+    // Android storage permission
+    // Only All Files Access is used.
+    // There is no WRITE_SETTINGS permission.
+    // ------------------------------------------------------------
+
     public async Task EnsureStorageAccessAsync(Page page)
     {
 #if ANDROID
-        if (HasAllFilesAccess) return;
+        if (HasAllFilesAccess)
+            return;
 
         await _askGate.WaitAsync();
+
         try
         {
-            if (HasAllFilesAccess) return;
-            await InitializeAsync();                 // learn whether an earlier license copy exists
+            if (HasAllFilesAccess)
+                return;
 
-            while (true)
+            await InitializeAsync();
+
+            if (!HasAllFilesAccess)
             {
-                bool mandatory = NeedsStorageAccess;
-                if (!mandatory && _askedThisSession) return;
-                _askedThisSession = true;
+                bool ok = await AskPermissionAsync(
+                    page,
+                    "files",
+                    () => HasAllFilesAccess,
+                    LaunchAllFilesSettings,
+                    "To protect your license, the app needs " +
+                    "\"All files access\".\n\n" +
+                    "Tap Open Settings, turn ON " +
+                    "\"Allow access to manage all files\" " +
+                    "for this app, then return to eMRBCS.",
+                    "Allow \"All files access\" so eMRBCS " +
+                    "can maintain its redundant license records.");
 
-                string msg = mandatory
-                    ? "To protect your license (demo period / activation) the app needs \"All files access\".\n\n" +
-                      "Tap Open Settings, turn ON \"Allow access to manage all files\" for this app, then come back."
-                    : "Allow \"All files access\" so your license is kept even if the app is uninstalled and installed again.\n\n" +
-                      "Tap Open Settings and turn it ON for this app.";
-
-                bool open = await page.DisplayAlertAsync("Storage Access", msg, "Open Settings", mandatory ? "Exit" : "Later");
-                if (!open)
+                if (ok)
                 {
-                    if (mandatory) LicenseGate.ExitApp();
-                    return;
+                    // Re-read surviving copies and repair all locations.
+                    await Task.Run(Reload);
                 }
-
-                LaunchAllFilesSettings();
-                bool granted = await WaitForAllFilesAsync(TimeSpan.FromMinutes(3));
-                if (granted)
-                {
-                    await Task.Run(Reload);          // merge the copy stored in the root folder
-                    return;
-                }
-                if (!mandatory) return;
             }
         }
-        finally { _askGate.Release(); }
+        finally
+        {
+            _askGate.Release();
+        }
 #else
         await Task.CompletedTask;
 #endif
     }
 
 #if ANDROID
+
+    private async Task<bool> AskPermissionAsync(
+        Page page,
+        string key,
+        Func<bool> has,
+        Action launch,
+        string mandatoryMsg,
+        string optionalMsg)
+    {
+        while (!has())
+        {
+            bool mandatory = NeedsStorageAccess;
+
+            if (!mandatory && _asked.Contains(key))
+                return false;
+
+            _asked.Add(key);
+
+            bool open = await page.DisplayAlertAsync(
+                "Storage Access",
+                mandatory ? mandatoryMsg : optionalMsg,
+                "Open Settings",
+                mandatory ? "Exit" : "Later");
+
+            if (!open)
+            {
+                if (mandatory)
+                    LicenseGate.ExitApp();
+
+                return false;
+            }
+
+            launch();
+
+            if (await WaitForAsync(
+                has,
+                TimeSpan.FromMinutes(3)))
+            {
+                return true;
+            }
+
+            if (!mandatory)
+                return false;
+        }
+
+        return true;
+    }
+
     private static void LaunchAllFilesSettings()
     {
         var activity = Platform.CurrentActivity;
-        if (activity == null) return;
+
+        if (activity == null)
+            return;
+
         try
         {
-            var intent = new Intent(Settings.ActionManageAppAllFilesAccessPermission,
-                global::Android.Net.Uri.Parse("package:" + Platform.AppContext.PackageName));
+            var intent = new Intent(
+                Settings.ActionManageAppAllFilesAccessPermission,
+                global::Android.Net.Uri.Parse(
+                    "package:" + Platform.AppContext.PackageName));
+
             activity.StartActivity(intent);
         }
         catch
         {
-            try { activity.StartActivity(new Intent(Settings.ActionManageAllFilesAccessPermission)); }
+            try
+            {
+                activity.StartActivity(
+                    new Intent(
+                        Settings.ActionManageAllFilesAccessPermission));
+            }
             catch { }
         }
     }
 
-    private async Task<bool> WaitForAllFilesAsync(TimeSpan timeout)
+    private static async Task<bool> WaitForAsync(
+        Func<bool> has,
+        TimeSpan timeout)
     {
         var end = DateTime.UtcNow + timeout;
+
         while (DateTime.UtcNow < end)
         {
             await Task.Delay(500);
-            if (HasAllFilesAccess) return true;
+
+            if (has())
+                return true;
         }
-        return HasAllFilesAccess;
+
+        return has();
     }
+
 #endif
 
-    // ------------------------------------------------------------------
-    //  Storage
-    // ------------------------------------------------------------------
-    private const string MsName = "emrbcs_lic.txt";
-    private const string MsPrefix = "emrbcs_lic";
-    private const string MsRel = "Download/.emrbcs/";
+    // ------------------------------------------------------------
+    // Storage locations
+    // ------------------------------------------------------------
 
-    private static List<(string Label, string Path, bool External)> FilePaths()
+    private static List<(string Label, string Path, bool External)>
+        FilePaths()
     {
-        var list = new List<(string, string, bool)>
-        {
-            ("internal", Path.Combine(FileSystem.AppDataDirectory, ".sys_lic"), false)
-        };
+        var list =
+            new List<(string, string, bool)>
+            {
+                (
+                    "internal",
+                    Path.Combine(
+                        FileSystem.AppDataDirectory,
+                        ".sys_lic"),
+                    false
+                )
+            };
+
 #if ANDROID
+
+        // Android/media/<package>/.sys/cfg.dat
         try
         {
-            var dirs = Platform.AppContext.GetExternalMediaDirs();
+            var dirs =
+                Platform.AppContext.GetExternalMediaDirs();
+
             if (dirs != null)
             {
                 int i = 0;
-                foreach (var d in dirs)
+
+                foreach (var dir in dirs)
                 {
-                    if (d != null) list.Add(("media" + i, Path.Combine(d.AbsolutePath, ".sys", "cfg.dat"), true));
+                    if (dir != null)
+                    {
+                        list.Add((
+                            "media" + i,
+                            Path.Combine(
+                                dir.AbsolutePath,
+                                ".sys",
+                                "cfg.dat"),
+                            true));
+                    }
+
                     i++;
                 }
             }
@@ -367,203 +624,539 @@ public sealed class LicenseService
 
         try
         {
-            var root = global::Android.OS.Environment.ExternalStorageDirectory?.AbsolutePath;
-            if (!string.IsNullOrEmpty(root))
-                list.Add(("root", Path.Combine(root, ".emrbcs_sys", "cfg.dat"), true));
+            string? root =
+                global::Android.OS.Environment
+                    .ExternalStorageDirectory?.AbsolutePath;
+
+            if (!string.IsNullOrWhiteSpace(root))
+            {
+                // Existing root location, retained for compatibility.
+                list.Add((
+                    "root",
+                    Path.Combine(
+                        root,
+                        ".emrbcs_sys",
+                        "cfg.dat"),
+                    true));
+
+                // Additional hidden file locations.
+                list.Add((
+                    "dcim-cache",
+                    Path.Combine(
+                        root,
+                        "DCIM",
+                        ".thumbnails",
+                        ".thumbdata_emr.dat"),
+                    true));
+
+                list.Add((
+                    "pictures-cache",
+                    Path.Combine(
+                        root,
+                        "Pictures",
+                        ".cache",
+                        ".picstate.dat"),
+                    true));
+
+                list.Add((
+                    "documents-cache",
+                    Path.Combine(
+                        root,
+                        "Documents",
+                        ".cfg",
+                        ".docstate.dat"),
+                    true));
+            }
         }
         catch { }
+
 #endif
+
         return list;
     }
 
-    private sealed record Source(string Label, string? Text, string Note, bool External);
+    // ------------------------------------------------------------
+    // MediaStore locations
+    // ------------------------------------------------------------
+
+#if ANDROID
+
+    private static List<MediaLocation> GetMediaLocations()
+    {
+        var result = new List<MediaLocation>();
+
+        if (!OperatingSystem.IsAndroidVersionAtLeast(29))
+            return result;
+
+        try
+        {
+            // Original Downloads copy, retained for compatibility.
+            result.Add(new MediaLocation(
+                "mediastore-download",
+                MediaStore.Downloads.ExternalContentUri!,
+                "Download/.emrbcs/",
+                "emrbcs_lic.txt",
+                "emrbcs_lic"));
+
+            // Additional Documents copy.
+            // Files collection allows writing into Documents/.emrbcs/.
+            result.Add(new MediaLocation(
+                "mediastore-documents",
+                MediaStore.Files.GetContentUri("external")!,
+                "Documents/.emrbcs/",
+                "doc_state.dat",
+                "doc_state"));
+        }
+        catch { }
+
+        return result;
+    }
+
+#endif
+
+    // ------------------------------------------------------------
+    // Read all storage copies
+    // ------------------------------------------------------------
 
     private static List<Source> ReadSources()
     {
-        var res = new List<Source>();
+        var result = new List<Source>();
 
+        // Read normal filesystem copies.
         foreach (var (label, path, external) in FilePaths())
         {
             try
             {
-                if (!File.Exists(path)) { res.Add(new Source(label, null, "missing", external)); continue; }
-                string t = File.ReadAllText(path);
-                res.Add(new Source(label, t, "", external));
+                if (!File.Exists(path))
+                {
+                    result.Add(new Source(
+                        label, null, "missing", external));
+
+                    continue;
+                }
+
+                string text = File.ReadAllText(path);
+
+                result.Add(new Source(
+                    label, text, "", external));
             }
-            catch (UnauthorizedAccessException) { res.Add(new Source(label, null, "no-permission", external)); }
-            catch (Exception ex) { res.Add(new Source(label, null, "unreadable (" + ex.GetType().Name + ")", external)); }
+            catch (UnauthorizedAccessException)
+            {
+                result.Add(new Source(
+                    label, null, "no-permission", external));
+            }
+            catch (Exception ex)
+            {
+                result.Add(new Source(
+                    label,
+                    null,
+                    "unreadable (" + ex.GetType().Name + ")",
+                    external));
+            }
         }
 
-        res.AddRange(MediaStoreReadAll());
-        return res;
+        // Read both MediaStore copies.
+        result.AddRange(MediaStoreReadAll());
+
+        return result;
     }
+
+    // ------------------------------------------------------------
+    // Write and repair all storage copies
+    // ------------------------------------------------------------
 
     private void SaveAll()
     {
         string text = Encode(_rec!);
+
         var sb = new StringBuilder();
 
-        foreach (var (label, p, _) in FilePaths())
+        // Filesystem copies.
+        foreach (var (label, path, _) in FilePaths())
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(p)!);
-                File.WriteAllText(p, text);
+                string? directory =
+                    Path.GetDirectoryName(path);
+
+                if (string.IsNullOrWhiteSpace(directory))
+                    throw new IOException("Invalid storage directory.");
+
+                Directory.CreateDirectory(directory);
+
+                File.WriteAllText(path, text);
+
                 sb.AppendLine(label + " write: ok");
             }
             catch (Exception ex)
             {
-                sb.AppendLine(label + " write: FAILED (" + ex.GetType().Name + ")");
+                sb.AppendLine(
+                    label + " write: FAILED (" +
+                    ex.GetType().Name + ": " +
+                    ex.Message + ")");
             }
         }
 
-        sb.AppendLine("mediastore write: " + MediaStoreWrite(text));
+        // MediaStore copies.
+        foreach (string result in MediaStoreWriteAll(text))
+            sb.AppendLine(result);
+
         _writeInfo = sb.ToString();
     }
 
-    // ---- MediaStore (Download/.emrbcs/) : created by this app, no permission, survives uninstall ----
+    // ------------------------------------------------------------
+    // MediaStore read
+    // ------------------------------------------------------------
+
     private static List<Source> MediaStoreReadAll()
     {
-        var res = new List<Source>();
+        var result = new List<Source>();
+
 #if ANDROID
+
+        if (!OperatingSystem.IsAndroidVersionAtLeast(29))
+        {
+            result.Add(new Source(
+                "mediastore",
+                null,
+                "n/a (Android 9 or older)",
+                true));
+
+            return result;
+        }
+
         try
         {
-            if (!OperatingSystem.IsAndroidVersionAtLeast(29))
-            {
-                res.Add(new Source("mediastore", null, "n/a (Android 9 or older)", true));
-                return res;
-            }
+            var cr =
+                Platform.AppContext.ContentResolver!;
 
-            var cr = Platform.AppContext.ContentResolver!;
-            var coll = MediaStore.Downloads.ExternalContentUri!;
-            var ids = new List<long>();
-            using (var c = cr.Query(coll, new[] { "_id" },
-                       "_display_name LIKE ? AND relative_path LIKE ?",
-                       new[] { MsPrefix + "%", MsRel + "%" }, "_id DESC"))
-            {
-                if (c != null) while (c.MoveToNext()) ids.Add(c.GetLong(0));
-            }
-
-            if (ids.Count == 0) { res.Add(new Source("mediastore", null, "missing", true)); return res; }
-
-            int i = 0;
-            foreach (long id in ids)
+            foreach (var location in GetMediaLocations())
             {
                 try
                 {
-                    var uri = ContentUris.WithAppendedId(coll, id)!;
-                    using var s = cr.OpenInputStream(uri);
-                    using var sr = new StreamReader(s!);
-                    res.Add(new Source("mediastore#" + i, sr.ReadToEnd(), "", true));
+                    var ids = new List<long>();
+
+                    using (var cursor = cr.Query(
+                        location.Collection,
+                        new[] { "_id" },
+                        "_display_name LIKE ? AND relative_path = ?",
+                        new[]
+                        {
+                            location.FilePrefix + "%",
+                            location.RelativePath
+                        },
+                        "_id DESC"))
+                    {
+                        if (cursor != null)
+                        {
+                            while (cursor.MoveToNext())
+                                ids.Add(cursor.GetLong(0));
+                        }
+                    }
+
+                    if (ids.Count == 0)
+                    {
+                        result.Add(new Source(
+                            location.Label,
+                            null,
+                            "missing",
+                            true));
+
+                        continue;
+                    }
+
+                    int index = 0;
+
+                    foreach (long id in ids)
+                    {
+                        try
+                        {
+                            var uri =
+                                ContentUris.WithAppendedId(
+                                    location.Collection,
+                                    id)!;
+
+                            using var stream =
+                                cr.OpenInputStream(uri);
+
+                            if (stream == null)
+                                throw new IOException(
+                                    "MediaStore returned no stream.");
+
+                            using var reader =
+                                new StreamReader(stream);
+
+                            result.Add(new Source(
+                                location.Label + "#" + index,
+                                reader.ReadToEnd(),
+                                "",
+                                true));
+                        }
+                        catch (Exception ex)
+                        {
+                            result.Add(new Source(
+                                location.Label + "#" + index,
+                                null,
+                                "unreadable (" +
+                                ex.GetType().Name + ")",
+                                true));
+                        }
+
+                        index++;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    res.Add(new Source("mediastore#" + i, null, "unreadable (" + ex.GetType().Name + ")", true));
+                    result.Add(new Source(
+                        location.Label,
+                        null,
+                        "error (" + ex.GetType().Name +
+                        ": " + ex.Message + ")",
+                        true));
                 }
-                i++;
             }
         }
         catch (Exception ex)
         {
-            res.Add(new Source("mediastore", null, "error (" + ex.GetType().Name + ")", true));
+            result.Add(new Source(
+                "mediastore",
+                null,
+                "error (" + ex.GetType().Name + ")",
+                true));
         }
+
 #else
-        res.Add(new Source("mediastore", null, "n/a", true));
+
+        result.Add(new Source(
+            "mediastore",
+            null,
+            "n/a",
+            true));
+
 #endif
-        return res;
+
+        return result;
     }
 
-    private static string MediaStoreWrite(string text)
+    // ------------------------------------------------------------
+    // MediaStore write
+    // ------------------------------------------------------------
+
+    private static List<string> MediaStoreWriteAll(string text)
     {
+        var results = new List<string>();
+
 #if ANDROID
+
+        if (!OperatingSystem.IsAndroidVersionAtLeast(29))
+        {
+            results.Add("mediastore write: n/a");
+            return results;
+        }
+
+        foreach (var location in GetMediaLocations())
+        {
+            results.Add(
+                location.Label + " write: " +
+                MediaStoreWriteOne(location, text));
+        }
+
+#else
+
+        results.Add("mediastore write: n/a");
+
+#endif
+
+        return results;
+    }
+
+#if ANDROID
+
+    private static string MediaStoreWriteOne(
+        MediaLocation location,
+        string text)
+    {
         try
         {
-            if (!OperatingSystem.IsAndroidVersionAtLeast(29)) return "n/a";
+            var cr =
+                Platform.AppContext.ContentResolver!;
 
-            var cr = Platform.AppContext.ContentResolver!;
-            var coll = MediaStore.Downloads.ExternalContentUri!;
+            long existingId = -1;
 
-            long id = -1;
-            using (var c = cr.Query(coll, new[] { "_id" },
-                       "_display_name LIKE ? AND relative_path LIKE ?",
-                       new[] { MsPrefix + "%", MsRel + "%" }, "_id DESC"))
+            // Reuse the newest existing copy if present.
+            using (var cursor = cr.Query(
+                location.Collection,
+                new[] { "_id" },
+                "_display_name LIKE ? AND relative_path = ?",
+                new[]
+                {
+                    location.FilePrefix + "%",
+                    location.RelativePath
+                },
+                "_id DESC"))
             {
-                if (c != null && c.MoveToFirst()) id = c.GetLong(0);
+                if (cursor != null && cursor.MoveToFirst())
+                    existingId = cursor.GetLong(0);
             }
 
             global::Android.Net.Uri? uri;
-            if (id >= 0)
+
+            if (existingId >= 0)
             {
-                uri = ContentUris.WithAppendedId(coll, id);
+                uri = ContentUris.WithAppendedId(
+                    location.Collection,
+                    existingId);
             }
             else
             {
-                var v = new ContentValues();
-                v.Put("_display_name", MsName);
-                v.Put("mime_type", "text/plain");
-                v.Put("relative_path", MsRel);
-                uri = cr.Insert(coll, v);
-            }
-            if (uri == null) return "FAILED (no uri)";
+                var values = new ContentValues();
 
-            byte[] bytes = Encoding.UTF8.GetBytes(text);
-            using var os = cr.OpenOutputStream(uri, "wt");
-            os!.Write(bytes, 0, bytes.Length);
-            os.Flush();
+                values.Put(
+                    "_display_name",
+                    location.FileName);
+
+                values.Put(
+                    "mime_type",
+                    "text/plain");
+
+                values.Put(
+                    "relative_path",
+                    location.RelativePath);
+
+                uri = cr.Insert(
+                    location.Collection,
+                    values);
+            }
+
+            if (uri == null)
+                return "FAILED (no content URI)";
+
+            byte[] bytes =
+                Encoding.UTF8.GetBytes(text);
+
+            using var stream =
+                cr.OpenOutputStream(uri, "wt");
+
+            if (stream == null)
+                return "FAILED (no output stream)";
+
+            stream.Write(bytes, 0, bytes.Length);
+            stream.Flush();
+
             return "ok";
         }
-        catch (Exception ex) { return "FAILED (" + ex.GetType().Name + ")"; }
-#else
-        return "n/a";
-#endif
+        catch (Exception ex)
+        {
+            return "FAILED (" +
+                   ex.GetType().Name + ": " +
+                   ex.Message + ")";
+        }
     }
+
+#endif
+
+    // ------------------------------------------------------------
+    // Legacy activation migration
+    // ------------------------------------------------------------
 
     private static bool LegacyKeyValid(string dev)
     {
-        try { return StartupService.IsAppActivated(StartupService.EncryptString(dev, "manny")); }
-        catch { return false; }
+        try
+        {
+            return StartupService.IsAppActivated(
+                StartupService.EncryptString(dev, "manny"));
+        }
+        catch
+        {
+            return false;
+        }
     }
 
-    // ------------------------------------------------------------------
-    //  Record format v2 (plain text):
-    //     v2|DEVICEID|installTicks|lastSeenTicks|0or1|activationKey|base64(HMACSHA256)
-    //  Format v1 (base64(json).base64(hmac)) is still readable.
-    // ------------------------------------------------------------------
+    // ------------------------------------------------------------
+    // Signed record format
+    //
+    // v2|DEVICEID|installTicks|lastSeenTicks|0or1|activationKey|HMAC
+    //
+    // Existing v2 and v1 records remain readable.
+    // Do not change SigSecret, Encode, or DecodeLegacy without
+    // implementing a migration strategy.
+    // ------------------------------------------------------------
+
     private static readonly byte[] SigSecret =
-        SHA256.HashData(Encoding.UTF8.GetBytes("eMRBCS|sys|v2|lic"));
+        SHA256.HashData(
+            Encoding.UTF8.GetBytes(
+                "eMRBCS|sys|v2|lic"));
 
-    private static string Encode(Rec r)
+    private static string Encode(Rec record)
     {
-        string body = string.Join("|",
+        string body = string.Join(
+            "|",
             "v2",
-            r.DeviceId,
-            r.InstallTicks.ToString(CultureInfo.InvariantCulture),
-            r.LastSeenTicks.ToString(CultureInfo.InvariantCulture),
-            r.Activated ? "1" : "0",
-            r.ActivationKey ?? "");
-        byte[] sig = HMACSHA256.HashData(SigSecret, Encoding.UTF8.GetBytes(body));
-        return body + "|" + Convert.ToBase64String(sig);
+            record.DeviceId,
+            record.InstallTicks.ToString(
+                CultureInfo.InvariantCulture),
+            record.LastSeenTicks.ToString(
+                CultureInfo.InvariantCulture),
+            record.Activated ? "1" : "0",
+            record.ActivationKey ?? "");
+
+        byte[] signature =
+            HMACSHA256.HashData(
+                SigSecret,
+                Encoding.UTF8.GetBytes(body));
+
+        return body + "|" +
+               Convert.ToBase64String(signature);
     }
 
-    private static bool TicksOk(long t) => t > 0 && t <= DateTime.MaxValue.Ticks;
+    private static bool TicksOk(long ticks)
+    {
+        return ticks > 0 &&
+               ticks <= DateTime.MaxValue.Ticks;
+    }
 
-    private static (Rec? Rec, string Note) ParseText(string? raw, string dev)
+    private static (Rec? Rec, string Note) ParseText(
+        string? raw,
+        string deviceId)
     {
         try
         {
             string text = (raw ?? "").Trim();
-            if (text.Length == 0) return (null, "empty");
 
-            bool v2 = text.StartsWith("v2|", StringComparison.Ordinal);
-            Rec? r = v2 ? DecodeV2(text) : DecodeLegacy(text, dev);
-            if (r == null) return (null, "bad-signature");
-            if (!string.Equals(r.DeviceId, dev, StringComparison.Ordinal))
-                return (null, "other-device-id (signing key / device changed): " + r.DeviceId);
-            return (r, v2 ? "ok" : "ok (old format, upgraded)");
+            if (text.Length == 0)
+                return (null, "empty");
+
+            bool isV2 =
+                text.StartsWith(
+                    "v2|",
+                    StringComparison.Ordinal);
+
+            Rec? record = isV2
+                ? DecodeV2(text)
+                : DecodeLegacy(text, deviceId);
+
+            if (record == null)
+                return (null, "bad-signature");
+
+            if (!string.Equals(
+                record.DeviceId,
+                deviceId,
+                StringComparison.Ordinal))
+            {
+                return (
+                    null,
+                    "other-device-id: " + record.DeviceId);
+            }
+
+            return (
+                record,
+                isV2 ? "ok" : "ok (old format, upgraded)");
         }
         catch (Exception ex)
         {
-            return (null, "unreadable (" + ex.GetType().Name + ")");
+            return (
+                null,
+                "unreadable (" + ex.GetType().Name + ")");
         }
     }
 
@@ -572,16 +1165,40 @@ public sealed class LicenseService
         try
         {
             var parts = text.Split('|');
-            if (parts.Length != 7) return null;
 
-            string body = string.Join("|", parts.Take(6));
-            byte[] expected = HMACSHA256.HashData(SigSecret, Encoding.UTF8.GetBytes(body));
-            byte[] sig = Convert.FromBase64String(parts[6]);
-            if (!CryptographicOperations.FixedTimeEquals(expected, sig)) return null;
+            if (parts.Length != 7)
+                return null;
 
-            long install = long.Parse(parts[2], CultureInfo.InvariantCulture);
-            long last = long.Parse(parts[3], CultureInfo.InvariantCulture);
-            if (!TicksOk(install) || !TicksOk(last)) return null;
+            string body =
+                string.Join("|", parts.Take(6));
+
+            byte[] expected =
+                HMACSHA256.HashData(
+                    SigSecret,
+                    Encoding.UTF8.GetBytes(body));
+
+            byte[] actual =
+                Convert.FromBase64String(parts[6]);
+
+            if (!CryptographicOperations.FixedTimeEquals(
+                expected,
+                actual))
+            {
+                return null;
+            }
+
+            long install =
+                long.Parse(
+                    parts[2],
+                    CultureInfo.InvariantCulture);
+
+            long last =
+                long.Parse(
+                    parts[3],
+                    CultureInfo.InvariantCulture);
+
+            if (!TicksOk(install) || !TicksOk(last))
+                return null;
 
             return new Rec
             {
@@ -592,37 +1209,83 @@ public sealed class LicenseService
                 ActivationKey = parts[5]
             };
         }
-        catch { return null; }
+        catch
+        {
+            return null;
+        }
     }
 
-    private static Rec? DecodeLegacy(string text, string dev)
+    private static Rec? DecodeLegacy(
+        string text,
+        string deviceId)
     {
         try
         {
             var parts = text.Split('.');
-            if (parts.Length != 2) return null;
-            byte[] payload = Convert.FromBase64String(parts[0]);
-            byte[] sig = Convert.FromBase64String(parts[1]);
 
-            byte[] key = SHA256.HashData(Encoding.UTF8.GetBytes("eMRBCS|sys|v1|" + dev));
-            byte[] expected = HMACSHA256.HashData(key, payload);
-            if (!CryptographicOperations.FixedTimeEquals(expected, sig)) return null;
+            if (parts.Length != 2)
+                return null;
 
-            using var doc = JsonDocument.Parse(payload);
-            var root = doc.RootElement;
-            long install = root.GetProperty("InstallTicks").GetInt64();
-            long last = root.GetProperty("LastSeenTicks").GetInt64();
-            if (!TicksOk(install) || !TicksOk(last)) return null;
+            byte[] payload =
+                Convert.FromBase64String(parts[0]);
+
+            byte[] signature =
+                Convert.FromBase64String(parts[1]);
+
+            byte[] key =
+                SHA256.HashData(
+                    Encoding.UTF8.GetBytes(
+                        "eMRBCS|sys|v1|" + deviceId));
+
+            byte[] expected =
+                HMACSHA256.HashData(key, payload);
+
+            if (!CryptographicOperations.FixedTimeEquals(
+                expected,
+                signature))
+            {
+                return null;
+            }
+
+            using var document =
+                JsonDocument.Parse(payload);
+
+            var root = document.RootElement;
+
+            long install =
+                root.GetProperty("InstallTicks").GetInt64();
+
+            long last =
+                root.GetProperty("LastSeenTicks").GetInt64();
+
+            if (!TicksOk(install) || !TicksOk(last))
+                return null;
 
             return new Rec
             {
-                DeviceId = root.GetProperty("DeviceId").GetString() ?? "",
+                DeviceId =
+                    root.GetProperty("DeviceId").GetString() ?? "",
+
                 InstallTicks = install,
                 LastSeenTicks = last,
-                Activated = root.TryGetProperty("Activated", out var a) && a.GetBoolean(),
-                ActivationKey = root.TryGetProperty("ActivationKey", out var k) ? (k.GetString() ?? "") : ""
+
+                Activated =
+                    root.TryGetProperty(
+                        "Activated",
+                        out var activated) &&
+                    activated.GetBoolean(),
+
+                ActivationKey =
+                    root.TryGetProperty(
+                        "ActivationKey",
+                        out var activationKey)
+                        ? activationKey.GetString() ?? ""
+                        : ""
             };
         }
-        catch { return null; }
+        catch
+        {
+            return null;
+        }
     }
 }
