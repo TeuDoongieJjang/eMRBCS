@@ -44,18 +44,20 @@
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net10.0-android|AnyCPU'">
 		<AndroidPackageFormat>apk</AndroidPackageFormat>
 		<AndroidKeyStore>True</AndroidKeyStore>
+
+		<androidsigningkeystore>emrbcs_app.keystore</androidsigningkeystore>
+		<androidsigningkeyalias>emrbcs_app_alias</androidsigningkeyalias>
+		<androidsigningkeypass>env:android_key_pass</androidsigningkeypass>
+		<androidsigningstorepass>env:android_store_pass</androidsigningstorepass>
+
 		<!--<AndroidSigningKeyStore>emrbcs_app.keystore</AndroidSigningKeyStore>
 		<AndroidSigningKeyAlias>emrbcs_app_alias</AndroidSigningKeyAlias>
-		<AndroidSigningKeyPass>env:ANDROID_KEY_PASS</AndroidSigningKeyPass>
-		<AndroidSigningStorePass>env:ANDROID_STORE_PASS</AndroidSigningStorePass>-->
-		<AndroidSigningKeyStore>emrbcs_app.keystore</AndroidSigningKeyStore>
-		<AndroidSigningKeyAlias>emrbcs_app_alias</AndroidSigningKeyAlias>
 		<AndroidSigningKeyPass>MLSdev1Keystore</AndroidSigningKeyPass>
-		<AndroidSigningStorePass>MLSdev1Keystore</AndroidSigningStorePass>
+		<AndroidSigningStorePass>MLSdev1Keystore</AndroidSigningStorePass>-->
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|net10.0-android|AnyCPU'">
-	  <EmbedAssembliesIntoApk>False</EmbedAssembliesIntoApk>
+		<EmbedAssembliesIntoApk>False</EmbedAssembliesIntoApk>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -65,12 +67,12 @@
 	<ItemGroup>
 		<!--<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />-->
 		<MauiIcon Include="Resources\Images\mlsappicon.svg" />
-		
+
 		<!-- Splash Screen -->
 		<!--<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />-->
-        <MauiSplashScreen Include="Resources\Images\logo_splash_new.png" Color="#FFFFFF" BaseSize="200,200" />
+		<MauiSplashScreen Include="Resources\Images\logo_splash_new.png" Color="#FFFFFF" BaseSize="200,200" />
 		<!-- Images -->
-		<MauiImage Include="Resources\Images\*\*.*" />		
+		<MauiImage Include="Resources\Images\*\*.*" />
 
 		<MauiFont Include="Resources\Fonts\*" />
 
@@ -78,69 +80,69 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Compile Remove="Pages\MainPage.xaml.cs" />
+		<Compile Remove="Pages\MainPage.xaml.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Remove="Resources\Images\logo\logo_vertical.png" />
-	  <None Remove="Resources\Images\menuicons\address.png" />
-	  <None Remove="Resources\Images\menuicons\b0.png" />
-	  <None Remove="Resources\Images\menuicons\b1.png" />
-	  <None Remove="Resources\Images\menuicons\b2.png" />
-	  <None Remove="Resources\Images\menuicons\b3.png" />
-	  <None Remove="Resources\Images\menuicons\b4.png" />
-	  <None Remove="Resources\Images\menuicons\b5.png" />
-	  <None Remove="Resources\Images\menuicons\b6.png" />
-	  <None Remove="Resources\Images\menuicons\b7.png" />
-	  <None Remove="Resources\Images\menuicons\b8.png" />
-	  <None Remove="Resources\Images\menuicons\b9.png" />
-	  <None Remove="Resources\Images\menuicons\backup.png" />
-	  <None Remove="Resources\Images\menuicons\clear.png" />
-	  <None Remove="Resources\Images\menuicons\collection.png" />
-	  <None Remove="Resources\Images\menuicons\computer.png" />
-	  <None Remove="Resources\Images\menuicons\copy_text.png" />
-	  <None Remove="Resources\Images\menuicons\copy_text1.png" />
-	  <None Remove="Resources\Images\menuicons\dash.png" />
-	  <None Remove="Resources\Images\menuicons\del.png" />
-	  <None Remove="Resources\Images\menuicons\endrecord.png" />
-	  <None Remove="Resources\Images\menuicons\export.png" />
-	  <None Remove="Resources\Images\menuicons\folder.png" />
-	  <None Remove="Resources\Images\menuicons\import_file.png" />
-	  <None Remove="Resources\Images\menuicons\logout.png" />
-	  <None Remove="Resources\Images\menuicons\menu_icon.png" />
-	  <None Remove="Resources\Images\menuicons\meterreading.png" />
-	  <None Remove="Resources\Images\menuicons\ok.png" />
-	  <None Remove="Resources\Images\menuicons\options.png" />
-	  <None Remove="Resources\Images\menuicons\options1.png" />
-	  <None Remove="Resources\Images\menuicons\password.png" />
-	  <None Remove="Resources\Images\menuicons\period.png" />
-	  <None Remove="Resources\Images\menuicons\person.png" />
-	  <None Remove="Resources\Images\menuicons\printer_config.png" />
-	  <None Remove="Resources\Images\menuicons\print_off.png" />
-	  <None Remove="Resources\Images\menuicons\print_on.png" />
-	  <None Remove="Resources\Images\menuicons\product_key.png" />
-	  <None Remove="Resources\Images\menuicons\reports.png" />
-	  <None Remove="Resources\Images\menuicons\restore.png" />
-	  <None Remove="Resources\Images\menuicons\settings.png" />
-	  <None Remove="Resources\Images\menuicons\startrecord.png" />
-	  <None Remove="Resources\Images\menuicons\test_print.png" />
-	  <None Remove="Resources\Images\menuicons\usermanagement.png" />
-	  <None Remove="Resources\Images\menuicons\username.png" />
-	  <None Remove="Resources\Images\menuicons\userprofile.png" />
-	  <None Remove="Resources\Images\menuicons\user_access.png" />
-	  <None Remove="Resources\Images\menuicons\user_activity.png" />
-	  <None Remove="Resources\Images\menuicons\water_reading1.png" />
-	  <None Remove="Resources\Raw\Datafiles\honeywell_logo.bmp" />
-	  <None Remove="Resources\Raw\Datafiles\mrbcs_main.db" />
-	  <None Remove="Resources\Raw\Datafiles\msl_print.bmp" />
-	  <None Remove="Resources\Raw\Datafiles\logo_mls.bmp" />
-	  <None Remove="Resources\Raw\Datafiles\printer_profiles.JSON" />
-	  <None Remove="Resources\Raw\mrbcs_main.db" />
-	  <None Remove="Resources\Raw\REMARKS.txt" />
+		<None Remove="Resources\Images\logo\logo_vertical.png" />
+		<None Remove="Resources\Images\menuicons\address.png" />
+		<None Remove="Resources\Images\menuicons\b0.png" />
+		<None Remove="Resources\Images\menuicons\b1.png" />
+		<None Remove="Resources\Images\menuicons\b2.png" />
+		<None Remove="Resources\Images\menuicons\b3.png" />
+		<None Remove="Resources\Images\menuicons\b4.png" />
+		<None Remove="Resources\Images\menuicons\b5.png" />
+		<None Remove="Resources\Images\menuicons\b6.png" />
+		<None Remove="Resources\Images\menuicons\b7.png" />
+		<None Remove="Resources\Images\menuicons\b8.png" />
+		<None Remove="Resources\Images\menuicons\b9.png" />
+		<None Remove="Resources\Images\menuicons\backup.png" />
+		<None Remove="Resources\Images\menuicons\clear.png" />
+		<None Remove="Resources\Images\menuicons\collection.png" />
+		<None Remove="Resources\Images\menuicons\computer.png" />
+		<None Remove="Resources\Images\menuicons\copy_text.png" />
+		<None Remove="Resources\Images\menuicons\copy_text1.png" />
+		<None Remove="Resources\Images\menuicons\dash.png" />
+		<None Remove="Resources\Images\menuicons\del.png" />
+		<None Remove="Resources\Images\menuicons\endrecord.png" />
+		<None Remove="Resources\Images\menuicons\export.png" />
+		<None Remove="Resources\Images\menuicons\folder.png" />
+		<None Remove="Resources\Images\menuicons\import_file.png" />
+		<None Remove="Resources\Images\menuicons\logout.png" />
+		<None Remove="Resources\Images\menuicons\menu_icon.png" />
+		<None Remove="Resources\Images\menuicons\meterreading.png" />
+		<None Remove="Resources\Images\menuicons\ok.png" />
+		<None Remove="Resources\Images\menuicons\options.png" />
+		<None Remove="Resources\Images\menuicons\options1.png" />
+		<None Remove="Resources\Images\menuicons\password.png" />
+		<None Remove="Resources\Images\menuicons\period.png" />
+		<None Remove="Resources\Images\menuicons\person.png" />
+		<None Remove="Resources\Images\menuicons\printer_config.png" />
+		<None Remove="Resources\Images\menuicons\print_off.png" />
+		<None Remove="Resources\Images\menuicons\print_on.png" />
+		<None Remove="Resources\Images\menuicons\product_key.png" />
+		<None Remove="Resources\Images\menuicons\reports.png" />
+		<None Remove="Resources\Images\menuicons\restore.png" />
+		<None Remove="Resources\Images\menuicons\settings.png" />
+		<None Remove="Resources\Images\menuicons\startrecord.png" />
+		<None Remove="Resources\Images\menuicons\test_print.png" />
+		<None Remove="Resources\Images\menuicons\usermanagement.png" />
+		<None Remove="Resources\Images\menuicons\username.png" />
+		<None Remove="Resources\Images\menuicons\userprofile.png" />
+		<None Remove="Resources\Images\menuicons\user_access.png" />
+		<None Remove="Resources\Images\menuicons\user_activity.png" />
+		<None Remove="Resources\Images\menuicons\water_reading1.png" />
+		<None Remove="Resources\Raw\Datafiles\honeywell_logo.bmp" />
+		<None Remove="Resources\Raw\Datafiles\mrbcs_main.db" />
+		<None Remove="Resources\Raw\Datafiles\msl_print.bmp" />
+		<None Remove="Resources\Raw\Datafiles\logo_mls.bmp" />
+		<None Remove="Resources\Raw\Datafiles\printer_profiles.JSON" />
+		<None Remove="Resources\Raw\mrbcs_main.db" />
+		<None Remove="Resources\Raw\REMARKS.txt" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Include="Pages\MainPage.xaml.cs" />
+		<None Include="Pages\MainPage.xaml.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -160,79 +162,79 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <MauiXaml Update="Pages\ActivateProduct.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\AppSettings.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\ConsumerData.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  	  <MauiXaml Update="Pages\ExportData.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\ImportCustomers.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\ImportData.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\LoadingScreen.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\Login.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\Mainmenu.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\MainPage.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\PrinterConfig.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\ProductActivation.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\Profile.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\Reading.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\ReadingConsumers.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\Reports.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\UserAccess.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\UserActivity.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\UserManagement.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Pages\Utilities.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Resources\Styles\AppTheme.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
+		<MauiXaml Update="Pages\ActivateProduct.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\AppSettings.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\ConsumerData.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\ExportData.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\ImportCustomers.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\ImportData.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\LoadingScreen.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\Login.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\Mainmenu.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\MainPage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\PrinterConfig.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\ProductActivation.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\Profile.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\Reading.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\ReadingConsumers.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\Reports.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\UserAccess.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\UserActivity.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\UserManagement.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Pages\Utilities.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Resources\Styles\AppTheme.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Interfaces\" />
+		<Folder Include="Interfaces\" />
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-android'">
-	  <PackageReference Include="SkiaSharp.NativeAssets.Android">
-	    <Version>4.155.0</Version>
-	  </PackageReference>
+		<PackageReference Include="SkiaSharp.NativeAssets.Android">
+			<Version>4.155.0</Version>
+		</PackageReference>
 	</ItemGroup>
 
 
